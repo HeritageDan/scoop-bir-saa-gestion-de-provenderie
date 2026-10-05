@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Role } from '../../types';
+import { getSupabaseConfig } from '../../services/supabaseService';
 
 interface HeaderProps {
   onOpenSearch: () => void;
@@ -47,6 +48,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
     setCurrentSalesPointId,
     currentSalesPoint,
   } = useApp();
+
+  const supabaseConfig = getSupabaseConfig();
 
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
@@ -139,6 +142,25 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
             <span className="text-[10px] uppercase font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded">
               v2.2
             </span>
+            {supabaseConfig.isConfigured ? (
+              <span
+                onClick={() => onNavigateTab('settings')}
+                className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded cursor-pointer transition hover:bg-emerald-500/20 shrink-0"
+                title="Base de données Cloud Supabase connectée. Cliquez pour gérer."
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Cloud</span>
+              </span>
+            ) : (
+              <span
+                onClick={() => onNavigateTab('settings')}
+                className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500 bg-slate-500/10 border border-slate-500/20 px-1.5 py-0.2 rounded cursor-pointer transition hover:bg-slate-500/20 shrink-0"
+                title="Mode Local (LocalStorage). Cliquez pour configurer Supabase."
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                <span>Local</span>
+              </span>
+            )}
           </div>
 
           {/* Sales Point Selector Trigger */}
