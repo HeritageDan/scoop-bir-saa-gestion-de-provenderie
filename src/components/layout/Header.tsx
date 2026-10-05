@@ -1,0 +1,580 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Bell,
+  Search,
+  User as UserIcon,
+  Shield,
+  ChevronDown,
+  Warehouse,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  ExternalLink,
+  Menu,
+  Sun,
+  Moon,
+  LogOut,
+  MapPin,
+  Building2,
+  BookOpen,
+} from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+import { Role } from '../../types';
+
+interface HeaderProps {
+  onOpenSearch: () => void;
+  onNavigateTab: (tab: string) => void;
+  onToggleSidebar?: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onToggleSidebar }) => {
+  const {
+    currentUser,
+    users,
+    switchRole,
+    logout,
+    notifications,
+    markNotificationAsRead,
+    clearAllNotifications,
+    settings,
+    theme,
+    toggleTheme,
+    language,
+    setLanguage,
+    t,
+    salesPoints,
+    currentSalesPointId,
+    setCurrentSalesPointId,
+    currentSalesPoint,
+  } = useApp();
+
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [showSalesPointDropdown, setShowSalesPointDropdown] = useState(false);
+
+  const salesPointRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
+  const roleRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleDocumentClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (salesPointRef.current && !salesPointRef.current.contains(target)) {
+        setShowSalesPointDropdown(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(target)) {
+        setShowNotifDropdown(false);
+      }
+      if (roleRef.current && !roleRef.current.contains(target)) {
+        setShowRoleDropdown(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowSalesPointDropdown(false);
+        setShowNotifDropdown(false);
+        setShowRoleDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleDocumentClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const roleLabels: Record<Role, { label: string; desc: string }> = {
+    administrateur: {
+      label: t('role.administrateur'),
+      desc: language === 'fr' ? 'Gestion globale, catalogue, prix, sauvegardes' : 'Global management, catalog, pricing, backups',
+    },
+    responsable: {
+      label: t('role.responsable'),
+      desc: language === 'fr' ? 'Supervision, validation écarts, remises ≤ 15%' : 'Supervision, variance validation, discounts ≤ 15%',
+    },
+    caissier: {
+      label: t('role.caissier'),
+      desc: language === 'fr' ? 'Ventes, encaissement, facturation (remise 0%)' : 'Sales, register, checkout, invoicing (0% discount)',
+    },
+    magasinier: {
+      label: t('role.magasinier'),
+      desc: language === 'fr' ? 'Réceptions, entrées/sorties, inventaires' : 'Goods reception, movements, inventories',
+    },
+  };
+
+  return (
+    <header className={`h-16 border-b flex items-center justify-between px-3 sm:px-4 lg:px-6 sticky top-0 z-30 select-none transition-colors duration-200 ${
+      theme === 'dark'
+        ? 'bg-slate-900 border-slate-800 text-slate-100'
+        : 'bg-white border-slate-200 text-slate-800'
+    }`}>
+      {/* Brand & Point de vente indicator */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        {onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className={`p-1.5 rounded-lg lg:hidden focus:outline-none ${
+              theme === 'dark'
+                ? 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+            aria-label="Menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-emerald-600 flex items-center justify-center font-bold text-white shadow-sm shrink-0">
+          <Warehouse className="w-5 h-5 text-emerald-100" />
+        </div>
+        <div>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <span className="font-bold tracking-tight text-base lg:text-lg">
+              PROVENDA
+            </span>
+            <span className="text-[10px] uppercase font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded">
+              v2.2
+            </span>
+          </div>
+
+          {/* Sales Point Selector Trigger */}
+          <div className="relative" ref={salesPointRef}>
+            {currentUser.role === 'administrateur' ? (
+              <button
+                onClick={() => {
+                  setShowSalesPointDropdown(prev => !prev);
+                  setShowNotifDropdown(false);
+                  setShowRoleDropdown(false);
+                }}
+                className={`text-xs flex items-center gap-1 font-medium transition cursor-pointer text-left ${
+                  theme === 'dark' ? 'text-slate-300 hover:text-emerald-400' : 'text-slate-600 hover:text-emerald-600'
+                }`}
+                title="Changer de vue ou de point de vente"
+              >
+                <MapPin className="w-3 h-3 text-emerald-500 shrink-0" />
+                <span className={`truncate max-w-[85px] xs:max-w-[130px] sm:max-w-[200px] ${currentSalesPointId === 'all' ? 'text-emerald-500 font-semibold' : ''}`}>
+                  {currentSalesPointId === 'all' ? t('sales_point.global_view') : (currentSalesPoint?.name || 'Point de vente')}
+                </span>
+                <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
+              </button>
+            ) : (
+              <div className={`text-xs flex items-center gap-1.5 font-medium ${
+                theme === 'dark' ? 'text-slate-300' : 'text-slate-600'
+              }`} title={t('sales_point.locked_notice')}>
+                <MapPin className="w-3 h-3 text-emerald-500 shrink-0" />
+                <span className="truncate max-w-[80px] xs:max-w-[120px] sm:max-w-[180px] font-semibold">
+                  {currentSalesPoint?.name || 'Point de vente'}
+                </span>
+                <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-bold shrink-0 hidden xs:inline-block">
+                  {t('header.site_assigned')}
+                </span>
+              </div>
+            )}
+
+            {/* Sales Points Dropdown (Admin Only) */}
+            {currentUser.role === 'administrateur' && showSalesPointDropdown && (
+              <div className={`absolute left-0 mt-2 w-72 rounded-xl shadow-2xl p-2 z-50 border animate-in fade-in slide-in-from-top-2 duration-150 ${
+                theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
+              }`}>
+                <div className="px-3 py-2 border-b border-slate-700/50 mb-1">
+                  <div className="text-xs font-semibold">{t('sales_point.select')}</div>
+                  <div className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Vue globale consolidée ou par site spécifique
+                  </div>
+                </div>
+
+                {/* Global View Option for Admin */}
+                <div className="space-y-1">
+                  <button
+                    onClick={() => {
+                      setCurrentSalesPointId('all');
+                      setShowSalesPointDropdown(false);
+                    }}
+                    className={`w-full text-left p-2 rounded-lg text-xs transition flex items-center justify-between mb-1 ${
+                      currentSalesPointId === 'all'
+                        ? 'bg-emerald-600/15 text-emerald-500 border border-emerald-500/30 font-semibold'
+                        : theme === 'dark'
+                        ? 'hover:bg-slate-700/70 text-slate-200'
+                        : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <div className="w-6 h-6 rounded bg-emerald-500/20 text-emerald-500 flex items-center justify-center font-bold text-[10px] shrink-0">
+                        ALL
+                      </div>
+                      <div className="truncate">
+                        <div className="truncate font-semibold">{t('sales_point.global_view')}</div>
+                        <div className="text-[10px] opacity-70">
+                          {language === 'fr' ? 'Tous les sites consolidés' : 'All consolidated sites'}
+                        </div>
+                      </div>
+                    </div>
+                    {currentSalesPointId === 'all' && (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-1" />
+                    )}
+                  </button>
+
+                  <div className="border-t border-slate-700/30 my-1 pt-1 px-2 text-[10px] uppercase font-semibold tracking-wider text-slate-400">
+                    {language === 'fr' ? 'Sites individuels' : 'Individual branches'}
+                  </div>
+
+                  {salesPoints.map(sp => {
+                    const isSelected = sp.id === currentSalesPointId;
+                    return (
+                      <button
+                        key={sp.id}
+                        onClick={() => {
+                          setCurrentSalesPointId(sp.id);
+                          setShowSalesPointDropdown(false);
+                        }}
+                        className={`w-full text-left p-2 rounded-lg text-xs transition flex items-center justify-between ${
+                          isSelected
+                            ? 'bg-emerald-600/15 text-emerald-500 border border-emerald-500/30 font-semibold'
+                            : theme === 'dark'
+                            ? 'hover:bg-slate-700/70 text-slate-200'
+                            : 'hover:bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <Building2 className="w-3.5 h-3.5 shrink-0" />
+                          <div className="truncate">
+                            <div className="truncate">{sp.name}</div>
+                            <div className="text-[10px] opacity-70">{sp.city} &middot; {sp.code}</div>
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-1" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-2 pt-2 border-t border-slate-700/50">
+                  <button
+                    onClick={() => {
+                      setShowSalesPointDropdown(false);
+                      onNavigateTab('admin_users');
+                    }}
+                    className="w-full text-center py-1.5 text-[11px] font-medium text-emerald-500 hover:underline"
+                  >
+                    {t('sales_point.manage_all')} &rarr;
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Center: Global Search Trigger */}
+      <div className="flex-1 max-w-md mx-3 lg:mx-6 hidden md:block">
+        <button
+          onClick={onOpenSearch}
+          className={`w-full rounded-lg py-1.5 px-3 text-left text-xs sm:text-sm flex items-center justify-between border transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+            theme === 'dark'
+              ? 'bg-slate-800/80 hover:bg-slate-800 border-slate-700/80 text-slate-400'
+              : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-500'
+          }`}
+        >
+          <div className="flex items-center gap-2 truncate">
+            <Search className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="truncate">{t('header.search_placeholder')}</span>
+          </div>
+          <kbd className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${
+            theme === 'dark' ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-slate-200 text-slate-700 border-slate-300'
+          }`}>
+            Ctrl+K
+          </kbd>
+        </button>
+      </div>
+
+      {/* Right Controls: Language, Theme, Notifications, User & Role Switcher */}
+      <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 shrink-0">
+        {/* Mobile Search Button */}
+        <button
+          onClick={onOpenSearch}
+          className={`md:hidden p-1.5 sm:p-2 rounded-lg transition shrink-0 cursor-pointer ${
+            theme === 'dark'
+              ? 'text-slate-400 hover:text-white hover:bg-slate-800'
+              : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+          title="Recherche globale"
+          aria-label="Recherche globale"
+        >
+          <Search className="w-4 h-4 sm:w-5 sm:h-5" />
+        </button>
+
+        {/* Language Switcher Button (FR / EN) */}
+        <div className={`flex items-center rounded-lg p-0.5 border text-xs shrink-0 ${
+          theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
+        }`}>
+          <button
+            onClick={() => setLanguage('fr')}
+            className={`px-1.5 sm:px-2 py-0.5 rounded font-semibold text-[10px] sm:text-[11px] transition cursor-pointer ${
+              language === 'fr'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="Passer en Français"
+          >
+            FR
+          </button>
+          <button
+            onClick={() => setLanguage('en')}
+            className={`px-1.5 sm:px-2 py-0.5 rounded font-semibold text-[10px] sm:text-[11px] transition cursor-pointer ${
+              language === 'en'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="Switch to English"
+          >
+            EN
+          </button>
+        </div>
+
+        {/* Theme Switcher Button (Light / Dark) - Always visible on phone and tablet */}
+        <button
+          onClick={toggleTheme}
+          className={`shrink-0 p-1.5 sm:p-2 rounded-lg border text-xs sm:text-sm transition flex items-center justify-center cursor-pointer ${
+            theme === 'dark'
+              ? 'bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700'
+              : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200 shadow-xs'
+          }`}
+          title={theme === 'dark' ? t('header.theme_light') : t('header.theme_dark')}
+          aria-label={theme === 'dark' ? t('header.theme_light') : t('header.theme_dark')}
+        >
+          {theme === 'dark' ? <Sun className="w-4 h-4 shrink-0" /> : <Moon className="w-4 h-4 shrink-0" />}
+        </button>
+
+        {/* Documentation PDF Quick Access Button */}
+        <button
+          onClick={() => onNavigateTab('documentation')}
+          className={`shrink-0 p-1.5 sm:p-2 rounded-lg border text-xs transition flex items-center gap-1.5 cursor-pointer ${
+            theme === 'dark'
+              ? 'bg-slate-800 border-slate-700 text-emerald-400 hover:bg-slate-700 hover:text-emerald-300'
+              : 'bg-slate-100 border-slate-200 text-emerald-700 hover:bg-slate-200 shadow-xs'
+          }`}
+          title={language === 'fr' ? 'Documentation Complète & PDF' : 'Complete PDF Documentation'}
+          aria-label="Documentation PDF"
+        >
+          <BookOpen className="w-4 h-4 shrink-0" />
+          <span className="hidden xl:inline font-semibold text-[11px]">
+            {language === 'fr' ? 'Doc PDF' : 'PDF Doc'}
+          </span>
+        </button>
+
+        {/* Notifications Dropdown */}
+        <div className="relative shrink-0" ref={notifRef}>
+          <button
+            onClick={() => {
+              setShowNotifDropdown(prev => !prev);
+              setShowSalesPointDropdown(false);
+              setShowRoleDropdown(false);
+            }}
+            className={`relative p-1.5 sm:p-2 rounded-lg transition focus:outline-none ${
+              theme === 'dark'
+                ? 'text-slate-300 hover:text-white hover:bg-slate-800'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+            title={t('header.notifications')}
+          >
+            <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-amber-500 text-slate-950 font-bold text-[10px] flex items-center justify-center">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {showNotifDropdown && (
+            <div className={`absolute right-0 mt-2 w-80 sm:w-96 rounded-xl shadow-2xl p-3 z-50 border animate-in fade-in slide-in-from-top-2 duration-150 ${
+              theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
+            }`}>
+              <div className="flex items-center justify-between pb-2 border-b border-slate-700/50 mb-2">
+                <span className="font-semibold text-sm flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-amber-400" />
+                  <span>{t('header.notifications')}</span>
+                  {unreadCount > 0 && (
+                    <span className="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono">
+                      {unreadCount}
+                    </span>
+                  )}
+                </span>
+                {notifications.length > 0 && (
+                  <button
+                    onClick={clearAllNotifications}
+                    className="text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
+                  >
+                    Tout marquer comme lu
+                  </button>
+                )}
+              </div>
+
+              <div className="max-h-72 overflow-y-auto space-y-2">
+                {notifications.length === 0 ? (
+                  <div className="text-center py-6 text-slate-400 text-xs">
+                    Aucune notification active
+                  </div>
+                ) : (
+                  notifications.slice(0, 10).map(n => (
+                    <div
+                      key={n.id}
+                      onClick={() => {
+                        markNotificationAsRead(n.id);
+                        if (n.linkTab) onNavigateTab(n.linkTab);
+                        setShowNotifDropdown(false);
+                      }}
+                      className={`p-2.5 rounded-lg text-xs cursor-pointer transition border ${
+                        !n.read
+                          ? theme === 'dark'
+                            ? 'bg-slate-700/60 border-slate-600'
+                            : 'bg-emerald-50/70 border-emerald-200'
+                          : theme === 'dark'
+                          ? 'bg-slate-800/40 border-slate-800 text-slate-400'
+                          : 'bg-slate-50 border-slate-100 text-slate-500'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="font-semibold flex items-center gap-1.5">
+                          {n.type === 'danger' && <XCircle className="w-3.5 h-3.5 text-rose-400" />}
+                          {n.type === 'warning' && (
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                          )}
+                          {n.type === 'success' && (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                          )}
+                          <span>{n.title}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                          {n.timestamp.slice(11, 16)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] opacity-90 leading-relaxed">
+                        {n.message}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* User Profile & Role Switcher */}
+        <div className="relative" ref={roleRef}>
+          <button
+            onClick={() => {
+              setShowRoleDropdown(prev => !prev);
+              setShowSalesPointDropdown(false);
+              setShowNotifDropdown(false);
+            }}
+            className={`flex items-center gap-2 p-1.5 rounded-lg border transition focus:outline-none ${
+              theme === 'dark'
+                ? 'bg-slate-800 border-slate-700 hover:border-slate-600 text-white'
+                : 'bg-slate-100 border-slate-200 hover:border-slate-300 text-slate-800'
+            }`}
+          >
+            <div className="w-7 h-7 rounded bg-emerald-600 flex items-center justify-center text-white font-semibold text-xs shadow-xs">
+              {currentUser.name
+                .split(' ')
+                .map(n => n[0])
+                .join('')
+                .slice(0, 2)}
+            </div>
+            <div className="text-left hidden sm:block">
+              <div className="text-xs font-semibold leading-tight truncate max-w-[110px]">
+                {currentUser.name}
+              </div>
+              <div className="text-[10px] text-emerald-500 font-medium capitalize flex items-center gap-1">
+                <Shield className="w-2.5 h-2.5" />
+                {roleLabels[currentUser.role]?.label || currentUser.role}
+              </div>
+            </div>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+          </button>
+
+          {showRoleDropdown && (
+            <div className={`absolute right-0 mt-2 w-72 rounded-xl shadow-2xl p-2 z-50 border animate-in fade-in slide-in-from-top-2 duration-150 ${
+              theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
+            }`}>
+              <div className="px-3 py-2 border-b border-slate-700/50 mb-1">
+                <div className="text-xs font-semibold">{currentUser.name}</div>
+                <div className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {currentUser.email} &middot; Remise max: {currentUser.discountLimitPercent}%
+                </div>
+              </div>
+
+              {/* Roles Quick Switch */}
+              <div className="space-y-1">
+                <div className="px-2 pt-1 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  {language === 'fr' ? 'Changer de profil' : 'Switch profile'}
+                </div>
+                {(['administrateur', 'responsable', 'caissier', 'magasinier'] as Role[]).map(
+                  role => {
+                    const isCurrent = currentUser.role === role;
+                    const info = roleLabels[role];
+                    const userForRole = users.find(u => u.role === role && u.active);
+                    return (
+                      <button
+                        key={role}
+                        onClick={() => {
+                          switchRole(role);
+                          setShowRoleDropdown(false);
+                        }}
+                        className={`w-full text-left p-2 rounded-lg text-xs transition flex items-start gap-2 ${
+                          isCurrent
+                            ? 'bg-emerald-600/15 border border-emerald-500/30 text-emerald-400'
+                            : theme === 'dark'
+                            ? 'hover:bg-slate-700/60 text-slate-200'
+                            : 'hover:bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        <Shield
+                          className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
+                            isCurrent ? 'text-emerald-400' : 'text-slate-400'
+                          }`}
+                        />
+                        <div className="flex-1 truncate">
+                          <div className="font-semibold flex items-center justify-between">
+                            <span className="truncate">{info.label}</span>
+                            {isCurrent && (
+                              <span className="text-[9px] font-bold text-emerald-400 uppercase">
+                                Actif
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] opacity-75 truncate">
+                            {userForRole?.name || 'Utilisateur'}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+
+              {/* Logout button */}
+              <div className="mt-2 pt-2 border-t border-slate-700/50">
+                <button
+                  onClick={() => {
+                    setShowRoleDropdown(false);
+                    logout();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 p-2 rounded-lg text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>{t('header.logout')}</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+};

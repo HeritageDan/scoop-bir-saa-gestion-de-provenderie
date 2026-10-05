@@ -1,0 +1,6 @@
+{
+  "name": "Provenda - Gestion de Provenderie",
+  "description": "Solution digitale intégrée de gestion opérationnelle et financière d'une provenderie : stocks au CMP, caisse POS, remises contrôlées, facturation, inventaires et reporting en FCFA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

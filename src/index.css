@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-cream-page: #FAF7F2;
+    --bg-cream-card: #FFFDF9;
+    --bg-cream-subtle: #F4EFE6;
+    --border-cream: #E8E2D8;
+    --border-cream-subtle: #EFE9DF;
+  }
+
+  /* Light mode: replace harsh white backgrounds with warm, elegant cream-white palette */
+  html:not(.dark) {
+    background-color: #FAF7F2;
+    color: #1E293B;
+  }
+
+  html:not(.dark) body {
+    background-color: #FAF7F2;
+    color: #1E293B;
+  }
+
+  /* Ensure standard white utility classes use soft cream-white */
+  html:not(.dark) .bg-white {
+    background-color: #FFFDF9 !important;
+  }
+
+  html:not(.dark) .bg-slate-50,
+  html:not(.dark) .bg-gray-50,
+  html:not(.dark) .bg-zinc-50 {
+    background-color: #FAF7F2 !important;
+  }
+
+  html:not(.dark) .bg-slate-100,
+  html:not(.dark) .bg-gray-100,
+  html:not(.dark) .bg-zinc-100 {
+    background-color: #F4EFE6 !important;
+  }
+
+  html:not(.dark) .bg-slate-200\/50,
+  html:not(.dark) .bg-slate-200\/70,
+  html:not(.dark) .bg-slate-200 {
+    background-color: #EFE8DD !important;
+  }
+
+  /* Warm cream borders in light mode */
+  html:not(.dark) .border-slate-200,
+  html:not(.dark) .border-gray-200,
+  html:not(.dark) .border-zinc-200 {
+    border-color: #E8E2D8 !important;
+  }
+
+  html:not(.dark) .border-slate-100,
+  html:not(.dark) .border-gray-100 {
+    border-color: #F0EAE0 !important;
+  }
+
+  /* Table hover and subtle states in light mode */
+  html:not(.dark) .hover\:bg-slate-50:hover,
+  html:not(.dark) .hover\:bg-gray-50:hover {
+    background-color: #F5EFE6 !important;
+  }
+
+  html:not(.dark) .hover\:bg-slate-100:hover,
+  html:not(.dark) .hover\:bg-gray-100:hover {
+    background-color: #EFE9DF !important;
+  }
+}

@@ -1,0 +1,1118 @@
+import React, { useState } from 'react';
+import {
+  Boxes,
+  ArrowDownLeft,
+  ArrowUpRight,
+  AlertTriangle,
+  History,
+  FileSpreadsheet,
+  PlusCircle,
+  Filter,
+  Search,
+  Scale,
+  X,
+  CheckCircle2,
+  Sliders,
+  Plus,
+} from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+import { Product, StockMovementType } from '../../types';
+import { formatFCFA, formatDate, formatNumber } from '../../utils/formatters';
+
+export const StockManager: React.FC = () => {
+  const {
+    products,
+    addProduct,
+    stockMovements,
+    currentUser,
+    recordStockAdjustment,
+    theme,
+    language,
+    t,
+    currentSalesPointId,
+    currentSalesPoint,
+  } = useApp();
+
+  const [activeTab, setActiveTab] = useState<'status' | 'movements'>('status');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [movementFilter, setMovementFilter] = useState<string>('all');
+
+  // New Product Modal State
+  const [showNewProductModal, setShowNewProductModal] = useState(false);
+  const [newProdCode, setNewProdCode] = useState('');
+  const [newProdName, setNewProdName] = useState('');
+  const [newProdCategory, setNewProdCategory] = useState<Product['category']>('Aliments finis');
+  const [newProdBaseUnit, setNewProdBaseUnit] = useState<Product['baseUnit']>('kilogramme');
+  const [newProdSaleUnit, setNewProdSaleUnit] = useState<Product['saleUnit']>('sac');
+  const [newProdPackaging, setNewProdPackaging] = useState('Sac de 50 kg');
+  const [newProdFactor, setNewProdFactor] = useState(50);
+  const [newProdPurchasePrice, setNewProdPurchasePrice] = useState(15000);
+  const [newProdSalePrice, setNewProdSalePrice] = useState(19000);
+  const [newProdInitialStock, setNewProdInitialStock] = useState(0);
+  const [newProdInitialCmp, setNewProdInitialCmp] = useState(300);
+  const [newProdMinAlert, setNewProdMinAlert] = useState(500);
+  const [newProdDescription, setNewProdDescription] = useState('');
+  const [newProdError, setNewProdError] = useState('');
+
+  // Manual Adjustment Modal State
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string>(products[0]?.id || '');
+  const [adjustType, setAdjustType] = useState<'perte' | 'produit endommagé' | 'consommation interne' | 'correction d\'inventaire'>('produit endommagé');
+  const [adjustQtyCommercial, setAdjustQtyCommercial] = useState<number>(1);
+  const [isNegativeChange, setIsNegativeChange] = useState<boolean>(true); // default reduction for loss/damage
+  const [justification, setJustification] = useState('');
+  const [adjustError, setAdjustError] = useState('');
+  const [adjustSuccess, setAdjustSuccess] = useState('');
+
+  // Stock calculations
+  const totalStockValue = products
+    .filter(p => p.status === 'actif')
+    .reduce((sum, p) => sum + p.stockCurrentBaseUnit * p.cmp, 0);
+
+  const lowStockCount = products.filter(
+    p => p.status === 'actif' && p.stockCurrentBaseUnit <= p.minAlertThresholdBaseUnit
+  ).length;
+
+  const filteredProducts = products.filter(p => {
+    const matchesCat = categoryFilter === 'all' || p.category === categoryFilter;
+    const matchesSearch =
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.code.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesCat && matchesSearch;
+  });
+
+  const filteredMovements = stockMovements.filter(m => {
+    const matchesType = movementFilter === 'all' || m.type === movementFilter;
+    const matchesSearch =
+      m.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.referenceDocument.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.userName.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesType && matchesSearch;
+  });
+
+  const selectedProduct = products.find(p => p.id === selectedProductId) || products[0];
+
+  const handleManualAdjustmentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdjustError('');
+    setAdjustSuccess('');
+
+    if (!selectedProduct) return;
+    if (!justification.trim() || justification.trim().length < 5) {
+      setAdjustError('Une justification claire de 5 caractères minimum est obligatoire.');
+      return;
+    }
+
+    // Convert commercial unit to base unit
+    const qtyBase = adjustQtyCommercial * selectedProduct.conversionFactor;
+    const finalChange = isNegativeChange ? -qtyBase : qtyBase;
+
+    const res = recordStockAdjustment(selectedProduct.id, finalChange, adjustType, justification);
+    if (!res.success) {
+      setAdjustError(res.error || 'Erreur lors de l\'ajustement');
+    } else {
+      setAdjustSuccess(`Ajustement enregistré avec succès pour ${selectedProduct.name} !`);
+      setJustification('');
+      setAdjustQtyCommercial(1);
+      setTimeout(() => {
+        setShowAdjustmentModal(false);
+        setAdjustSuccess('');
+      }, 1200);
+    }
+  };
+
+  const exportStockCSV = () => {
+    const headers = [
+      'Code',
+      'Désignation',
+      'Catégorie',
+      'Stock Unité Base',
+      'Unité Base',
+      'Équivalent Unités Vente',
+      'Unité Vente',
+      'CMP Unitaire (FCFA)',
+      'Valeur Totale Stock (FCFA)',
+      'Seuil Alerte',
+      'Statut Stock',
+    ];
+
+    const rows = products.map(p => {
+      const unitsSale = (p.stockCurrentBaseUnit / (p.conversionFactor || 1)).toFixed(1);
+      const val = p.stockCurrentBaseUnit * p.cmp;
+      const statusAlert =
+        p.stockCurrentBaseUnit <= 0
+          ? 'Rupture'
+          : p.stockCurrentBaseUnit <= p.minAlertThresholdBaseUnit
+          ? 'Stock Faible'
+          : 'Normal';
+
+      return [
+        `"${p.code}"`,
+        `"${p.name.replace(/"/g, '""')}"`,
+        `"${p.category}"`,
+        p.stockCurrentBaseUnit,
+        `"${p.baseUnit}"`,
+        unitsSale,
+        `"${p.saleUnit}"`,
+        p.cmp,
+        val,
+        p.minAlertThresholdBaseUnit,
+        `"${statusAlert}"`,
+      ].join(';');
+    });
+
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(';'), ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute(
+      'download',
+      `etat_des_stocks_cmp_${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Top Header */}
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b ${
+        theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
+      }`}>
+        <div>
+          <div className="flex items-center gap-2">
+            <Boxes className="w-6 h-6 text-emerald-500" />
+            <h1 className={`text-xl sm:text-2xl font-bold tracking-tight ${
+              theme === 'dark' ? 'text-white' : 'text-slate-900'
+            }`}>
+              {t('stock.title')}
+            </h1>
+            {currentSalesPointId === 'all' ? (
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
+                {t('sales_point.global_badge')}
+              </span>
+            ) : currentSalesPoint ? (
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border bg-blue-500/10 text-blue-500 border-blue-500/30">
+                {currentSalesPoint.name}
+              </span>
+            ) : null}
+          </div>
+          <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+            {t('stock.subtitle')}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={exportStockCSV}
+            className={`border px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
+              theme === 'dark'
+                ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300 shadow-xs'
+            }`}
+            title="Exporter l'état du stock en fichier CSV / Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+            <span>Export CSV</span>
+          </button>
+
+          {(currentUser.role === 'administrateur' ||
+            currentUser.role === 'responsable' ||
+            currentUser.role === 'magasinier') && (
+            <>
+              <button
+                onClick={() => {
+                  setNewProdCode(`PRD-${String(products.length + 1).padStart(3, '0')}`);
+                  setNewProdError('');
+                  setShowNewProductModal(true);
+                }}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{language === 'fr' ? 'Nouveau Produit' : 'New Product'}</span>
+              </button>
+
+              <button
+                onClick={() => setShowAdjustmentModal(true)}
+                className={`border px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
+                  theme === 'dark'
+                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300 shadow-xs'
+                }`}
+              >
+                <PlusCircle className="w-4 h-4 text-amber-500" />
+                <span>{language === 'fr' ? 'Ajustement / Perte' : 'Adjustment / Loss'}</span>
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Stock Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className={`border rounded-xl p-4 shadow-xs ${
+          theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+        }`}>
+          <div className="text-xs text-slate-400">
+            {language === 'fr' ? 'Valeur Totale du Stock en Magasin' : 'Total Warehouse Stock Value'}
+          </div>
+          <div className="text-2xl font-black text-emerald-500 mt-1">
+            {formatFCFA(totalStockValue)}
+          </div>
+          <div className="text-[11px] text-slate-400 mt-1">
+            {language === 'fr' ? 'Basé sur le Coût Moyen Pondéré (CMP) en vigueur' : 'Based on current Weighted Average Cost (CMP)'}
+          </div>
+        </div>
+
+        <div className={`border rounded-xl p-4 shadow-xs ${
+          theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+        }`}>
+          <div className="text-xs text-slate-400">
+            {language === 'fr' ? 'Références Actives au Magasin' : 'Active Catalog References'}
+          </div>
+          <div className={`text-2xl font-black mt-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+            {products.filter(p => p.status === 'actif').length} {language === 'fr' ? 'références' : 'items'}
+          </div>
+          <div className="text-[11px] text-slate-400 mt-1">
+            {language === 'fr' ? 'Matières premières, prémix & aliments finis' : 'Raw materials, premixes & feeds'}
+          </div>
+        </div>
+
+        <div className={`border rounded-xl p-4 shadow-xs ${
+          theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+        }`}>
+          <div className="text-xs text-slate-400">
+            {language === 'fr' ? 'Alertes & Ruptures Critiques' : 'Alerts & Out-of-Stock'}
+          </div>
+          <div
+            className={`text-2xl font-black mt-1 ${
+              lowStockCount > 0 ? 'text-amber-500' : 'text-slate-400'
+            }`}
+          >
+            {lowStockCount} {language === 'fr' ? 'alerte(s)' : 'alert(s)'}
+          </div>
+          <div className="text-[11px] text-slate-400 mt-1">
+            {language === 'fr' ? 'Seuil minimum paramétrable par fiche produit' : 'Configurable minimum threshold per item'}
+          </div>
+        </div>
+      </div>
+
+      {/* Tab switch between Stock Inventory and Movement Ledger */}
+      <div className={`flex border-b ${theme === 'dark' ? 'border-slate-800' : 'border-slate-200'}`}>
+        <button
+          onClick={() => setActiveTab('status')}
+          className={`py-2 px-4 text-xs font-bold border-b-2 transition cursor-pointer ${
+            activeTab === 'status'
+              ? 'border-emerald-500 text-emerald-500'
+              : 'border-transparent text-slate-400 hover:text-slate-300'
+          }`}
+        >
+          {language === 'fr' ? 'État des Stocks Actuels' : 'Current Stock Inventory'} ({products.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('movements')}
+          className={`py-2 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'movements'
+              ? 'border-emerald-500 text-emerald-500'
+              : 'border-transparent text-slate-400 hover:text-slate-300'
+          }`}
+        >
+          <History className="w-3.5 h-3.5" />
+          <span>{language === 'fr' ? 'Journal des Mouvements' : 'Movement Ledger'} ({stockMovements.length})</span>
+        </button>
+      </div>
+
+      {/* TAB 1: Real-time Stock Status */}
+      {activeTab === 'status' && (
+        <div className="space-y-4">
+          {/* Filters Bar */}
+          <div className={`flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-xl border shadow-xs ${
+            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}>
+            <div className="relative flex-1 max-w-sm">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder={language === 'fr' ? 'Rechercher par libellé ou code...' : 'Search by item name or code...'}
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className={`w-full rounded-lg pl-9 pr-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 border ${
+                  theme === 'dark'
+                    ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400'
+                    : 'bg-slate-50 border-slate-200 text-slate-850 placeholder-slate-400'
+                }`}
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 hidden sm:inline">
+                {language === 'fr' ? 'Famille :' : 'Category:'}
+              </span>
+              <select
+                value={categoryFilter}
+                onChange={e => setCategoryFilter(e.target.value)}
+                className={`rounded-lg px-2.5 py-1.5 text-xs border font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${
+                  theme === 'dark'
+                    ? 'bg-slate-800 border-slate-700 text-white'
+                    : 'bg-slate-50 border-slate-200 text-slate-850'
+                }`}
+              >
+                <option value="all">{language === 'fr' ? 'Toutes les familles' : 'All categories'}</option>
+                <option value="Matières premières">{language === 'fr' ? 'Matières premières' : 'Raw materials'}</option>
+                <option value="Concentrés, prémix et compléments">
+                  {language === 'fr' ? 'Concentrés, prémix & compléments' : 'Concentrates, premixes & complements'}
+                </option>
+                <option value="Aliments finis">{language === 'fr' ? 'Aliments finis' : 'Finished feeds'}</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className={`border rounded-xl overflow-hidden shadow-xs ${
+            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className={`border-b text-[10px] uppercase font-bold text-slate-400 tracking-wider ${
+                    theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <th className="py-3 px-3">Réf / Code</th>
+                    <th className="py-3 px-3">Désignation</th>
+                    <th className="py-3 px-3">Conditionnement</th>
+                    <th className="py-3 px-3 text-right">Stock Base</th>
+                    <th className="py-3 px-3 text-right">Équiv. Commercial</th>
+                    <th className="py-3 px-3 text-right">CMP Unitaire</th>
+                    <th className="py-3 px-3 text-right">Valeur Stock</th>
+                    <th className="py-3 px-3 text-center">État Stock</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${theme === 'dark' ? 'divide-slate-800' : 'divide-slate-100'}`}>
+                  {filteredProducts.map(prod => {
+                    const isOutOfStock = prod.stockCurrentBaseUnit <= 0;
+                    const isLowStock =
+                      prod.stockCurrentBaseUnit > 0 &&
+                      prod.stockCurrentBaseUnit <= prod.minAlertThresholdBaseUnit;
+
+                    const commercialUnits = (
+                      prod.stockCurrentBaseUnit / (prod.conversionFactor || 1)
+                    ).toFixed(1);
+
+                    const lineValue = prod.stockCurrentBaseUnit * prod.cmp;
+
+                    return (
+                      <tr key={prod.id} className={`transition ${
+                        theme === 'dark' ? 'hover:bg-slate-850/60' : 'hover:bg-slate-50'
+                      }`}>
+                        <td className="py-3 px-3 font-mono text-slate-400 font-medium">
+                          {prod.code}
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{prod.name}</div>
+                          <div className="text-[10px] text-slate-400">{prod.category}</div>
+                        </td>
+                        <td className={`py-3 px-3 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+                          {prod.packaging} ({prod.conversionFactor} {prod.baseUnit}/{prod.saleUnit})
+                        </td>
+                        <td className="py-3 px-3 text-right font-bold">
+                          <span
+                            className={
+                              isOutOfStock
+                                ? 'text-rose-500'
+                                : isLowStock
+                                ? 'text-amber-500'
+                                : theme === 'dark'
+                                ? 'text-slate-100'
+                                : 'text-slate-850'
+                            }
+                          >
+                            {formatNumber(prod.stockCurrentBaseUnit)} {prod.baseUnit}
+                          </span>
+                        </td>
+                        <td className={`py-3 px-3 text-right ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+                          <span className="font-semibold">{commercialUnits}</span> {prod.saleUnit}s
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono text-emerald-500 font-semibold">
+                          {formatFCFA(prod.cmp)}
+                          <span className="text-[10px] text-slate-400">/{prod.baseUnit}</span>
+                        </td>
+                        <td className={`py-3 px-3 text-right font-bold ${
+                          theme === 'dark' ? 'text-white' : 'text-slate-900'
+                        }`}>
+                          {formatFCFA(lineValue)}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          {isOutOfStock ? (
+                            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-rose-500/20 text-rose-500 border border-rose-500/30">
+                              {language === 'fr' ? 'Rupture' : 'Out of Stock'}
+                            </span>
+                          ) : isLowStock ? (
+                            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                              {language === 'fr' ? 'Stock Faible' : 'Low Stock'}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">
+                              {language === 'fr' ? 'Optimal' : 'Optimal'}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: Movement Ledger */}
+      {activeTab === 'movements' && (
+        <div className="space-y-4">
+          {/* Movement Filters */}
+          <div className={`flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-xl border shadow-xs ${
+            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}>
+            <div className="relative flex-1 max-w-sm">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder={language === 'fr' ? 'Rechercher par produit, document, auteur...' : 'Search by product, doc, user...'}
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className={`w-full rounded-lg pl-9 pr-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 border ${
+                  theme === 'dark'
+                    ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400'
+                    : 'bg-slate-50 border-slate-200 text-slate-850 placeholder-slate-400'
+                }`}
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 hidden sm:inline">
+                {language === 'fr' ? 'Type de Mouvement :' : 'Movement Type:'}
+              </span>
+              <select
+                value={movementFilter}
+                onChange={e => setMovementFilter(e.target.value)}
+                className={`rounded-lg px-2.5 py-1.5 text-xs border font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${
+                  theme === 'dark'
+                    ? 'bg-slate-800 border-slate-700 text-white'
+                    : 'bg-slate-50 border-slate-200 text-slate-850'
+                }`}
+              >
+                <option value="all">{language === 'fr' ? 'Tous les types' : 'All types'}</option>
+                <option value="entrée fournisseur">{language === 'fr' ? 'Entrée fournisseur' : 'Supplier reception'}</option>
+                <option value="vente">{language === 'fr' ? 'Vente' : 'Sale'}</option>
+                <option value="retour client">{language === 'fr' ? 'Retour client (Avoir)' : 'Customer return'}</option>
+                <option value="retour fournisseur">{language === 'fr' ? 'Retour fournisseur' : 'Supplier return'}</option>
+                <option value="correction d'inventaire">{language === 'fr' ? 'Correction inventaire' : 'Inventory correction'}</option>
+                <option value="produit endommagé">{language === 'fr' ? 'Produit endommagé' : 'Damaged goods'}</option>
+                <option value="perte">{language === 'fr' ? 'Perte' : 'Loss'}</option>
+                <option value="consommation interne">{language === 'fr' ? 'Consommation interne' : 'Internal use'}</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Movements Table */}
+          <div className={`border rounded-xl overflow-hidden shadow-xs ${
+            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className={`border-b text-[10px] uppercase font-bold text-slate-400 tracking-wider ${
+                    theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <th className="py-3 px-3">Date & Heure</th>
+                    <th className="py-3 px-3">Produit</th>
+                    <th className="py-3 px-3">Type Mouvement</th>
+                    <th className="py-3 px-3 text-right">Variation Qté</th>
+                    <th className="py-3 px-3 text-right">Stock Avant</th>
+                    <th className="py-3 px-3 text-right">Stock Après</th>
+                    <th className="py-3 px-3">Document Réf.</th>
+                    <th className="py-3 px-3">Opérateur & Motif</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${theme === 'dark' ? 'divide-slate-800' : 'divide-slate-100'}`}>
+                  {filteredMovements.map(mov => {
+                    const isPositive = mov.quantityBaseUnit > 0;
+                    return (
+                      <tr key={mov.id} className={`transition ${
+                        theme === 'dark' ? 'hover:bg-slate-850/60' : 'hover:bg-slate-50'
+                      }`}>
+                        <td className="py-3 px-3 text-slate-400 whitespace-nowrap">
+                          {mov.timestamp}
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{mov.productName}</div>
+                          <div className="text-[10px] font-mono text-slate-400">
+                            {mov.productCode}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <span
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded capitalize ${
+                              mov.type === 'entrée fournisseur' || mov.type === 'retour client'
+                                ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'
+                                : mov.type === 'vente'
+                                ? 'bg-blue-500/20 text-blue-500 border border-blue-500/30'
+                                : 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
+                            }`}
+                          >
+                            {mov.type}
+                          </span>
+                        </td>
+                        <td
+                          className={`py-3 px-3 text-right font-bold text-sm ${
+                            isPositive ? 'text-emerald-500' : 'text-rose-500'
+                          }`}
+                        >
+                          {isPositive ? '+' : ''}
+                          {formatNumber(mov.quantityBaseUnit)} {mov.unit}
+                        </td>
+                        <td className="py-3 px-3 text-right text-slate-400">
+                          {formatNumber(mov.stockBefore)} {mov.unit}
+                        </td>
+                        <td className={`py-3 px-3 text-right font-semibold ${
+                          theme === 'dark' ? 'text-slate-200' : 'text-slate-700'
+                        }`}>
+                          {formatNumber(mov.stockAfter)} {mov.unit}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-slate-400 text-[11px]">
+                          {mov.referenceDocument}
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className={`font-medium ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{mov.userName}</div>
+                          <div className="text-[11px] text-slate-400 line-clamp-1">
+                            {mov.justification}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Stock Adjustment / Damage Modal */}
+      {showAdjustmentModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setShowAdjustmentModal(false)}
+        >
+          <div
+            className={`border w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 cursor-default ${
+              theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-850'
+            }`}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className={`p-4 border-b flex items-center justify-between ${
+              theme === 'dark' ? 'bg-slate-850 border-slate-700' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <h3 className={`font-bold text-sm sm:text-base flex items-center gap-2 ${
+                theme === 'dark' ? 'text-white' : 'text-slate-900'
+              }`}>
+                <Scale className="w-4 h-4 text-emerald-500" />
+                {language === 'fr' ? 'Ajustement Manuel / Déclaration Perte & Dégradation' : 'Manual Stock Adjustment / Loss Declaration'}
+              </h3>
+              <button
+                onClick={() => setShowAdjustmentModal(false)}
+                className="text-slate-400 hover:text-slate-200 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleManualAdjustmentSubmit} className="p-4 space-y-3.5 text-xs">
+              {adjustError && (
+                <div className="p-2 bg-rose-500/10 border border-rose-500/30 text-rose-500 rounded-lg">
+                  {adjustError}
+                </div>
+              )}
+              {adjustSuccess && (
+                <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 rounded-lg">
+                  {adjustSuccess}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-slate-400 mb-1 font-medium">
+                  {language === 'fr' ? 'Produit concerné :' : 'Target Product:'}
+                </label>
+                <select
+                  value={selectedProductId}
+                  onChange={e => setSelectedProductId(e.target.value)}
+                  className={`w-full rounded-lg px-3 py-2 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    theme === 'dark'
+                      ? 'bg-slate-800 border-slate-700 text-white'
+                      : 'bg-slate-50 border-slate-300 text-slate-850'
+                  }`}
+                >
+                  {products
+                    .filter(p => p.status === 'actif')
+                    .map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.code}) — Stock: {p.stockCurrentBaseUnit} {p.baseUnit}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'fr' ? 'Motif opérationnel :' : 'Operational Reason:'}
+                  </label>
+                  <select
+                    value={adjustType}
+                    onChange={e => setAdjustType(e.target.value as any)}
+                    className={`w-full rounded-lg px-3 py-2 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                    }`}
+                  >
+                    <option value="produit endommagé">{language === 'fr' ? 'Produit endommagé' : 'Damaged goods'}</option>
+                    <option value="perte">{language === 'fr' ? 'Perte / Vol' : 'Loss / Theft'}</option>
+                    <option value="consommation interne">{language === 'fr' ? 'Consommation interne' : 'Internal use'}</option>
+                    <option value="correction d'inventaire">{language === 'fr' ? 'Correction ponctuelle' : 'Ad-hoc correction'}</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'fr' ? 'Sens du flux :' : 'Flow Direction:'}
+                  </label>
+                  <select
+                    value={isNegativeChange ? 'sortie' : 'entrée'}
+                    onChange={e => setIsNegativeChange(e.target.value === 'sortie')}
+                    className={`w-full rounded-lg px-3 py-2 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                    }`}
+                  >
+                    <option value="sortie">{language === 'fr' ? 'Sortie / Diminution (-)' : 'Outflow / Decrease (-)'}</option>
+                    <option value="entrée">{language === 'fr' ? 'Entrée / Augmentation (+)' : 'Inflow / Increase (+)'}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1 font-medium">
+                  Quantité ({selectedProduct.saleUnit}s de {selectedProduct.conversionFactor}{' '}
+                  {selectedProduct.baseUnit}) :
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0.1"
+                    step="0.1"
+                    value={adjustQtyCommercial}
+                    onChange={e => setAdjustQtyCommercial(Number(e.target.value))}
+                    className={`flex-1 rounded-lg px-3 py-2 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                    }`}
+                    required
+                  />
+                  <span className="text-slate-400 font-medium">
+                    = {adjustQtyCommercial * selectedProduct.conversionFactor}{' '}
+                    {selectedProduct.baseUnit}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1 font-medium">
+                  {language === 'fr' ? 'Justification détaillée (Obligatoire) :' : 'Detailed Justification (Required):'}
+                </label>
+                <textarea
+                  rows={3}
+                  value={justification}
+                  onChange={e => setJustification(e.target.value)}
+                  placeholder={language === 'fr' ? 'Ex: Sac déchiré lors du déchargement, perte au sol...' : 'E.g.: Bag torn during unloading...'}
+                  className={`w-full rounded-lg p-2.5 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    theme === 'dark'
+                      ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
+                      : 'bg-slate-50 border-slate-300 text-slate-850 placeholder-slate-400'
+                  }`}
+                  required
+                />
+              </div>
+
+              <div className={`pt-2 border-t flex justify-end gap-2 ${
+                theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => setShowAdjustmentModal(false)}
+                  className={`px-3 py-2 rounded-lg text-xs cursor-pointer ${
+                    theme === 'dark'
+                      ? 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {language === 'fr' ? 'Annuler' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg text-xs shadow-xs cursor-pointer"
+                >
+                  {language === 'fr' ? "Enregistrer l'Ajustement" : 'Save Adjustment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* New Product Creation Modal */}
+      {showNewProductModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs cursor-pointer"
+          onClick={() => setShowNewProductModal(false)}
+        >
+          <div
+            className={`border rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col cursor-default ${
+              theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-850'
+            }`}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className={`p-5 border-b flex items-center justify-between ${
+              theme === 'dark' ? 'bg-slate-850 border-slate-700' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center gap-2">
+                <Boxes className="w-5 h-5 text-emerald-500" />
+                <h3 className={`font-bold text-base ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  {language === 'fr' ? 'Nouveau Produit au Catalogue' : 'New Product in Catalog'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowNewProductModal(false)}
+                className="text-slate-400 hover:text-slate-200 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                setNewProdError('');
+                if (!newProdCode.trim()) {
+                  setNewProdError(language === 'fr' ? 'Le code produit est obligatoire.' : 'Product code is required.');
+                  return;
+                }
+                if (!newProdName.trim()) {
+                  setNewProdError(language === 'fr' ? 'La désignation du produit est obligatoire.' : 'Product name is required.');
+                  return;
+                }
+                if (products.some(p => p.code.toLowerCase() === newProdCode.trim().toLowerCase())) {
+                  setNewProdError(language === 'fr' ? `Le code ${newProdCode} existe déjà.` : `Code ${newProdCode} already exists.`);
+                  return;
+                }
+
+                addProduct(
+                  {
+                    code: newProdCode.trim().toUpperCase(),
+                    name: newProdName.trim(),
+                    category: newProdCategory,
+                    baseUnit: newProdBaseUnit,
+                    saleUnit: newProdSaleUnit,
+                    packaging: newProdPackaging,
+                    conversionFactor: Number(newProdFactor) || 1,
+                    purchasePrice: Number(newProdPurchasePrice) || 0,
+                    salePrice: Number(newProdSalePrice) || 0,
+                    minAlertThresholdBaseUnit: Number(newProdMinAlert) || 0,
+                    status: 'actif',
+                    description: newProdDescription.trim(),
+                  },
+                  Number(newProdInitialStock) || 0,
+                  Number(newProdInitialCmp) || Number(newProdPurchasePrice) / (Number(newProdFactor) || 1)
+                );
+
+                setShowNewProductModal(false);
+              }}
+              className="p-5 overflow-y-auto space-y-4 flex-1 text-xs"
+            >
+              {newProdError && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-500 rounded-lg">
+                  {newProdError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'fr' ? 'Code / Réf *' : 'Code / SKU *'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newProdCode}
+                    onChange={e => setNewProdCode(e.target.value)}
+                    placeholder="PRD-012"
+                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
+                        : 'bg-slate-50 border-slate-300 text-slate-850 placeholder-slate-400'
+                    }`}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'fr' ? 'Désignation du Produit *' : 'Product Name *'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newProdName}
+                    onChange={e => setNewProdName(e.target.value)}
+                    placeholder={language === 'fr' ? 'Ex: Aliment Pondeuse Finition - Sac 50kg' : 'Ex: Layer Feed Finisher - 50kg bag'}
+                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
+                        : 'bg-slate-50 border-slate-300 text-slate-850 placeholder-slate-400'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'fr' ? 'Catégorie' : 'Category'}
+                  </label>
+                  <select
+                    value={newProdCategory}
+                    onChange={e => setNewProdCategory(e.target.value as any)}
+                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                    }`}
+                  >
+                    <option value="Matières premières">{language === 'fr' ? 'Matières premières' : 'Raw materials'}</option>
+                    <option value="Concentrés, prémix et compléments">{language === 'fr' ? 'Concentrés, prémix et compléments' : 'Premixes & additives'}</option>
+                    <option value="Aliments finis">{language === 'fr' ? 'Aliments finis' : 'Finished feeds'}</option>
+                    <option value="Autres fournitures">{language === 'fr' ? 'Autres fournitures' : 'Other supplies'}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'fr' ? 'Conditionnement' : 'Packaging'}
+                  </label>
+                  <input
+                    type="text"
+                    value={newProdPackaging}
+                    onChange={e => setNewProdPackaging(e.target.value)}
+                    placeholder="Sac de 50 kg / Vrac"
+                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
+                        : 'bg-slate-50 border-slate-300 text-slate-850 placeholder-slate-400'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'fr' ? 'Unité de Stock' : 'Stock Unit'}
+                  </label>
+                  <select
+                    value={newProdBaseUnit}
+                    onChange={e => setNewProdBaseUnit(e.target.value as any)}
+                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                    }`}
+                  >
+                    <option value="kilogramme">kilogramme (kg)</option>
+                    <option value="litre">litre (L)</option>
+                    <option value="sac">sac</option>
+                    <option value="unité">unité</option>
+                    <option value="tonne">tonne</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'fr' ? 'Unité Commerciale' : 'Sale Unit'}
+                  </label>
+                  <select
+                    value={newProdSaleUnit}
+                    onChange={e => setNewProdSaleUnit(e.target.value as any)}
+                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                    }`}
+                  >
+                    <option value="sac">sac</option>
+                    <option value="kilogramme">kilogramme</option>
+                    <option value="litre">litre</option>
+                    <option value="bidon">bidon</option>
+                    <option value="unité">unité</option>
+                    <option value="tonne">tonne</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'fr' ? 'Facteur Conversion' : 'Conversion Factor'}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={newProdFactor}
+                    onChange={e => setNewProdFactor(Number(e.target.value))}
+                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'fr' ? 'Prix Achat Catalogue (FCFA)' : 'Purchase Price (FCFA)'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newProdPurchasePrice}
+                    onChange={e => setNewProdPurchasePrice(Number(e.target.value))}
+                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'fr' ? 'Prix Vente Unitaire (FCFA) *' : 'Unit Sale Price (FCFA) *'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={newProdSalePrice}
+                    onChange={e => setNewProdSalePrice(Number(e.target.value))}
+                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'fr' ? `Stock Initial (${newProdBaseUnit})` : `Initial Stock (${newProdBaseUnit})`}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newProdInitialStock}
+                    onChange={e => setNewProdInitialStock(Number(e.target.value))}
+                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'fr' ? `CMP Initial (FCFA/${newProdBaseUnit})` : `Initial CMP (FCFA/${newProdBaseUnit})`}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newProdInitialCmp}
+                    onChange={e => setNewProdInitialCmp(Number(e.target.value))}
+                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'fr' ? `Seuil d'Alerte (${newProdBaseUnit})` : `Alert Threshold (${newProdBaseUnit})`}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newProdMinAlert}
+                    onChange={e => setNewProdMinAlert(Number(e.target.value))}
+                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1 font-medium">
+                  {language === 'fr' ? 'Description / Composition' : 'Description / Notes'}
+                </label>
+                <textarea
+                  rows={2}
+                  value={newProdDescription}
+                  onChange={e => setNewProdDescription(e.target.value)}
+                  placeholder={language === 'fr' ? 'Composition technique, taux de protéines brutes, vitamines...' : 'Technical details, protein levels...'}
+                  className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    theme === 'dark'
+                      ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
+                      : 'bg-slate-50 border-slate-300 text-slate-850 placeholder-slate-400'
+                  }`}
+                />
+              </div>
+
+              <div className={`pt-3 border-t flex justify-end gap-2 ${
+                theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => setShowNewProductModal(false)}
+                  className={`px-4 py-2 rounded-lg font-medium cursor-pointer ${
+                    theme === 'dark'
+                      ? 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {language === 'fr' ? 'Annuler' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2 rounded-lg shadow-xs cursor-pointer"
+                >
+                  {language === 'fr' ? 'Enregistrer le Produit' : 'Save Product'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
