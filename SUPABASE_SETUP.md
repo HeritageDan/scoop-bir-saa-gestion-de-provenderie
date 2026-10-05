@@ -71,6 +71,7 @@ Vous disposez de **deux méthodes simples** :
 
 | Problème / Message | Cause | Solution |
 | :--- | :--- | :--- |
+| `PGRST125` / `Invalid path specified in request URL` | L'URL Supabase configurée contient `/rest/v1` à la fin (ex: `https://xyz.supabase.co/rest/v1`). | Dans Vercel ou dans les Paramètres de l'application, retirez `/rest/v1` de l'URL pour ne garder que `https://xyz.supabase.co`. |
 | `Erreur lors de l'envoi de la table "sales_points"` (404) | Les tables ne sont pas encore créées dans Supabase. | Ouvrez Supabase > SQL Editor > New query, collez le script `supabase-schema.sql` et cliquez sur **Run**. |
 | `Permission denied for table sales_points` (401/403) | Droits `GRANT` manquants sur le rôle `anon`. | Ré-exécutez la dernière version du script `supabase-schema.sql` qui inclut les clauses `GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;`. |
 | `Success. No rows returned` dans SQL Editor | Comportement PostgreSQL normal pour la création de tables. | Tout va bien ! Cliquez sur **Table Editor** à gauche pour voir vos tables. |

@@ -31,6 +31,24 @@ export interface SupabaseSyncResult {
   statusCode?: number;
 }
 
+/**
+ * Normalise l'URL Supabase pour éviter l'erreur courante PGRST125 (Invalid path specified in request URL).
+ * Supprime les espaces, les guillemets et tout sous-chemin comme /rest/v1 ou /rest collé par inadvertance.
+ */
+export function normalizeSupabaseUrl(rawUrl: string): string {
+  if (!rawUrl) return '';
+  let clean = rawUrl.trim();
+  // Retirer les guillemets
+  clean = clean.replace(/^["']+|["']+$/g, '');
+  // Retirer les slashs de fin
+  clean = clean.replace(/\/+$/, '');
+  // Supprimer /rest/v1 ou /rest ou /auth/v1 si l'utilisateur a copié l'URL d'un sous-service
+  clean = clean.replace(/\/rest\/v1\/?$/i, '');
+  clean = clean.replace(/\/rest\/?$/i, '');
+  clean = clean.replace(/\/auth\/v1\/?$/i, '');
+  return clean.replace(/\/+$/, '');
+}
+
 // Récupération de la configuration Supabase (Environment variables prioritaires, fallback localStorage)
 export function getSupabaseConfig(): SupabaseConfig {
   const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL || (import.meta as any).env?.SUPABASE_URL || '';
@@ -38,7 +56,7 @@ export function getSupabaseConfig(): SupabaseConfig {
 
   if (envUrl && envKey) {
     return {
-      url: envUrl.trim().replace(/\/$/, ''),
+      url: normalizeSupabaseUrl(envUrl),
       anonKey: envKey.trim(),
       isConfigured: true,
       source: 'env',
@@ -50,7 +68,7 @@ export function getSupabaseConfig(): SupabaseConfig {
 
   if (localUrl && localKey) {
     return {
-      url: localUrl.trim().replace(/\/$/, ''),
+      url: normalizeSupabaseUrl(localUrl),
       anonKey: localKey.trim(),
       isConfigured: true,
       source: 'localStorage',
@@ -67,7 +85,7 @@ export function getSupabaseConfig(): SupabaseConfig {
 
 // Enregistrement manuel de la configuration Supabase dans le navigateur
 export function saveSupabaseConfig(url: string, anonKey: string): void {
-  const cleanUrl = url.trim().replace(/\/$/, '');
+  const cleanUrl = normalizeSupabaseUrl(url);
   const cleanKey = anonKey.trim();
   localStorage.setItem('provenda_supabase_url', cleanUrl);
   localStorage.setItem('provenda_supabase_key', cleanKey);
@@ -98,7 +116,7 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
   errorDetail?: string;
 }> {
   const config = overrideUrl && overrideKey
-    ? { url: overrideUrl.trim().replace(/\/$/, ''), anonKey: overrideKey.trim(), isConfigured: true }
+    ? { url: normalizeSupabaseUrl(overrideUrl), anonKey: overrideKey.trim(), isConfigured: true, source: 'localStorage' as const }
     : getSupabaseConfig();
 
   if (!config.isConfigured || !config.url || !config.anonKey) {
@@ -127,17 +145,20 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
       };
     }
 
-    if (!response.ok && response.status !== 200 && response.status !== 404) {
+    if (!response.ok) {
+      const errText = await response.text();
       return {
         success: false,
-        message: `Réponse inattendue de Supabase (Code HTTP ${response.status}). Vérifiez l'URL de votre projet.`,
+        message: `Impossible de joindre l'API Supabase à l'adresse "${config.url}/rest/v1/" (Code HTTP ${response.status}). Vérifiez l'URL de votre projet (doit être https://xyz.supabase.co sans /rest/v1).`,
         statusCode: response.status,
         tablesFound: false,
+        errorDetail: errText,
       };
     }
 
-    // 2. Tester l'existence réelle de la table 'sales_points'
-    const tableRes = await fetch(`${config.url}/rest/v1/sales_points?select=id&limit=1`, {
+    // 2. Tester l'existence réelle de la table 'sales_points' (ou 'salespoint')
+    let detectedTable = 'sales_points';
+    let tableRes = await fetch(`${config.url}/rest/v1/sales_points?select=id&limit=1`, {
       method: 'GET',
       headers: {
         'apikey': config.anonKey,
@@ -145,20 +166,50 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
       },
     });
 
+    // Fallback: tester si la table a été nommée 'salespoint' (sans underscore)
+    if (tableRes.status === 404) {
+      const singularRes = await fetch(`${config.url}/rest/v1/salespoint?select=id&limit=1`, {
+        method: 'GET',
+        headers: {
+          'apikey': config.anonKey,
+          'Authorization': `Bearer ${config.anonKey}`,
+        },
+      });
+      if (singularRes.ok) {
+        detectedTable = 'salespoint';
+        tableRes = singularRes;
+      }
+    }
+
     if (tableRes.ok) {
       return {
         success: true,
-        message: 'Connexion à Supabase établie avec succès et toutes les tables Provenda sont bien en place !',
+        message: `Connexion à Supabase réussie ! La table "${detectedTable}" et l'API PostgREST sont pleinement fonctionnelles.`,
         statusCode: 200,
         tablesFound: true,
       };
     }
 
-    if (tableRes.status === 404) {
-      const errText = await tableRes.text();
+    const errText = await tableRes.text();
+    let errJson: any = null;
+    try {
+      errJson = JSON.parse(errText);
+    } catch {}
+
+    if (errJson?.code === 'PGRST125') {
       return {
         success: false,
-        message: 'Le serveur Supabase est bien connecté, mais la table "sales_points" n\'existe pas encore (Erreur 404). Vous devez exécuter le script SQL dans l\'onglet "SQL Editor" de votre tableau de bord Supabase.',
+        message: 'Erreur PGRST125 (Chemin d\'URL invalide) : L\'URL Supabase contient un sous-chemin en trop. L\'URL doit être uniquement l\'URL de base (ex: https://xyz.supabase.co) sans "/rest/v1".',
+        statusCode: 404,
+        tablesFound: false,
+        errorDetail: errText,
+      };
+    }
+
+    if (tableRes.status === 404) {
+      return {
+        success: false,
+        message: 'Le serveur Supabase est bien connecté, mais la table "sales_points" est introuvable (Erreur 404). Exécutez le script SQL supabase-schema.sql dans Supabase SQL Editor.',
         statusCode: 404,
         tablesFound: false,
         errorDetail: errText,
@@ -166,17 +217,15 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
     }
 
     if (tableRes.status === 401 || tableRes.status === 403) {
-      const errText = await tableRes.text();
       return {
         success: false,
-        message: `La table "sales_points" existe mais l'accès en lecture est refusé (Code HTTP ${tableRes.status}). Assurez-vous d'avoir exécuté la section GRANT et les politiques RLS du script SQL.`,
+        message: `La table "sales_points" existe mais l'accès est refusé (Code HTTP ${tableRes.status}). Assurez-vous d'avoir exécuté la partie GRANT et les politiques RLS du script SQL.`,
         statusCode: tableRes.status,
         tablesFound: false,
         errorDetail: errText,
       };
     }
 
-    const errText = await tableRes.text();
     return {
       success: false,
       message: `Statut inattendu lors de la vérification de la table sales_points (Code HTTP ${tableRes.status}).`,
@@ -228,19 +277,33 @@ export async function deleteRecordFromSupabase(tableName: string, id: string): P
   }
 }
 
-// Récupération d'une table complète depuis Supabase
+// Récupération d'une table complète depuis Supabase (avec fallback singulier/pluriel pour sales_points)
 export async function fetchTableFromSupabase<T>(tableName: string): Promise<T[] | null> {
   const config = getSupabaseConfig();
   if (!config.isConfigured) return null;
 
   try {
-    const res = await fetch(`${config.url}/rest/v1/${tableName}?select=*`, {
+    let res = await fetch(`${config.url}/rest/v1/${tableName}?select=*`, {
       method: 'GET',
       headers: {
         'apikey': config.anonKey,
         'Authorization': `Bearer ${config.anonKey}`,
       },
     });
+
+    // Fallback sales_points -> salespoint
+    if (!res.ok && tableName === 'sales_points') {
+      const fallbackRes = await fetch(`${config.url}/rest/v1/salespoint?select=*`, {
+        method: 'GET',
+        headers: {
+          'apikey': config.anonKey,
+          'Authorization': `Bearer ${config.anonKey}`,
+        },
+      });
+      if (fallbackRes.ok) {
+        return await fallbackRes.json();
+      }
+    }
 
     if (!res.ok) return null;
     return await res.json();
@@ -275,8 +338,26 @@ export async function pushAllLocalDataToSupabase(data: {
   const details: Record<string, any> = {};
 
   try {
+    // Vérifier si la table des points de vente s'appelle 'sales_points' ou 'salespoint'
+    let salesPointsTable = 'sales_points';
+    try {
+      const checkRes = await fetch(`${config.url}/rest/v1/sales_points?select=id&limit=1`, {
+        method: 'GET',
+        headers: { 'apikey': config.anonKey, 'Authorization': `Bearer ${config.anonKey}` },
+      });
+      if (checkRes.status === 404) {
+        const checkSingular = await fetch(`${config.url}/rest/v1/salespoint?select=id&limit=1`, {
+          method: 'GET',
+          headers: { 'apikey': config.anonKey, 'Authorization': `Bearer ${config.anonKey}` },
+        });
+        if (checkSingular.ok) {
+          salesPointsTable = 'salespoint';
+        }
+      }
+    } catch {}
+
     const tablesToPush = [
-      { name: 'sales_points', items: data.salesPoints },
+      { name: salesPointsTable, items: data.salesPoints },
       { name: 'users', items: data.users },
       { name: 'suppliers', items: data.suppliers },
       { name: 'customers', items: data.customers },

@@ -35,6 +35,18 @@ ALTER TABLE public.sales_points ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMPTZ
 ALTER TABLE public.sales_points ADD COLUMN IF NOT EXISTS city TEXT;
 ALTER TABLE public.sales_points ADD COLUMN IF NOT EXISTS email TEXT;
 
+-- Compatibilité si la table a été créée sous le nom "salespoint" (sans underscore)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'salespoint')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'sales_points') THEN
+    ALTER TABLE public.salespoint RENAME TO sales_points;
+  END IF;
+END
+$$;
+CREATE OR REPLACE VIEW public.salespoint AS SELECT * FROM public.sales_points;
+GRANT ALL ON public.salespoint TO anon, authenticated, service_role;
+
 -- 2. Table des Utilisateurs & Rôles
 CREATE TABLE IF NOT EXISTS public.users (
   id TEXT PRIMARY KEY,

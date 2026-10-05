@@ -30,6 +30,7 @@ import {
   testSupabaseConnection,
   pushAllLocalDataToSupabase,
   pullAllDataFromSupabase,
+  normalizeSupabaseUrl,
 } from '../../services/supabaseService';
 import { SUPABASE_SCHEMA_SQL } from '../../services/supabaseSchema';
 
@@ -139,10 +140,12 @@ export const SettingsManager: React.FC = () => {
       setTestStatus({ loading: false, success: false, message: 'Veuillez saisir l\'URL et la clé publique Anon de Supabase.' });
       return;
     }
-    saveSupabaseConfig(supabaseUrlInput, supabaseKeyInput);
+    const cleanUrl = normalizeSupabaseUrl(supabaseUrlInput);
+    saveSupabaseConfig(cleanUrl, supabaseKeyInput);
     const cfg = getSupabaseConfig();
     setSupabaseConfig(cfg);
-    setTestStatus({ loading: false, success: true, message: 'Configuration enregistrée ! Cliquez sur « Tester la connexion ».' });
+    setSupabaseUrlInput(cfg.url);
+    setTestStatus({ loading: false, success: true, message: 'Configuration enregistrée ! Cliquez sur « Tester la connexion & tables ».' });
   };
 
   const handleDisconnectSupabase = () => {
@@ -801,8 +804,8 @@ export const SettingsManager: React.FC = () => {
                         : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400'
                     }`}
                   />
-                  <span className={`text-[11px] block ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500'}`}>
-                    Trouvable dans Supabase sous <i>Project Settings &gt; API &gt; Project URL</i>
+                  <span className={`text-[11px] block ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Trouvable sous <i>Project Settings &gt; API &gt; Project URL</i> (ex: <code className="text-emerald-500">https://xyz.supabase.co</code> - <b>ne pas ajouter /rest/v1</b>)
                   </span>
                 </div>
 
