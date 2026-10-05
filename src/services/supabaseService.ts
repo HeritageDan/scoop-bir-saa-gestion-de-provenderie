@@ -31,6 +31,15 @@ export interface SupabaseSyncResult {
   statusCode?: number;
 }
 
+export interface KeyInspection {
+  isValidJwt: boolean;
+  role?: string;
+  projectRef?: string;
+  urlRef?: string;
+  mismatch?: boolean;
+  hint?: string;
+}
+
 /**
  * Normalise l'URL Supabase pour éviter l'erreur courante PGRST125 (Invalid path specified in request URL).
  * Supprime les espaces, les guillemets et tout sous-chemin comme /rest/v1 ou /rest collé par inadvertance.
@@ -38,40 +47,124 @@ export interface SupabaseSyncResult {
 export function normalizeSupabaseUrl(rawUrl: string): string {
   if (!rawUrl) return '';
   let clean = rawUrl.trim();
-  // Retirer les guillemets
   clean = clean.replace(/^["']+|["']+$/g, '');
-  // Retirer les slashs de fin
   clean = clean.replace(/\/+$/, '');
-  // Supprimer /rest/v1 ou /rest ou /auth/v1 si l'utilisateur a copié l'URL d'un sous-service
   clean = clean.replace(/\/rest\/v1\/?$/i, '');
   clean = clean.replace(/\/rest\/?$/i, '');
   clean = clean.replace(/\/auth\/v1\/?$/i, '');
   return clean.replace(/\/+$/, '');
 }
 
-// Récupération de la configuration Supabase (Environment variables prioritaires, fallback localStorage)
-export function getSupabaseConfig(): SupabaseConfig {
-  const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL || (import.meta as any).env?.SUPABASE_URL || '';
-  const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || (import.meta as any).env?.SUPABASE_ANON_KEY || '';
+/**
+ * Nettoie la clé d'API Supabase (retire guillemets, retours à la ligne, espaces accidentels).
+ */
+export function normalizeSupabaseKey(rawKey: string): string {
+  if (!rawKey) return '';
+  let clean = rawKey.trim();
+  clean = clean.replace(/^["']+|["']+$/g, '').trim();
+  clean = clean.replace(/[\r\n\t\s]+/g, '').trim();
+  return clean;
+}
 
-  if (envUrl && envKey) {
+/**
+ * Analyse et valide le format d'une clé API Supabase (doit être un JWT avec le rôle 'anon').
+ * Détecte les inversions avec le mot de passe de base, le JWT Secret ou un autre projet Supabase.
+ */
+export function inspectSupabaseKey(key: string, expectedUrl?: string): KeyInspection {
+  const clean = normalizeSupabaseKey(key);
+  if (!clean) {
+    return { isValidJwt: false, hint: 'La clé API est vide.' };
+  }
+
+  const parts = clean.split('.');
+  if (parts.length !== 3) {
+    if (clean.startsWith('sbp_')) {
+      return {
+        isValidJwt: false,
+        hint: 'Cette clé commence par "sbp_" (Personal Access Token). Vous devez utiliser la clé "anon / public" commençant par "ey..." (dans Project Settings > API).',
+      };
+    }
     return {
-      url: normalizeSupabaseUrl(envUrl),
-      anonKey: envKey.trim(),
-      isConfigured: true,
-      source: 'env',
+      isValidJwt: false,
+      hint: 'La clé ne respecte pas le format JWT (elle doit être composée de 3 blocs séparés par des points et commencer par "ey..."). Vous avez probablement copié le mot de passe de la base de données ou le JWT Secret au lieu de la clé publique anon.',
     };
   }
 
-  const localUrl = localStorage.getItem('provenda_supabase_url') || '';
-  const localKey = localStorage.getItem('provenda_supabase_key') || '';
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const jsonStr = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const payload = JSON.parse(jsonStr);
+
+    let urlRef: string | undefined;
+    if (expectedUrl) {
+      const match = expectedUrl.match(/https?:\/\/([a-z0-9-]+)\.supabase\.co/i);
+      if (match) urlRef = match[1].toLowerCase();
+    }
+
+    const projectRef = payload.ref ? String(payload.ref).toLowerCase() : undefined;
+    const role = payload.role;
+    const mismatch = Boolean(urlRef && projectRef && urlRef !== projectRef);
+
+    let hint = '';
+    if (mismatch) {
+      hint = `Incohérence de projet : Cette clé appartient au projet Supabase "${projectRef}", alors que l'URL cible le projet "${urlRef}". Assurez-vous d'utiliser l'URL et la clé du même projet.`;
+    } else if (role && role !== 'anon' && role !== 'service_role') {
+      hint = `Cette clé possède le rôle "${role}" au lieu du rôle attendu "anon".`;
+    }
+
+    return {
+      isValidJwt: true,
+      role,
+      projectRef,
+      urlRef,
+      mismatch,
+      hint: hint || undefined,
+    };
+  } catch {
+    return {
+      isValidJwt: false,
+      hint: 'Impossible de décoder la clé JWT. Vérifiez que la clé n\'a pas été tronquée lors de la copie.',
+    };
+  }
+}
+
+// Récupération des valeurs configurées dans les variables d'environnement Vercel
+export function getVercelEnvConfig(): { url: string; anonKey: string; isAvailable: boolean } {
+  const envUrl = normalizeSupabaseUrl((import.meta as any).env?.VITE_SUPABASE_URL || (import.meta as any).env?.SUPABASE_URL || '');
+  const envKey = normalizeSupabaseKey((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || (import.meta as any).env?.SUPABASE_ANON_KEY || '');
+  return {
+    url: envUrl,
+    anonKey: envKey,
+    isAvailable: Boolean(envUrl && envKey),
+  };
+}
+
+// Récupération de la configuration Supabase (priorité au localStorage personnalisé s'il existe, sinon variables d'environnement Vercel)
+export function getSupabaseConfig(): SupabaseConfig {
+  const localUrl = normalizeSupabaseUrl(localStorage.getItem('provenda_supabase_url') || '');
+  const localKey = normalizeSupabaseKey(localStorage.getItem('provenda_supabase_key') || '');
 
   if (localUrl && localKey) {
     return {
-      url: normalizeSupabaseUrl(localUrl),
-      anonKey: localKey.trim(),
+      url: localUrl,
+      anonKey: localKey,
       isConfigured: true,
       source: 'localStorage',
+    };
+  }
+
+  const env = getVercelEnvConfig();
+  if (env.isAvailable) {
+    return {
+      url: env.url,
+      anonKey: env.anonKey,
+      isConfigured: true,
+      source: 'env',
     };
   }
 
@@ -86,12 +179,12 @@ export function getSupabaseConfig(): SupabaseConfig {
 // Enregistrement manuel de la configuration Supabase dans le navigateur
 export function saveSupabaseConfig(url: string, anonKey: string): void {
   const cleanUrl = normalizeSupabaseUrl(url);
-  const cleanKey = anonKey.trim();
+  const cleanKey = normalizeSupabaseKey(anonKey);
   localStorage.setItem('provenda_supabase_url', cleanUrl);
   localStorage.setItem('provenda_supabase_key', cleanKey);
 }
 
-// Suppression de la configuration Supabase (retour au mode local)
+// Suppression de la configuration Supabase dans le localStorage (revient aux variables Vercel si existantes)
 export function clearSupabaseConfig(): void {
   localStorage.removeItem('provenda_supabase_url');
   localStorage.removeItem('provenda_supabase_key');
@@ -99,9 +192,10 @@ export function clearSupabaseConfig(): void {
 
 // Headers HTTP standard pour l'API REST Supabase (PostgREST)
 function getSupabaseHeaders(anonKey: string): HeadersInit {
+  const cleanKey = normalizeSupabaseKey(anonKey);
   return {
-    'apikey': anonKey,
-    'Authorization': `Bearer ${anonKey}`,
+    'apikey': cleanKey,
+    'Authorization': `Bearer ${cleanKey}`,
     'Content-Type': 'application/json',
     'Prefer': 'return=representation,resolution=merge-duplicates',
   };
@@ -114,9 +208,15 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
   statusCode?: number;
   tablesFound?: boolean;
   errorDetail?: string;
+  inspection?: KeyInspection;
 }> {
   const config = overrideUrl && overrideKey
-    ? { url: normalizeSupabaseUrl(overrideUrl), anonKey: overrideKey.trim(), isConfigured: true, source: 'localStorage' as const }
+    ? {
+        url: normalizeSupabaseUrl(overrideUrl),
+        anonKey: normalizeSupabaseKey(overrideKey),
+        isConfigured: true,
+        source: 'localStorage' as const,
+      }
     : getSupabaseConfig();
 
   if (!config.isConfigured || !config.url || !config.anonKey) {
@@ -126,8 +226,30 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
     };
   }
 
+  // 0. Analyse préventive de la clé API
+  const inspection = inspectSupabaseKey(config.anonKey, config.url);
+  if (!inspection.isValidJwt) {
+    return {
+      success: false,
+      message: `Format de clé invalide : ${inspection.hint}`,
+      statusCode: 400,
+      tablesFound: false,
+      inspection,
+    };
+  }
+
+  if (inspection.mismatch) {
+    return {
+      success: false,
+      message: inspection.hint || 'Incohérence entre l\'URL et le projet de la clé.',
+      statusCode: 400,
+      tablesFound: false,
+      inspection,
+    };
+  }
+
   try {
-    // 1. Tester la racine REST
+    // 1. Tester la racine REST de l'API Supabase
     const response = await fetch(`${config.url}/rest/v1/`, {
       method: 'GET',
       headers: {
@@ -137,11 +259,27 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
     });
 
     if (response.status === 401 || response.status === 403) {
+      const errText = await response.text();
+      let parsedErr = errText;
+      try {
+        const j = JSON.parse(errText);
+        parsedErr = j.message || j.error_description || j.error || errText;
+      } catch {}
+
+      let guidance = 'La clé n\'est pas reconnue par ce projet Supabase.';
+      if (inspection.hint) {
+        guidance = inspection.hint;
+      } else {
+        guidance = 'Rendez-vous dans Supabase > Project Settings > API > section "Project API keys" et copiez le champ "anon / public" (en cliquant sur l\'icône Copier).';
+      }
+
       return {
         success: false,
-        message: 'Erreur 401/403 : Clé Anon invalide ou accès refusé. Vérifiez votre clé d\'API dans Supabase (Project Settings > API > anon key).',
+        message: `Erreur ${response.status} (${parsedErr}) : ${guidance}`,
         statusCode: response.status,
         tablesFound: false,
+        errorDetail: errText,
+        inspection,
       };
     }
 
@@ -153,6 +291,7 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
         statusCode: response.status,
         tablesFound: false,
         errorDetail: errText,
+        inspection,
       };
     }
 
@@ -187,6 +326,7 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
         message: `Connexion à Supabase réussie ! La table "${detectedTable}" et l'API PostgREST sont pleinement fonctionnelles.`,
         statusCode: 200,
         tablesFound: true,
+        inspection,
       };
     }
 
@@ -203,6 +343,7 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
         statusCode: 404,
         tablesFound: false,
         errorDetail: errText,
+        inspection,
       };
     }
 
@@ -213,6 +354,7 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
         statusCode: 404,
         tablesFound: false,
         errorDetail: errText,
+        inspection,
       };
     }
 
@@ -223,6 +365,7 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
         statusCode: tableRes.status,
         tablesFound: false,
         errorDetail: errText,
+        inspection,
       };
     }
 
@@ -232,11 +375,13 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
       statusCode: tableRes.status,
       tablesFound: false,
       errorDetail: errText,
+      inspection,
     };
   } catch (error: any) {
     return {
       success: false,
       message: `Impossible de contacter Supabase : ${error?.message || 'Erreur réseau (CORS ou URL inaccessible)'}.`,
+      inspection,
     };
   }
 }

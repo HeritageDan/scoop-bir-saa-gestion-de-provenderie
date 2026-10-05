@@ -31,6 +31,9 @@ import {
   pushAllLocalDataToSupabase,
   pullAllDataFromSupabase,
   normalizeSupabaseUrl,
+  normalizeSupabaseKey,
+  inspectSupabaseKey,
+  getVercelEnvConfig,
 } from '../../services/supabaseService';
 import { SUPABASE_SCHEMA_SQL } from '../../services/supabaseSchema';
 
@@ -141,11 +144,26 @@ export const SettingsManager: React.FC = () => {
       return;
     }
     const cleanUrl = normalizeSupabaseUrl(supabaseUrlInput);
-    saveSupabaseConfig(cleanUrl, supabaseKeyInput);
+    const cleanKey = normalizeSupabaseKey(supabaseKeyInput);
+    saveSupabaseConfig(cleanUrl, cleanKey);
     const cfg = getSupabaseConfig();
     setSupabaseConfig(cfg);
     setSupabaseUrlInput(cfg.url);
+    setSupabaseKeyInput(cfg.anonKey);
     setTestStatus({ loading: false, success: true, message: 'Configuration enregistrée ! Cliquez sur « Tester la connexion & tables ».' });
+  };
+
+  const handleResetToVercelEnv = () => {
+    clearSupabaseConfig();
+    const cfg = getSupabaseConfig();
+    setSupabaseConfig(cfg);
+    setSupabaseUrlInput(cfg.url);
+    setSupabaseKeyInput(cfg.anonKey);
+    setTestStatus({
+      loading: false,
+      success: true,
+      message: 'Configuration réinitialisée avec les variables d\'environnement Vercel !',
+    });
   };
 
   const handleDisconnectSupabase = () => {
@@ -827,6 +845,25 @@ export const SettingsManager: React.FC = () => {
                   <span className={`text-[11px] block ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500'}`}>
                     Trouvable dans Supabase sous <i>Project Settings &gt; API &gt; anon / public</i>
                   </span>
+
+                  {/* Instant Key Inspection Feedback */}
+                  {supabaseKeyInput && (() => {
+                    const insp = inspectSupabaseKey(supabaseKeyInput, supabaseUrlInput);
+                    if (!insp.isValidJwt || insp.mismatch) {
+                      return (
+                        <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[11px] flex items-start gap-1.5">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                          <span>{insp.hint}</span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-mono">
+                        <Check className="w-3 h-3" />
+                        <span>Clé JWT valide (Projet: {insp.projectRef || 'Supabase'}, Rôle: {insp.role})</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -872,6 +909,17 @@ export const SettingsManager: React.FC = () => {
                   <Check className="w-3.5 h-3.5" />
                   <span>Enregistrer la Configuration</span>
                 </button>
+
+                {supabaseConfig.source === 'localStorage' && getVercelEnvConfig().isAvailable && (
+                  <button
+                    type="button"
+                    onClick={handleResetToVercelEnv}
+                    className="px-3.5 py-2 rounded-xl font-semibold border border-slate-500/30 text-slate-600 dark:text-slate-300 hover:bg-slate-500/10 transition cursor-pointer"
+                    title="Effacer la configuration personnalisée et réactiver les variables d'environnement Vercel"
+                  >
+                    Utiliser variables Vercel
+                  </button>
+                )}
 
                 {supabaseConfig.isConfigured && (
                   <button
