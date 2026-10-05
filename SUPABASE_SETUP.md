@@ -70,7 +70,7 @@ Vous disposez de **deux méthodes simples** :
 ## Résolution des Problèmes Courants
 
 | Problème / Message | Cause | Solution |
-| :--- | :--- | :--- |
+| `PGRST102` / `All object keys must match` | Des objets dans un lot ont des clés différentes (certains ont `email`, d'autres non). | L'application normalise désormais toutes les clés automatiquement avec `null` et dispose d'un repli unitaire automatique. |
 | `PGRST125` / `Invalid path specified in request URL` | L'URL Supabase configurée contient `/rest/v1` à la fin (ex: `https://xyz.supabase.co/rest/v1`). | Dans Vercel ou dans les Paramètres de l'application, retirez `/rest/v1` de l'URL pour ne garder que `https://xyz.supabase.co`. |
 | `Erreur lors de l'envoi de la table "sales_points"` (404) | Les tables ne sont pas encore créées dans Supabase. | Ouvrez Supabase > SQL Editor > New query, collez le script `supabase-schema.sql` et cliquez sur **Run**. |
 | `Permission denied for table sales_points` (401/403) | Droits `GRANT` manquants sur le rôle `anon`. | Ré-exécutez la dernière version du script `supabase-schema.sql` qui inclut les clauses `GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;`. |

@@ -67,6 +67,37 @@ export function normalizeSupabaseKey(rawKey: string): string {
 }
 
 /**
+ * Normalise un tableau d'objets pour l'API PostgREST de Supabase (Bulk Insert).
+ * PostgREST exige que tous les objets d'un même tableau partagent exactement
+ * le même ensemble de clés (règle PGRST102 : "All object keys must match").
+ * Cette fonction calcule l'union de toutes les clés et attribue 'null'
+ * aux propriétés absentes ou undefined de chaque objet.
+ */
+export function normalizePostgrestPayload(items: any[]): any[] {
+  if (!items || items.length === 0) return [];
+
+  const keySet = new Set<string>();
+  for (const item of items) {
+    if (item && typeof item === 'object') {
+      for (const k of Object.keys(item)) {
+        keySet.add(k);
+      }
+    }
+  }
+  const allKeys = Array.from(keySet);
+
+  return items.map(item => {
+    if (!item || typeof item !== 'object') return item;
+    const normalized: Record<string, any> = {};
+    for (const key of allKeys) {
+      const val = (item as any)[key];
+      normalized[key] = val === undefined ? null : val;
+    }
+    return normalized;
+  });
+}
+
+/**
  * Analyse et valide le format d'une clé API Supabase (doit être un JWT avec le rôle 'anon').
  * Détecte les inversions avec le mot de passe de base, le JWT Secret ou un autre projet Supabase.
  */
@@ -517,19 +548,44 @@ export async function pushAllLocalDataToSupabase(data: {
 
     for (const table of tablesToPush) {
       if (table.items && table.items.length > 0) {
-        // Envoi avec on_conflict=id explicite pour un upsert PostgREST garanti sans ambiguïté
-        const res = await fetch(`${config.url}/rest/v1/${table.name}?on_conflict=id`, {
+        // Normaliser les clés de tous les objets pour satisfaire la règle PostgREST PGRST102
+        const normalizedPayload = normalizePostgrestPayload(table.items);
+
+        // 1. Essai d'insertion groupée (Batch PostgREST ultra-rapide)
+        let res = await fetch(`${config.url}/rest/v1/${table.name}?on_conflict=id`, {
           method: 'POST',
           headers: getSupabaseHeaders(config.anonKey),
-          body: JSON.stringify(table.items),
+          body: JSON.stringify(normalizedPayload),
         });
 
+        // 2. Si l'insertion groupée échoue (ex: PGRST102 ou contrainte spécifique), repli automatique en insertion unitaire
         if (!res.ok) {
-          const errText = await res.text();
-          let parsedMsg = errText;
+          const batchErrText = await res.text();
+          let fallbackSuccess = true;
+          let fallbackErr = '';
+
+          for (const item of table.items) {
+            const singleRes = await fetch(`${config.url}/rest/v1/${table.name}?on_conflict=id`, {
+              method: 'POST',
+              headers: getSupabaseHeaders(config.anonKey),
+              body: JSON.stringify(item),
+            });
+            if (!singleRes.ok) {
+              fallbackSuccess = false;
+              fallbackErr = await singleRes.text();
+              break;
+            }
+          }
+
+          if (fallbackSuccess) {
+            details[table.name] = table.items.length;
+            continue; // Réussite grâce au repli unitaire !
+          }
+
+          let parsedMsg = fallbackErr || batchErrText;
           try {
-            const errJson = JSON.parse(errText);
-            parsedMsg = errJson.message || errJson.error || errText;
+            const errJson = JSON.parse(parsedMsg);
+            parsedMsg = errJson.message || errJson.error || parsedMsg;
             if (errJson.hint) parsedMsg += ` (Indice : ${errJson.hint})`;
             if (errJson.details) parsedMsg += ` [Détails : ${errJson.details}]`;
           } catch {}
@@ -546,7 +602,7 @@ export async function pushAllLocalDataToSupabase(data: {
           return {
             success: false,
             message: `Erreur sur la table "${table.name}" (Code HTTP ${res.status}) : ${parsedMsg}.${userAdvice}`,
-            error: `HTTP ${res.status}: ${errText}`,
+            error: `HTTP ${res.status}: ${fallbackErr || batchErrText}`,
             statusCode: res.status,
             details,
           };
