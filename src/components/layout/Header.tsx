@@ -92,9 +92,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const roleLabels: Record<Role, { label: string; desc: string }> = {
+    developpeur: {
+      label: t('role.developpeur'),
+      desc: language === 'fr' ? 'Superadmin, Sauvegardes, Base Supabase, Restauration' : 'Superadmin, Backups, Supabase DB, Restoration',
+    },
     administrateur: {
       label: t('role.administrateur'),
-      desc: language === 'fr' ? 'Gestion globale, catalogue, prix, sauvegardes' : 'Global management, catalog, pricing, backups',
+      desc: language === 'fr' ? 'Gestion globale, catalogue, prix, supervision' : 'Global management, catalog, pricing, supervision',
     },
     responsable: {
       label: t('role.responsable'),
@@ -165,7 +169,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
 
           {/* Sales Point Selector Trigger */}
           <div className="relative" ref={salesPointRef}>
-            {currentUser.role === 'administrateur' ? (
+            {currentUser.role === 'administrateur' || currentUser.role === 'developpeur' ? (
               <button
                 onClick={() => {
                   setShowSalesPointDropdown(prev => !prev);
@@ -527,57 +531,37 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
               <div className="px-3 py-2 border-b border-slate-700/50 mb-1">
                 <div className="text-xs font-semibold">{currentUser.name}</div>
                 <div className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                  {currentUser.email} &middot; Remise max: {currentUser.discountLimitPercent}%
+                  {currentUser.email}
+                </div>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                    {roleLabels[currentUser.role]?.label || currentUser.role}
+                  </span>
+                  <span className={`text-[10px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {language === 'fr' ? 'Remise max: ' : 'Max discount: '}
+                    {currentUser.role === 'administrateur' || currentUser.role === 'developpeur'
+                      ? (language === 'fr' ? 'Illimitée' : 'Unlimited')
+                      : `${currentUser.discountLimitPercent}%`}
+                  </span>
                 </div>
               </div>
 
-              {/* Roles Quick Switch */}
-              <div className="space-y-1">
-                <div className="px-2 pt-1 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  {language === 'fr' ? 'Changer de profil' : 'Switch profile'}
-                </div>
-                {(['administrateur', 'responsable', 'caissier', 'magasinier'] as Role[]).map(
-                  role => {
-                    const isCurrent = currentUser.role === role;
-                    const info = roleLabels[role];
-                    const userForRole = users.find(u => u.role === role && u.active);
-                    return (
-                      <button
-                        key={role}
-                        onClick={() => {
-                          switchRole(role);
-                          setShowRoleDropdown(false);
-                        }}
-                        className={`w-full text-left p-2 rounded-lg text-xs transition flex items-start gap-2 ${
-                          isCurrent
-                            ? 'bg-emerald-600/15 border border-emerald-500/30 text-emerald-400'
-                            : theme === 'dark'
-                            ? 'hover:bg-slate-700/60 text-slate-200'
-                            : 'hover:bg-slate-100 text-slate-700'
-                        }`}
-                      >
-                        <Shield
-                          className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
-                            isCurrent ? 'text-emerald-400' : 'text-slate-400'
-                          }`}
-                        />
-                        <div className="flex-1 truncate">
-                          <div className="font-semibold flex items-center justify-between">
-                            <span className="truncate">{info.label}</span>
-                            {isCurrent && (
-                              <span className="text-[9px] font-bold text-emerald-400 uppercase">
-                                Actif
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[10px] opacity-75 truncate">
-                            {userForRole?.name || 'Utilisateur'}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  }
-                )}
+              {/* Navigation Quick Links */}
+              <div className="py-1">
+                <button
+                  onClick={() => {
+                    setShowRoleDropdown(false);
+                    onNavigateTab('settings');
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition flex items-center gap-2 cursor-pointer ${
+                    theme === 'dark'
+                      ? 'hover:bg-slate-700/60 text-slate-200'
+                      : 'hover:bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  <Shield className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>{t('nav.settings')}</span>
+                </button>
               </div>
 
               {/* Logout button */}

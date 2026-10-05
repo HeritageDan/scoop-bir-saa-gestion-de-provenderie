@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
   password TEXT,
-  role TEXT NOT NULL CHECK (role IN ('administrateur', 'responsable', 'caissier', 'magasinier')),
+  role TEXT NOT NULL CHECK (role IN ('developpeur', 'administrateur', 'responsable', 'caissier', 'magasinier')),
   active BOOLEAN DEFAULT true,
   phone TEXT,
   "discountLimitPercent" NUMERIC DEFAULT 0,
@@ -63,6 +63,14 @@ CREATE TABLE IF NOT EXISTS public.users (
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "discountLimitPercent" NUMERIC DEFAULT 0;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "assignedSalesPointId" TEXT;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "lastLogin" TIMESTAMPTZ;
+
+DO $$
+BEGIN
+  ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_role_check;
+  ALTER TABLE public.users ADD CONSTRAINT users_role_check CHECK (role IN ('developpeur', 'administrateur', 'responsable', 'caissier', 'magasinier'));
+EXCEPTION
+  WHEN OTHERS THEN NULL;
+END $$;
 
 -- 3. Table des Fournisseurs
 CREATE TABLE IF NOT EXISTS public.suppliers (

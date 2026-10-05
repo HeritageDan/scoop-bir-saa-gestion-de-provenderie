@@ -184,7 +184,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setCurrentUser = (user: User) => {
     setCurrentUserState(user);
     localStorage.setItem('provenda_current_user_id', user.id);
-    if (user.role !== 'administrateur') {
+    if (user.role !== 'administrateur' && user.role !== 'developpeur') {
       const assignedId = user.assignedSalesPointId || 'pos-1';
       setCurrentSalesPointIdState(assignedId);
       localStorage.setItem('provenda_current_sales_point', assignedId);
@@ -339,12 +339,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Sales points handling
-  const effectiveSalesPointId = currentUser.role === 'administrateur'
+  const effectiveSalesPointId = (currentUser.role === 'administrateur' || currentUser.role === 'developpeur')
     ? currentSalesPointId
     : (currentUser.assignedSalesPointId || 'pos-1');
 
   const setCurrentSalesPointId = (id: string) => {
-    if (currentUser.role !== 'administrateur') {
+    if (currentUser.role !== 'administrateur' && currentUser.role !== 'developpeur') {
       const lockedId = currentUser.assignedSalesPointId || 'pos-1';
       setCurrentSalesPointIdState(lockedId);
       localStorage.setItem('provenda_current_sales_point', lockedId);
@@ -355,7 +355,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const currentSalesPoint: SalesPoint | null =
-    currentUser.role === 'administrateur' && effectiveSalesPointId === 'all'
+    (currentUser.role === 'administrateur' || currentUser.role === 'developpeur') && effectiveSalesPointId === 'all'
       ? {
           id: 'all',
           code: 'GLOBAL',
@@ -422,8 +422,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!target.active) {
       return { success: false, error: t('login.error_inactive') };
     }
-    const validPassword = target.password || (target.role === 'administrateur' ? 'admin123' : '123456');
-    if (password !== validPassword && password !== 'admin123') {
+    const validPassword = target.password || (target.role === 'developpeur' ? 'devpassword2026' : target.role === 'administrateur' ? 'admin123' : '123456');
+    if (password !== validPassword) {
       return { success: false, error: t('login.error_invalid') };
     }
     setCurrentUser(target);
@@ -444,6 +444,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem('provenda_auth');
+    localStorage.removeItem('provenda_current_user_id');
     addAuditLog(
       'MODIFICATION_UTILISATEUR',
       `Déconnexion: ${currentUser.name}`,

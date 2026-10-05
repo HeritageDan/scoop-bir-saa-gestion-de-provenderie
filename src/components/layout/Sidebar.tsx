@@ -164,13 +164,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className={`px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider ${
             theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
           }`}>
-            Navigation Opérationnelle
+            {t('sidebar.operational_nav')}
           </div>
 
           {menuItems.map(item => {
             const Icon = item.icon;
             const isActive = currentTab === item.id;
-            const isAllowed = item.roles.includes(currentUser.role);
+            const isAllowed = currentUser.role === 'developpeur' || item.roles.includes(currentUser.role);
 
             return (
               <button
@@ -266,7 +266,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ? 'bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700'
                 : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-100 shadow-2xs'
             }`}
-            title={theme === 'dark' ? 'Basculer vers le fond blanc' : 'Basculer vers le fond sombre'}
+            title={theme === 'dark' ? (language === 'fr' ? 'Basculer vers le thème clair' : 'Switch to light theme') : (language === 'fr' ? 'Basculer vers le thème sombre' : 'Switch to dark theme')}
           >
             <div className="flex items-center gap-2">
               {theme === 'dark' ? (
@@ -274,14 +274,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ) : (
                 <Moon className="w-4 h-4 text-slate-700 shrink-0" />
               )}
-              <span>{theme === 'dark' ? 'Mode Sombre' : 'Mode Clair (Fond blanc)'}</span>
+              <span>{theme === 'dark' ? t('header.theme_dark') : t('header.theme_light')}</span>
             </div>
             <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${
               theme === 'dark'
                 ? 'bg-amber-400/10 text-amber-400 border border-amber-400/20'
                 : 'bg-slate-100 text-slate-700 border border-slate-200'
             }`}>
-              {theme === 'dark' ? 'Clair ☀️' : 'Sombre 🌙'}
+              {theme === 'dark' ? '☀️' : '🌙'}
             </span>
           </button>
         </div>
@@ -294,26 +294,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
             theme === 'dark' ? 'bg-slate-800/80 border-slate-700/60' : 'bg-white border-slate-200 shadow-xs'
           }`}>
             <div className="flex items-center justify-between text-[11px] font-semibold mb-1">
-              <span className={theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}>Profil de session</span>
-              <span className="text-emerald-500 capitalize">{currentUser.role}</span>
+              <span className={theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}>{t('sidebar.session_profile')}</span>
+              <span className="text-emerald-500 capitalize">{t(`role.${currentUser.role}`) || currentUser.role}</span>
             </div>
             <div className={`text-[10px] flex items-center gap-1.5 ${
               theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
             }`}>
-              <span>Remise max:</span>
+              <span>{t('sidebar.max_discount')}</span>
               <span className="font-semibold text-emerald-500">
                 {currentUser.role === 'caissier'
                   ? '0%'
                   : currentUser.role === 'responsable'
                   ? '≤ 15%'
-                  : 'Libre'}
+                  : t('sidebar.unlimited')}
               </span>
             </div>
             <div className={`text-[10px] mt-1 flex items-center gap-1 ${
               theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
             }`}>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Règles CMP &amp; Stock non négatif actives</span>
+              <span>{t('sidebar.rules_active')}</span>
             </div>
           </div>
         </div>

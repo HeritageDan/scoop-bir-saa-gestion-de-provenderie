@@ -256,10 +256,10 @@ export const SettingsManager: React.FC = () => {
             theme === 'dark' ? 'text-white' : 'text-slate-900'
           }`}>
             <Settings className="w-6 h-6 text-emerald-500" />
-            <span>Paramètres Système & Contrôles d'Accès</span>
+            <span>{t('settings.title')}</span>
           </h1>
           <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-            Mentions légales, plafonds de remises, habilitations de profil et sauvegarde de l'activité.
+            {t('settings.subtitle')}
           </p>
         </div>
       </div>
@@ -277,7 +277,7 @@ export const SettingsManager: React.FC = () => {
           }`}
         >
           <Building className="w-4 h-4" />
-          <span>Fiche Provenderie & Documents</span>
+          <span>{t('settings.tab_company')}</span>
         </button>
 
         <button
@@ -291,7 +291,7 @@ export const SettingsManager: React.FC = () => {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Utilisateurs & Rôles ({users.length})</span>
+          <span>{t('settings.tab_users')} ({users.length})</span>
         </button>
 
         <button
@@ -305,22 +305,27 @@ export const SettingsManager: React.FC = () => {
           }`}
         >
           <Percent className="w-4 h-4" />
-          <span>Plafonds & Remises Contrôlées</span>
+          <span>{t('settings.tab_security')}</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('database')}
-          className={`py-2 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-            activeTab === 'database'
-              ? 'border-emerald-500 text-emerald-500'
-              : theme === 'dark'
-              ? 'border-transparent text-slate-400 hover:text-white'
-              : 'border-transparent text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          <Database className="w-4 h-4" />
-          <span>Sauvegarde & Restauration</span>
-        </button>
+        {currentUser.role === 'developpeur' && (
+          <button
+            onClick={() => setActiveTab('database')}
+            className={`py-2 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+              activeTab === 'database'
+                ? 'border-emerald-500 text-emerald-500'
+                : theme === 'dark'
+                ? 'border-transparent text-slate-400 hover:text-white'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Database className="w-4 h-4" />
+            <span>{t('settings.tab_database')}</span>
+            <span className="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1 py-0.2 rounded uppercase font-mono">
+              Dev
+            </span>
+          </button>
+        )}
       </div>
 
       {/* TAB 1: COMPANY SETTINGS */}
@@ -332,20 +337,20 @@ export const SettingsManager: React.FC = () => {
           }`}
         >
           <h2 className={`text-sm font-bold mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-            Identité Fiscale & Coordonnées
+            {t('settings.company_title')}
           </h2>
 
           {saveSuccess && (
             <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300 rounded-xl text-xs flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>Paramètres enregistrés avec succès !</span>
+              <span>{t('settings.save_success')}</span>
             </div>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
               <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
-                Nom de la Provenderie :
+                {t('settings.company_name')}
               </label>
               <input
                 type="text"
@@ -362,7 +367,7 @@ export const SettingsManager: React.FC = () => {
 
             <div>
               <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
-                Forme Juridique :
+                {t('settings.legal_status')}
               </label>
               <input
                 type="text"
@@ -379,7 +384,7 @@ export const SettingsManager: React.FC = () => {
 
             <div>
               <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
-                Téléphone Principal :
+                {t('settings.phone')}
               </label>
               <input
                 type="text"
@@ -396,7 +401,7 @@ export const SettingsManager: React.FC = () => {
 
             <div>
               <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
-                Téléphone Secondaire :
+                {language === 'fr' ? 'Téléphone Secondaire :' : 'Secondary Phone:'}
               </label>
               <input
                 type="text"
@@ -412,7 +417,7 @@ export const SettingsManager: React.FC = () => {
 
             <div>
               <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
-                Email Professionnel :
+                {t('settings.email')}
               </label>
               <input
                 type="email"
@@ -429,7 +434,7 @@ export const SettingsManager: React.FC = () => {
 
             <div>
               <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
-                Adresse & Ville :
+                {t('settings.address')}
               </label>
               <input
                 type="text"
@@ -446,7 +451,7 @@ export const SettingsManager: React.FC = () => {
 
             <div>
               <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
-                Numéro NIF :
+                {t('settings.tax_id')}
               </label>
               <input
                 type="text"
@@ -463,7 +468,7 @@ export const SettingsManager: React.FC = () => {
 
             <div>
               <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
-                Registre de Commerce (RCCM) :
+                {t('settings.trade_register')}
               </label>
               <input
                 type="text"
@@ -485,12 +490,12 @@ export const SettingsManager: React.FC = () => {
             theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
           }`}>
             <h3 className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-              Mentions Légales sur les Pièces Imprimées
+              {language === 'fr' ? 'Mentions Légales sur les Pièces Imprimées' : 'Legal Notices on Printed Documents'}
             </h3>
 
             <div>
               <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
-                Pied de page des Factures Officielles (A4) :
+                {t('settings.invoice_footer')}
               </label>
               <textarea
                 rows={2}
@@ -508,7 +513,7 @@ export const SettingsManager: React.FC = () => {
 
             <div>
               <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
-                Pied de page des Tickets de Caisse (Thermique 80mm) :
+                {t('settings.ticket_footer')}
               </label>
               <input
                 type="text"
@@ -530,7 +535,7 @@ export const SettingsManager: React.FC = () => {
               type="submit"
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg text-xs shadow-sm cursor-pointer transition"
             >
-              Enregistrer les Mentions
+              {t('settings.save_company')}
             </button>
           </div>
         </form>
@@ -543,7 +548,7 @@ export const SettingsManager: React.FC = () => {
             theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
           }`}>
             <h2 className={`text-sm font-bold mb-3 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-              Session Active Actuelle
+              {t('settings.users_active_title')}
             </h2>
             <div className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border gap-3 ${
               theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
@@ -557,19 +562,19 @@ export const SettingsManager: React.FC = () => {
                     {currentUser.name}
                   </div>
                   <div className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                    Rôle actif :{' '}
+                    {t('settings.users_active_role')}{' '}
                     <span className="font-bold uppercase text-emerald-600 dark:text-emerald-400">
-                      {currentUser.role}
+                      {t(`role.${currentUser.role}`) || currentUser.role}
                     </span>
                   </div>
                 </div>
               </div>
 
               <div className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                Plafond remise accordé :{' '}
+                {t('settings.users_discount_cap')}{' '}
                 <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                  {currentUser.role === 'administrateur'
-                    ? '100% (Illimité)'
+                  {currentUser.role === 'administrateur' || currentUser.role === 'developpeur'
+                    ? t('settings.users_unlimited')
                     : `${currentUser.discountLimitPercent}%`}
                 </span>
               </div>
@@ -579,14 +584,14 @@ export const SettingsManager: React.FC = () => {
           <div className={`border rounded-xl overflow-hidden shadow-xs ${
             theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
           }`}>
-            <div className={`p-4 border-b flex justify-between items-center ${
+            <div className={`p-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
               theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
             }`}>
               <h2 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                Comptes Utilisateurs Enregistrés
+                {t('settings.users_list_title')}
               </h2>
               <span className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                Cliquez pour permuter instantanément d'opérateur
+                {t('settings.users_readonly_notice')}
               </span>
             </div>
 
@@ -613,37 +618,38 @@ export const SettingsManager: React.FC = () => {
                               ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                               : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                           }`}>
-                            Connecté
+                            {t('settings.users_connected')}
                           </span>
                         )}
                       </div>
                       <div className={`text-[11px] mt-0.5 ${
                         theme === 'dark' ? 'text-slate-400' : 'text-slate-600'
                       }`}>
-                        Identifiant : {u.email} · Rôle :{' '}
+                        {language === 'fr' ? 'Identifiant' : 'Email'} : {u.email} &middot; {language === 'fr' ? 'Rôle' : 'Role'} :{' '}
                         <span className={`font-semibold uppercase ${
                           theme === 'dark' ? 'text-slate-200' : 'text-slate-800'
                         }`}>
-                          {u.role}
+                          {t(`role.${u.role}`) || u.role}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3">
                       <span className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                        Remise max : <strong className={theme === 'dark' ? 'text-white' : 'text-slate-900'}>{u.discountLimitPercent}%</strong>
+                        {t('sidebar.max_discount')} <strong className={theme === 'dark' ? 'text-white' : 'text-slate-900'}>{u.role === 'administrateur' || u.role === 'developpeur' ? t('settings.users_unlimited') : `${u.discountLimitPercent}%`}</strong>
                       </span>
-                      {!isCurrent && (
-                        <button
-                          onClick={() => setCurrentUser(u)}
-                          className={`px-3 py-1 rounded-lg text-xs font-semibold border transition cursor-pointer ${
-                            theme === 'dark'
-                              ? 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border-slate-700'
-                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 shadow-2xs'
-                          }`}
-                        >
-                          Passer sur ce compte
-                        </button>
+                      {isCurrent ? (
+                        <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                          {t('settings.users_connected')}
+                        </span>
+                      ) : (
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-medium border ${
+                          u.active
+                            ? 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                            : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                        }`}>
+                          {u.active ? (language === 'fr' ? 'Actif' : 'Active') : (language === 'fr' ? 'Inactif' : 'Inactive')}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -663,11 +669,10 @@ export const SettingsManager: React.FC = () => {
           }`}
         >
           <h2 className={`text-sm font-bold mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-            Plafonds de Remises Contrôlées par Rôle (Section 9.1 & 18)
+            {t('settings.security_title')}
           </h2>
           <p className={`leading-relaxed ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-            Pour protéger la rentabilité de la provenderie et éviter les dérives de caisse, les
-            remises sont strictement bornées selon l'habilitation hiérarchique de l'opérateur.
+            {t('settings.security_subtitle')}
           </p>
 
           <div className="space-y-3 pt-2">
@@ -676,10 +681,12 @@ export const SettingsManager: React.FC = () => {
             }`}>
               <div>
                 <div className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                  Profil Caissier :
+                  {t('role.caissier')} :
                 </div>
                 <div className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                  Par défaut fixé à 0% (Aucune remise sans accord de la hiérarchie).
+                  {language === 'fr'
+                    ? 'Par défaut fixé à 0% (Aucune remise sans accord de la hiérarchie).'
+                    : 'Default set to 0% (No discount permitted without manager authorization).'}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -709,10 +716,12 @@ export const SettingsManager: React.FC = () => {
             }`}>
               <div>
                 <div className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                  Profil Responsable :
+                  {t('role.responsable')} :
                 </div>
                 <div className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                  Plafond d'autorisation pour négociation commerciale directe (défaut : 15%).
+                  {language === 'fr'
+                    ? "Plafond d'autorisation pour négociation commerciale directe (défaut : 15%)."
+                    : 'Authorized ceiling for direct commercial negotiation (default: 15%).'}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -742,16 +751,29 @@ export const SettingsManager: React.FC = () => {
             }`}>
               <div>
                 <div className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                  Profil Administrateur :
+                  {t('role.administrateur')} :
                 </div>
                 <div className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                  Pouvoir discrétionnaire complet avec traçabilité obligatoire dans l'audit.
+                  {language === 'fr'
+                    ? "Pouvoir discrétionnaire complet avec traçabilité obligatoire dans l'audit."
+                    : 'Full discretionary authorization with mandatory audit trail logging.'}
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">100% (Illimité)</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">{t('settings.users_unlimited')}</span>
               </div>
             </div>
+          </div>
+
+          {/* CMP Strict Rule Box */}
+          <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 text-xs space-y-1">
+            <div className="font-bold flex items-center gap-2">
+              <Shield className="w-4 h-4 text-emerald-500" />
+              <span>{t('settings.security_cmp_title')}</span>
+            </div>
+            <p className="opacity-90 leading-relaxed text-[11px]">
+              {t('settings.security_cmp_desc')}
+            </p>
           </div>
 
           <div className="flex justify-end pt-3">
@@ -759,14 +781,28 @@ export const SettingsManager: React.FC = () => {
               type="submit"
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg text-xs shadow-sm cursor-pointer transition"
             >
-              Enregistrer les Plafonds
+              {language === 'fr' ? 'Enregistrer les Plafonds' : 'Save Discount Caps'}
             </button>
           </div>
         </form>
       )}
 
       {/* TAB 4: DATABASE & CLOUD SUPABASE */}
-      {activeTab === 'database' && (
+      {activeTab === 'database' && currentUser.role !== 'developpeur' && (
+        <div className="p-8 rounded-2xl border border-rose-500/30 bg-rose-500/10 text-rose-400 text-center space-y-3">
+          <Shield className="w-10 h-10 mx-auto text-rose-500" />
+          <h2 className="text-base font-bold">
+            {language === 'fr' ? 'Accès Strictement Réservé au Développeur' : 'Access Strictly Restricted to Developer'}
+          </h2>
+          <p className="text-xs max-w-lg mx-auto opacity-90 leading-relaxed">
+            {language === 'fr'
+              ? "Le module de sauvegarde, de restauration et de gestion directe de la base de données Supabase est sous la responsabilité exclusive du développeur système afin de prévenir toute altération ou écrasement accidentel des données."
+              : "The backup, restoration, and direct Supabase database management module is under the exclusive authority of the system developer to prevent accidental data corruption or loss."}
+          </p>
+        </div>
+      )}
+
+      {activeTab === 'database' && currentUser.role === 'developpeur' && (
         <div className="space-y-6 text-xs">
           {/* SUPABASE CLOUD DATABASE CARD */}
           <div className={`border rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs transition-colors ${
@@ -779,11 +815,11 @@ export const SettingsManager: React.FC = () => {
                     <Cloud className="w-4 h-4" />
                   </div>
                   <h2 className={`text-base font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                    Base de Données Cloud (Supabase PostgreSQL)
+                    {t('settings.supabase_title')}
                   </h2>
                 </div>
                 <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                  Connectez votre application déployée sur Vercel à une base de données cloud temps réel pour synchroniser plusieurs appareils (PC, tablettes, smartphones).
+                  {t('settings.supabase_desc')}
                 </p>
               </div>
 
@@ -792,13 +828,13 @@ export const SettingsManager: React.FC = () => {
                 {supabaseConfig.isConfigured ? (
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-xs">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Connecté à Supabase</span>
+                    <span>{t('settings.supabase_status_connected')}</span>
                     <span className="text-[10px] opacity-75 font-mono">({supabaseConfig.source === 'env' ? 'Vercel Env' : 'Local'})</span>
                   </div>
                 ) : (
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/20">
                     <CloudOff className="w-3.5 h-3.5" />
-                    <span>Mode Local (LocalStorage)</span>
+                    <span>{t('settings.supabase_status_local')}</span>
                   </div>
                 )}
               </div>
@@ -809,7 +845,7 @@ export const SettingsManager: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className={`block font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
-                    URL du Projet Supabase (Project URL) :
+                    {t('settings.supabase_url_label')}
                   </label>
                   <input
                     type="url"
@@ -823,13 +859,15 @@ export const SettingsManager: React.FC = () => {
                     }`}
                   />
                   <span className={`text-[11px] block ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Trouvable sous <i>Project Settings &gt; API &gt; Project URL</i> (ex: <code className="text-emerald-500">https://xyz.supabase.co</code> - <b>ne pas ajouter /rest/v1</b>)
+                    {language === 'fr'
+                      ? <span>Trouvable sous <i>Project Settings &gt; API &gt; Project URL</i> (ex: <code className="text-emerald-500">https://xyz.supabase.co</code> - <b>ne pas ajouter /rest/v1</b>)</span>
+                      : <span>Found under <i>Project Settings &gt; API &gt; Project URL</i> (e.g. <code className="text-emerald-500">https://xyz.supabase.co</code> - <b>do not append /rest/v1</b>)</span>}
                   </span>
                 </div>
 
                 <div className="space-y-1.5">
                   <label className={`block font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
-                    Clé Publique Anon (Project API anon key) :
+                    {t('settings.supabase_key_label')}
                   </label>
                   <input
                     type="password"
@@ -843,7 +881,7 @@ export const SettingsManager: React.FC = () => {
                     }`}
                   />
                   <span className={`text-[11px] block ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500'}`}>
-                    Trouvable dans Supabase sous <i>Project Settings &gt; API &gt; anon / public</i>
+                    {language === 'fr' ? 'Trouvable dans Supabase sous Project Settings > API > anon / public' : 'Found in Supabase under Project Settings > API > anon / public'}
                   </span>
 
                   {/* Instant Key Inspection Feedback */}
@@ -899,7 +937,7 @@ export const SettingsManager: React.FC = () => {
                   }`}
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${testStatus.loading ? 'animate-spin' : ''}`} />
-                  <span>{testStatus.loading ? 'Test en cours...' : 'Tester la connexion & tables'}</span>
+                  <span>{testStatus.loading ? (language === 'fr' ? 'Test en cours...' : 'Testing...') : t('settings.supabase_test_btn')}</span>
                 </button>
 
                 <button
@@ -907,7 +945,7 @@ export const SettingsManager: React.FC = () => {
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer transition"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  <span>Enregistrer la Configuration</span>
+                  <span>{t('settings.supabase_save_btn')}</span>
                 </button>
 
                 {supabaseConfig.source === 'localStorage' && getVercelEnvConfig().isAvailable && (
@@ -915,9 +953,9 @@ export const SettingsManager: React.FC = () => {
                     type="button"
                     onClick={handleResetToVercelEnv}
                     className="px-3.5 py-2 rounded-xl font-semibold border border-slate-500/30 text-slate-600 dark:text-slate-300 hover:bg-slate-500/10 transition cursor-pointer"
-                    title="Effacer la configuration personnalisée et réactiver les variables d'environnement Vercel"
+                    title={language === 'fr' ? "Effacer la configuration personnalisée et réactiver les variables d'environnement Vercel" : "Clear custom configuration and reactivate Vercel environment variables"}
                   >
-                    Utiliser variables Vercel
+                    {language === 'fr' ? 'Utiliser variables Vercel' : 'Use Vercel env'}
                   </button>
                 )}
 
@@ -927,7 +965,7 @@ export const SettingsManager: React.FC = () => {
                     onClick={handleDisconnectSupabase}
                     className="px-3.5 py-2 rounded-xl font-semibold border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition cursor-pointer"
                   >
-                    Déconnecter / Revenir au Local
+                    {t('settings.supabase_disconnect_btn')}
                   </button>
                 )}
 
@@ -941,10 +979,10 @@ export const SettingsManager: React.FC = () => {
                         ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
                         : 'bg-white hover:bg-slate-50 border-slate-300 text-slate-700'
                   }`}
-                  title="Copier le script SQL complet avec les droits d'accès"
+                  title={language === 'fr' ? "Copier le script SQL complet avec les droits d'accès" : "Copy full SQL script with access rights"}
                 >
                   {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedSql ? 'Script SQL Copié !' : 'Copier supabase-schema.sql'}</span>
+                  <span>{copiedSql ? t('settings.supabase_copied_sql_btn') : t('settings.supabase_copy_sql_btn')}</span>
                 </button>
               </div>
             </form>
@@ -956,10 +994,10 @@ export const SettingsManager: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                    Synchronisation des Données
+                    {language === 'fr' ? 'Synchronisation des Données Cloud' : 'Cloud Data Synchronization'}
                   </h3>
                   <p className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Transférez vos données locales vers le cloud pour la première initialisation, ou téléchargez les données du cloud.
+                    {t('settings.supabase_push_desc')}
                   </p>
                 </div>
               </div>
@@ -968,10 +1006,24 @@ export const SettingsManager: React.FC = () => {
               <div className={`p-2.5 rounded-lg border text-[11px] space-y-1 ${
                 theme === 'dark' ? 'bg-slate-900/80 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-600'
               }`}>
-                <div className="font-semibold text-emerald-500">Procédure d'initialisation en 3 étapes :</div>
-                <div>1. Cliquez sur <span className="font-mono bg-black/10 dark:bg-black/30 px-1 py-0.5 rounded">Copier supabase-schema.sql</span>, ouvrez <b>Supabase &gt; SQL Editor &gt; New Query</b>, collez et cliquez sur <b>Run</b>.</div>
-                <div>2. Cliquez sur <span className="font-semibold">« Tester la connexion & tables »</span> pour vérifier que <i>sales_points</i> est accessible.</div>
-                <div>3. Cliquez sur le bouton vert <span className="font-semibold text-emerald-600 dark:text-emerald-400">« Envoyer les Données Locales vers Supabase (Push) »</span>.</div>
+                <div className="font-semibold text-emerald-500">
+                  {language === 'fr' ? "Procédure d'initialisation en 3 étapes :" : "3-step initialization procedure:"}
+                </div>
+                <div>
+                  {language === 'fr'
+                    ? "1. Cliquez sur « Copier le Script SQL », ouvrez Supabase > SQL Editor > New Query, collez et cliquez sur Run."
+                    : "1. Click \"Copy SQL Script\", open Supabase > SQL Editor > New Query, paste and click Run."}
+                </div>
+                <div>
+                  {language === 'fr'
+                    ? "2. Cliquez sur « Tester la Connexion » pour vérifier que la base est prête."
+                    : "2. Click \"Test Connection\" to verify the database is ready."}
+                </div>
+                <div>
+                  {language === 'fr'
+                    ? "3. Cliquez sur « Envoyer les Données Locales vers Supabase (Push) »."
+                    : "3. Click \"Push Local Data to Supabase\"."}
+                </div>
               </div>
 
               {syncPushStatus.message && (
@@ -1014,10 +1066,10 @@ export const SettingsManager: React.FC = () => {
                   onClick={handlePushToSupabase}
                   disabled={syncPushStatus.loading || !supabaseConfig.isConfigured}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl shadow-xs flex items-center gap-2 cursor-pointer transition disabled:opacity-50"
-                  title="Envoyer les articles, factures et clients locaux vers Supabase"
+                  title={language === 'fr' ? "Envoyer les articles, factures et clients locaux vers Supabase" : "Send local articles, invoices and customers to Supabase"}
                 >
                   <Upload className="w-4 h-4" />
-                  <span>{syncPushStatus.loading ? 'Envoi en cours...' : 'Envoyer les Données Locales vers Supabase (Push)'}</span>
+                  <span>{syncPushStatus.loading ? (language === 'fr' ? 'Envoi en cours...' : 'Sending...') : t('settings.supabase_push_btn')}</span>
                 </button>
 
                 <button
@@ -1029,14 +1081,15 @@ export const SettingsManager: React.FC = () => {
                       ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
                       : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700 shadow-xs'
                   }`}
-                  title="Télécharger les dernières données depuis Supabase pour mettre à jour l'application"
+                  title={language === 'fr' ? "Télécharger les dernières données depuis Supabase pour mettre à jour l'application" : "Download latest data from Supabase to update application"}
                 >
                   <Download className="w-4 h-4" />
-                  <span>{syncPullStatus.loading ? 'Téléchargement...' : 'Récupérer les Données depuis Supabase (Pull)'}</span>
+                  <span>{syncPullStatus.loading ? (language === 'fr' ? 'Téléchargement...' : 'Downloading...') : t('settings.supabase_pull_btn')}</span>
                 </button>
               </div>
             </div>
           </div>
+
           {/* Export card */}
           <div className={`border rounded-xl p-5 space-y-3 shadow-xs ${
             theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
@@ -1045,18 +1098,17 @@ export const SettingsManager: React.FC = () => {
               theme === 'dark' ? 'text-white' : 'text-slate-900'
             }`}>
               <Download className="w-4 h-4 text-emerald-500" />
-              <span>Sauvegarde Totale des Données (Export JSON)</span>
+              <span>{t('settings.backup_title')}</span>
             </h2>
             <p className={theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}>
-              Téléchargez un instantané complet et structuré de l'application : produits, stocks au
-              CMP, clients, fournisseurs, factures, avoirs, mouvements et pistes d'audit.
+              {t('settings.backup_desc')}
             </p>
             <button
               onClick={handleDownloadBackup}
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 cursor-pointer transition"
             >
               <Download className="w-4 h-4" />
-              <span>Générer le Fichier de Sauvegarde</span>
+              <span>{t('settings.download_backup_btn')}</span>
             </button>
           </div>
 
@@ -1071,11 +1123,10 @@ export const SettingsManager: React.FC = () => {
               theme === 'dark' ? 'text-white' : 'text-slate-900'
             }`}>
               <Upload className="w-4 h-4 text-emerald-500" />
-              <span>Restauration de la Base de Données</span>
+              <span>{t('settings.restore_title')}</span>
             </h2>
             <p className={theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}>
-              Collez ci-dessous le contenu d'un fichier de sauvegarde pour réinjecter l'ensemble des
-              données de la provenderie.
+              {t('settings.restore_desc')}
             </p>
 
             {restoreError && (
@@ -1093,7 +1144,7 @@ export const SettingsManager: React.FC = () => {
               rows={4}
               value={backupJson}
               onChange={e => setBackupJson(e.target.value)}
-              placeholder="Collez ici le JSON de sauvegarde..."
+              placeholder={t('settings.restore_placeholder')}
               className={`w-full rounded-lg p-2.5 font-mono text-[11px] border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                 theme === 'dark'
                   ? 'bg-slate-950 border-slate-700 text-white'
@@ -1106,7 +1157,7 @@ export const SettingsManager: React.FC = () => {
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 cursor-pointer transition"
             >
               <Upload className="w-4 h-4" />
-              <span>Restaurer les Données</span>
+              <span>{t('settings.restore_btn')}</span>
             </button>
           </form>
 
@@ -1118,17 +1169,16 @@ export const SettingsManager: React.FC = () => {
           }`}>
             <h2 className="text-sm font-bold text-rose-600 dark:text-rose-200 flex items-center gap-2">
               <RotateCcw className="w-4 h-4 text-rose-500" />
-              <span>Réinitialisation Usine des Données de Test</span>
+              <span>{t('settings.reset_title')}</span>
             </h2>
             <p className="text-rose-700/80 dark:text-rose-300">
-              Réinitialise le stockage local avec les matières premières, formules d'aliments et
-              historique d'exemple certifiés.
+              {t('settings.reset_desc')}
             </p>
             <button
               onClick={handleResetData}
               className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2 rounded-lg shadow-sm cursor-pointer transition"
             >
-              Réinitialiser la Base
+              {t('settings.reset_btn')}
             </button>
           </div>
         </div>

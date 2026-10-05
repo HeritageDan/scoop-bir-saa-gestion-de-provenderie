@@ -18,8 +18,8 @@ import { useApp } from '../../context/AppContext';
 export const LoginPage: React.FC = () => {
   const { login, theme, toggleTheme, language, setLanguage, t, users } = useApp();
 
-  const [email, setEmail] = useState('amadou.diallo@provenda.net');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,13 +36,6 @@ export const LoginPage: React.FC = () => {
         setIsSubmitting(false);
       }
     }, 250);
-  };
-
-  const handleQuickLogin = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setError(null);
-    login(demoEmail, demoPass);
   };
 
   return (
@@ -195,63 +188,21 @@ export const LoginPage: React.FC = () => {
               </button>
             </form>
 
-            {/* Quick-Access Demo Accounts */}
-            <div className="mt-6 pt-5 border-t border-slate-800/60 dark:border-slate-800">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  {t('login.quick_test')}
+            {/* Professional Authentication Notice */}
+            <div className={`mt-6 pt-5 border-t text-xs ${
+              theme === 'dark' ? 'border-slate-800 text-slate-400' : 'border-slate-200 text-slate-500'
+            }`}>
+              <div className="flex items-center gap-2 mb-2 font-medium">
+                <Shield className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span className={theme === 'dark' ? 'text-slate-300' : 'text-slate-700 font-semibold'}>
+                  {language === 'fr' ? 'Accès Professionnel Sécurisé' : 'Secure Professional Access'}
                 </span>
-                <span className="text-[10px] text-emerald-400 font-mono">1-Clic</span>
               </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  {
-                    name: 'Amadou (Admin)',
-                    role: 'administrateur',
-                    email: 'amadou.diallo@provenda.net',
-                    pass: 'admin123',
-                    badge: 'Full / Admin',
-                  },
-                  {
-                    name: 'Béatrice (Resp)',
-                    role: 'responsable',
-                    email: 'beatrice.ngoue@provenda.net',
-                    pass: 'resp123',
-                    badge: 'Remise ≤ 15%',
-                  },
-                  {
-                    name: 'Patrick (Caisse)',
-                    role: 'caissier',
-                    email: 'patrick.kamga@provenda.net',
-                    pass: 'caisse123',
-                    badge: 'Caisse POS',
-                  },
-                  {
-                    name: 'Samuel (Stock)',
-                    role: 'magasinier',
-                    email: 'samuel.tientcheu@provenda.net',
-                    pass: 'mag123',
-                    badge: 'Stock & CMP',
-                  },
-                ].map(demo => (
-                  <button
-                    key={demo.role}
-                    type="button"
-                    onClick={() => handleQuickLogin(demo.email, demo.pass)}
-                    className={`p-2.5 text-left rounded-xl border transition text-xs flex flex-col justify-between ${
-                      theme === 'dark'
-                        ? 'bg-slate-800/50 hover:bg-slate-800 border-slate-700/80 text-slate-200'
-                        : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800'
-                    }`}
-                  >
-                    <div className="font-semibold truncate">{demo.name}</div>
-                    <div className="text-[10px] text-emerald-500 font-medium mt-1">
-                      {demo.badge}
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <p className="leading-relaxed text-[11px]">
+                {language === 'fr'
+                  ? "Veuillez saisir les identifiants qui vous ont été communiqués par l'administrateur de votre établissement pour ouvrir votre session de travail."
+                  : "Please enter the credentials provided to you by your system administrator to start your work session."}
+              </p>
             </div>
           </div>
 

@@ -72,12 +72,12 @@ export const UserManager: React.FC = () => {
   });
   const [spFormError, setSpFormError] = useState('');
 
-  const isAdmin = currentUser.role === 'administrateur';
+  const isAdmin = currentUser.role === 'administrateur' || currentUser.role === 'developpeur';
 
   // Role preset discount limits helper
   const handleRoleChange = (selectedRole: Role) => {
     let limit = 0;
-    if (selectedRole === 'administrateur') limit = 100;
+    if (selectedRole === 'developpeur' || selectedRole === 'administrateur') limit = 100;
     else if (selectedRole === 'responsable') limit = 15;
     else if (selectedRole === 'caissier') limit = 0;
     else if (selectedRole === 'magasinier') limit = 0;
@@ -141,6 +141,14 @@ export const UserManager: React.FC = () => {
     }
     if (!userFormData.email.trim()) {
       setUserFormError("L'adresse email est obligatoire.");
+      return;
+    }
+    if (userFormData.role === 'developpeur' && currentUser.role !== 'developpeur') {
+      setUserFormError(
+        language === 'fr'
+          ? "Seul un Développeur peut assigner le rôle Développeur Système."
+          : "Only a Developer can assign the System Developer role."
+      );
       return;
     }
 
@@ -276,7 +284,7 @@ export const UserManager: React.FC = () => {
                 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
                 : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
             }`}>
-              {isAdmin ? 'Accès Administrateur' : 'Mode Consultation'}
+              {isAdmin ? (language === 'fr' ? 'Accès Administrateur' : 'Administrator Access') : (language === 'fr' ? 'Mode Consultation' : 'Read-only Mode')}
             </span>
           </div>
           <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -313,11 +321,13 @@ export const UserManager: React.FC = () => {
         <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm flex items-start gap-3">
           <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
           <div>
-            <div className="font-bold">Privilège Restreint : Administrateur Requis</div>
+            <div className="font-bold">
+              {language === 'fr' ? "Privilège Restreint : Administrateur Requis" : "Restricted Privilege: Administrator Required"}
+            </div>
             <div className="text-xs opacity-90 mt-0.5">
               {language === 'fr'
-                ? "L'administrateur est le seul habilité à créer de nouveaux comptes utilisateurs et à leur attribuer des rôles. Utilisez le sélecteur de rôle en haut pour vous connecter en Administrateur."
-                : "The admin is the one that creates other users and assign them roles. Please use the profile switch in the header to authenticate as Administrator."}
+                ? "L'administrateur et le développeur sont les seuls habilités à créer des comptes utilisateurs et à leur attribuer des rôles. Veuillez vous déconnecter et vous authentifier avec les identifiants d'un compte Administrateur."
+                : "The Administrator and Developer are the only roles authorized to provision user accounts and assign roles. Please sign out and log in with Administrator credentials."}
             </div>
           </div>
         </div>
@@ -345,7 +355,7 @@ export const UserManager: React.FC = () => {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Comptes Utilisateurs &amp; Rôles ({users.length})</span>
+          <span>{language === 'fr' ? 'Comptes Utilisateurs & Rôles' : 'User Accounts & Roles'} ({users.length})</span>
         </button>
         <button
           onClick={() => setActiveSubTab('sales_points')}
@@ -397,7 +407,7 @@ export const UserManager: React.FC = () => {
                             </h3>
                             {isSelf && (
                               <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded font-bold">
-                                VOUS
+                                {language === 'fr' ? 'VOUS' : 'YOU'}
                               </span>
                             )}
                           </div>
@@ -477,26 +487,28 @@ export const UserManager: React.FC = () => {
 
                     {isAdmin && (
                       <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => handleOpenEditUser(u)}
-                          className={`p-1.5 rounded-lg border text-xs transition ${
-                            theme === 'dark'
-                              ? 'border-slate-700 text-slate-300 hover:bg-slate-800'
-                              : 'border-slate-200 text-slate-700 hover:bg-slate-100'
-                          }`}
-                          title="Modifier utilisateur et rôle"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        {!isSelf && (
+                        {(currentUser.role === 'developpeur' || u.role !== 'developpeur') && (
+                          <button
+                            onClick={() => handleOpenEditUser(u)}
+                            className={`p-1.5 rounded-lg border text-xs transition cursor-pointer ${
+                              theme === 'dark'
+                                ? 'border-slate-700 text-slate-300 hover:bg-slate-800'
+                                : 'border-slate-200 text-slate-700 hover:bg-slate-100'
+                            }`}
+                            title={language === 'fr' ? "Modifier l'utilisateur et son rôle" : "Edit user and role"}
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {!isSelf && (currentUser.role === 'developpeur' || u.role !== 'developpeur') && (
                           <button
                             onClick={() => {
-                              if (window.confirm(`Désactiver le compte de ${u.name} ?`)) {
+                              if (window.confirm(language === 'fr' ? `Désactiver le compte de ${u.name} ?` : `Deactivate account for ${u.name}?`)) {
                                 deactivateUser(u.id);
                               }
                             }}
-                            className="p-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:bg-rose-500/10 transition text-xs"
-                            title="Désactiver le compte"
+                            className="p-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:bg-rose-500/10 transition text-xs cursor-pointer"
+                            title={language === 'fr' ? "Désactiver le compte" : "Deactivate account"}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -737,10 +749,23 @@ export const UserManager: React.FC = () => {
                       : 'bg-slate-50 border-slate-200 text-slate-900'
                   }`}
                 >
-                  <option value="caissier">{t('role.caissier')} (Vente au comptoir, caisse, remise 0%)</option>
-                  <option value="magasinier">{t('role.magasinier')} (Stock, réceptions, inventaires)</option>
-                  <option value="responsable">{t('role.responsable')} (Supervision, remises ≤ 15%, écarts)</option>
-                  <option value="administrateur">{t('role.administrateur')} (Contrôle total, création comptes)</option>
+                  <option value="caissier">
+                    {t('role.caissier')} ({language === 'fr' ? 'Vente au comptoir, caisse, remise 0%' : 'POS, counter sales, checkout, 0% discount'})
+                  </option>
+                  <option value="magasinier">
+                    {t('role.magasinier')} ({language === 'fr' ? 'Stock, réceptions, inventaires' : 'Stock, goods reception, inventory'})
+                  </option>
+                  <option value="responsable">
+                    {t('role.responsable')} ({language === 'fr' ? 'Supervision, remises ≤ 15%, écarts' : 'Supervision, discounts ≤ 15%, variance'})
+                  </option>
+                  <option value="administrateur">
+                    {t('role.administrateur')} ({language === 'fr' ? 'Contrôle total, création comptes' : 'Full business control, user management'})
+                  </option>
+                  {currentUser.role === 'developpeur' && (
+                    <option value="developpeur">
+                      {t('role.developpeur')} ({language === 'fr' ? 'Superadmin système, Sauvegardes, Supabase' : 'System Superadmin, Backups, Supabase'})
+                    </option>
+                  )}
                 </select>
               </div>
 

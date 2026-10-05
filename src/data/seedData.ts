@@ -52,6 +52,18 @@ export const INITIAL_SALES_POINTS: SalesPoint[] = [
 
 export const INITIAL_USERS: User[] = [
   {
+    id: 'usr-dev',
+    name: 'Développeur Système',
+    email: 'dev@provenda.net',
+    password: 'devpassword2026',
+    role: 'developpeur',
+    active: true,
+    phone: '+237 600 00 00 00',
+    discountLimitPercent: 100,
+    assignedSalesPointId: 'pos-1',
+    lastLogin: '2026-10-05 18:00',
+  },
+  {
     id: 'usr-1',
     name: 'Amadou Diallo',
     email: 'amadou.diallo@provenda.net',
