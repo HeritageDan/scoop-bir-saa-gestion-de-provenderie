@@ -71,9 +71,9 @@ export const SettingsManager: React.FC = () => {
   const [supabaseConfig, setSupabaseConfig] = useState(getSupabaseConfig());
   const [supabaseUrlInput, setSupabaseUrlInput] = useState(supabaseConfig.url);
   const [supabaseKeyInput, setSupabaseKeyInput] = useState(supabaseConfig.anonKey);
-  const [testStatus, setTestStatus] = useState<{ loading: boolean; success?: boolean; message?: string }>({ loading: false });
-  const [syncPushStatus, setSyncPushStatus] = useState<{ loading: boolean; success?: boolean; message?: string; details?: any }>({ loading: false });
-  const [syncPullStatus, setSyncPullStatus] = useState<{ loading: boolean; success?: boolean; message?: string }>({ loading: false });
+  const [testStatus, setTestStatus] = useState<{ loading: boolean; success?: boolean; message?: string; error?: string; details?: any }>({ loading: false });
+  const [syncPushStatus, setSyncPushStatus] = useState<{ loading: boolean; success?: boolean; message?: string; error?: string; details?: any }>({ loading: false });
+  const [syncPullStatus, setSyncPullStatus] = useState<{ loading: boolean; success?: boolean; message?: string; error?: string }>({ loading: false });
   const [copiedSql, setCopiedSql] = useState(false);
   const [showSqlPreview, setShowSqlPreview] = useState(false);
 
@@ -157,7 +157,13 @@ export const SettingsManager: React.FC = () => {
   const handleTestSupabase = async () => {
     setTestStatus({ loading: true });
     const res = await testSupabaseConnection(supabaseUrlInput, supabaseKeyInput);
-    setTestStatus({ loading: false, success: res.success, message: res.message });
+    setTestStatus({
+      loading: false,
+      success: res.success,
+      message: res.message,
+      error: res.errorDetail,
+      details: res.tablesFound,
+    });
   };
 
   const handlePushToSupabase = async () => {
@@ -180,6 +186,7 @@ export const SettingsManager: React.FC = () => {
       loading: false,
       success: res.success,
       message: res.message,
+      error: res.error,
       details: res.details,
     });
   };
@@ -822,13 +829,20 @@ export const SettingsManager: React.FC = () => {
 
               {/* Status Message */}
               {testStatus.message && (
-                <div className={`p-3 rounded-xl border flex items-center gap-2.5 text-xs ${
+                <div className={`p-3 rounded-xl border text-xs space-y-1.5 ${
                   testStatus.success
                     ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
                     : 'bg-rose-500/10 border-rose-500/30 text-rose-500 dark:text-rose-400'
                 }`}>
-                  {testStatus.success ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
-                  <span>{testStatus.message}</span>
+                  <div className="flex items-center gap-2">
+                    {testStatus.success ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
+                    <span className="font-semibold">{testStatus.message}</span>
+                  </div>
+                  {testStatus.error && (
+                    <div className="mt-1 p-2 rounded bg-black/10 dark:bg-black/30 font-mono text-[11px] overflow-x-auto whitespace-pre-wrap select-all">
+                      {testStatus.error}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -845,7 +859,7 @@ export const SettingsManager: React.FC = () => {
                   }`}
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${testStatus.loading ? 'animate-spin' : ''}`} />
-                  <span>{testStatus.loading ? 'Test en cours...' : 'Tester la connexion'}</span>
+                  <span>{testStatus.loading ? 'Test en cours...' : 'Tester la connexion & tables'}</span>
                 </button>
 
                 <button
@@ -876,7 +890,7 @@ export const SettingsManager: React.FC = () => {
                         ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
                         : 'bg-white hover:bg-slate-50 border-slate-300 text-slate-700'
                   }`}
-                  title="Copier le script SQL pour initialiser Supabase"
+                  title="Copier le script SQL complet avec les droits d'accès"
                 >
                   {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedSql ? 'Script SQL Copié !' : 'Copier supabase-schema.sql'}</span>
@@ -899,14 +913,29 @@ export const SettingsManager: React.FC = () => {
                 </div>
               </div>
 
+              {/* Step by step reminder */}
+              <div className={`p-2.5 rounded-lg border text-[11px] space-y-1 ${
+                theme === 'dark' ? 'bg-slate-900/80 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-600'
+              }`}>
+                <div className="font-semibold text-emerald-500">Procédure d'initialisation en 3 étapes :</div>
+                <div>1. Cliquez sur <span className="font-mono bg-black/10 dark:bg-black/30 px-1 py-0.5 rounded">Copier supabase-schema.sql</span>, ouvrez <b>Supabase &gt; SQL Editor &gt; New Query</b>, collez et cliquez sur <b>Run</b>.</div>
+                <div>2. Cliquez sur <span className="font-semibold">« Tester la connexion & tables »</span> pour vérifier que <i>sales_points</i> est accessible.</div>
+                <div>3. Cliquez sur le bouton vert <span className="font-semibold text-emerald-600 dark:text-emerald-400">« Envoyer les Données Locales vers Supabase (Push) »</span>.</div>
+              </div>
+
               {syncPushStatus.message && (
-                <div className={`p-2.5 rounded-lg border text-xs ${
+                <div className={`p-3 rounded-lg border text-xs space-y-2 ${
                   syncPushStatus.success
                     ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
                     : 'bg-rose-500/10 border-rose-500/30 text-rose-500 dark:text-rose-400'
                 }`}>
-                  <div>{syncPushStatus.message}</div>
-                  {syncPushStatus.details && (
+                  <div className="font-semibold">{syncPushStatus.message}</div>
+                  {syncPushStatus.error && (
+                    <div className="p-2 rounded bg-black/20 font-mono text-[11px] overflow-x-auto whitespace-pre-wrap select-all">
+                      {syncPushStatus.error}
+                    </div>
+                  )}
+                  {syncPushStatus.details && Object.keys(syncPushStatus.details).length > 0 && (
                     <div className="mt-1 text-[11px] opacity-80 flex flex-wrap gap-2">
                       {Object.entries(syncPushStatus.details).map(([tbl, count]) => (
                         <span key={tbl} className="px-1.5 py-0.5 rounded bg-black/10 dark:bg-black/30 font-mono">

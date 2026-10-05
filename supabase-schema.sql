@@ -1,14 +1,17 @@
 -- ==============================================================================
--- PROVENDA ERP - SCHEMA SQL INITIAL POUR SUPABASE (POSTGRESQL)
+-- PROVENDA ERP - SCHEMA SQL INITIAL & COMPLET POUR SUPABASE (POSTGRESQL)
 -- ==============================================================================
--- Ce script crée l'ensemble des tables relationnelles nécessaires au fonctionnement
--- complet de Provenda sur Supabase avec Row Level Security (RLS) et réplication temps réel.
---
--- Instructions :
--- 1. Rendez-vous sur votre tableau de bord Supabase (https://supabase.com/dashboard)
--- 2. Allez dans le menu "SQL Editor" (icône terminal à gauche)
--- 3. Cliquez sur "New query"
--- 4. Collez l'intégralité de ce script et cliquez sur "Run" (Exécuter)
+-- Instructions d'exécution dans Supabase :
+-- 1. Rendez-vous sur votre tableau de bord : https://supabase.com/dashboard
+-- 2. Sélectionnez votre projet Provenda
+-- 3. Dans le menu vertical de gauche, cliquez sur "SQL Editor" (icône >_)
+-- 4. Cliquez sur "+ New query" en haut
+-- 5. IMPORTANT : Effacez tout contenu existant dans l'éditeur
+-- 6. Collez l'INTÉGRALITÉ de ce script ci-dessous
+-- 7. Assurez-vous qu'AUCUN texte n'est sélectionné/surligné
+-- 8. Cliquez sur le bouton vert "Run" (ou faites Ctrl + Entrée)
+-- Note : Le message "Success. No rows returned" confirme que toutes les tables
+-- ont été créées avec succès !
 -- ==============================================================================
 
 -- 1. Table des Points de Vente (Multi-magasins)
@@ -25,6 +28,12 @@ CREATE TABLE IF NOT EXISTS public.sales_points (
   active BOOLEAN DEFAULT true,
   "createdAt" TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE public.sales_points ADD COLUMN IF NOT EXISTS "managerName" TEXT;
+ALTER TABLE public.sales_points ADD COLUMN IF NOT EXISTS "isMain" BOOLEAN DEFAULT false;
+ALTER TABLE public.sales_points ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
+ALTER TABLE public.sales_points ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.sales_points ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE public.sales_points ADD COLUMN IF NOT EXISTS email TEXT;
 
 -- 2. Table des Utilisateurs & Rôles
 CREATE TABLE IF NOT EXISTS public.users (
@@ -39,6 +48,9 @@ CREATE TABLE IF NOT EXISTS public.users (
   "assignedSalesPointId" TEXT,
   "lastLogin" TIMESTAMPTZ
 );
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "discountLimitPercent" NUMERIC DEFAULT 0;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "assignedSalesPointId" TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "lastLogin" TIMESTAMPTZ;
 
 -- 3. Table des Fournisseurs
 CREATE TABLE IF NOT EXISTS public.suppliers (
@@ -254,9 +266,20 @@ CREATE TABLE IF NOT EXISTS public.company_settings (
 );
 
 -- ==============================================================================
+-- PERMISSIONS & DROITS D'ACCÈS DU RÔLE PUBLIC (ANON & AUTHENTICATED)
+-- ==============================================================================
+-- Indispensable : Donne accès au schéma public et aux tables pour l'API REST PostgREST
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+
+-- ==============================================================================
 -- SÉCURITÉ : ROW LEVEL SECURITY (RLS)
 -- ==============================================================================
--- Active RLS sur l'ensemble des tables et autorise les opérations complètes pour la clé anon
 ALTER TABLE public.sales_points ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.suppliers ENABLE ROW LEVEL SECURITY;
@@ -270,7 +293,7 @@ ALTER TABLE public.inventory_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.company_settings ENABLE ROW LEVEL SECURITY;
 
--- Création des politiques permissives pour le rôle 'anon' et 'authenticated'
+-- Politiques permissives universelles pour l'ERP multi-utilisateurs
 DO $$
 DECLARE
   tbl text;
@@ -283,10 +306,24 @@ BEGIN
     ])
   LOOP
     EXECUTE format('DROP POLICY IF EXISTS "Allow full access to %I" ON public.%I', tbl, tbl);
-    EXECUTE format('CREATE POLICY "Allow full access to %I" ON public.%I FOR ALL USING (true) WITH CHECK (true)', tbl, tbl);
+    EXECUTE format('CREATE POLICY "Allow full access to %I" ON public.%I FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true)', tbl, tbl);
   END LOOP;
 END
 $$;
 
--- Activation du Realtime (optionnel mais recommandé pour les notifications)
-ALTER PUBLICATION supabase_realtime ADD TABLE public.products, public.invoices, public.stock_movements;
+-- Activation sécurisée du Realtime (ignore si déjà configuré ou non supporté)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.products, public.invoices, public.stock_movements;
+    EXCEPTION
+      WHEN duplicate_object THEN NULL;
+      WHEN others THEN NULL;
+    END;
+  END IF;
+END
+$$;
+
+-- Rechargement immédiat du cache de schéma de l'API Supabase
+NOTIFY pgrst, 'reload schema';

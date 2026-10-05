@@ -28,6 +28,7 @@ export interface SupabaseSyncResult {
     settings?: boolean;
   };
   error?: string;
+  statusCode?: number;
 }
 
 // Récupération de la configuration Supabase (Environment variables prioritaires, fallback localStorage)
@@ -78,7 +79,7 @@ export function clearSupabaseConfig(): void {
   localStorage.removeItem('provenda_supabase_key');
 }
 
-// Headers HTTP standard pour l'API REST Supabase
+// Headers HTTP standard pour l'API REST Supabase (PostgREST)
 function getSupabaseHeaders(anonKey: string): HeadersInit {
   return {
     'apikey': anonKey,
@@ -88,8 +89,14 @@ function getSupabaseHeaders(anonKey: string): HeadersInit {
   };
 }
 
-// Test de connectivité à Supabase
-export async function testSupabaseConnection(overrideUrl?: string, overrideKey?: string): Promise<{ success: boolean; message: string; statusCode?: number }> {
+// Test complet de connectivité et de présence des tables Provenda dans Supabase
+export async function testSupabaseConnection(overrideUrl?: string, overrideKey?: string): Promise<{
+  success: boolean;
+  message: string;
+  statusCode?: number;
+  tablesFound?: boolean;
+  errorDetail?: string;
+}> {
   const config = overrideUrl && overrideKey
     ? { url: overrideUrl.trim().replace(/\/$/, ''), anonKey: overrideKey.trim(), isConfigured: true }
     : getSupabaseConfig();
@@ -102,7 +109,7 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
   }
 
   try {
-    // Ping la racine REST de Supabase
+    // 1. Tester la racine REST
     const response = await fetch(`${config.url}/rest/v1/`, {
       method: 'GET',
       headers: {
@@ -111,26 +118,71 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
       },
     });
 
-    if (response.ok || response.status === 200 || response.status === 404) {
-      return {
-        success: true,
-        message: 'Connexion à Supabase établie avec succès !',
-        statusCode: response.status,
-      };
-    }
-
     if (response.status === 401 || response.status === 403) {
       return {
         success: false,
-        message: 'Erreur 401/403 : Clé Anon invalide ou accès refusé. Vérifiez votre clé d\'API dans Supabase.',
+        message: 'Erreur 401/403 : Clé Anon invalide ou accès refusé. Vérifiez votre clé d\'API dans Supabase (Project Settings > API > anon key).',
         statusCode: response.status,
+        tablesFound: false,
       };
     }
 
+    if (!response.ok && response.status !== 200 && response.status !== 404) {
+      return {
+        success: false,
+        message: `Réponse inattendue de Supabase (Code HTTP ${response.status}). Vérifiez l'URL de votre projet.`,
+        statusCode: response.status,
+        tablesFound: false,
+      };
+    }
+
+    // 2. Tester l'existence réelle de la table 'sales_points'
+    const tableRes = await fetch(`${config.url}/rest/v1/sales_points?select=id&limit=1`, {
+      method: 'GET',
+      headers: {
+        'apikey': config.anonKey,
+        'Authorization': `Bearer ${config.anonKey}`,
+      },
+    });
+
+    if (tableRes.ok) {
+      return {
+        success: true,
+        message: 'Connexion à Supabase établie avec succès et toutes les tables Provenda sont bien en place !',
+        statusCode: 200,
+        tablesFound: true,
+      };
+    }
+
+    if (tableRes.status === 404) {
+      const errText = await tableRes.text();
+      return {
+        success: false,
+        message: 'Le serveur Supabase est bien connecté, mais la table "sales_points" n\'existe pas encore (Erreur 404). Vous devez exécuter le script SQL dans l\'onglet "SQL Editor" de votre tableau de bord Supabase.',
+        statusCode: 404,
+        tablesFound: false,
+        errorDetail: errText,
+      };
+    }
+
+    if (tableRes.status === 401 || tableRes.status === 403) {
+      const errText = await tableRes.text();
+      return {
+        success: false,
+        message: `La table "sales_points" existe mais l'accès en lecture est refusé (Code HTTP ${tableRes.status}). Assurez-vous d'avoir exécuté la section GRANT et les politiques RLS du script SQL.`,
+        statusCode: tableRes.status,
+        tablesFound: false,
+        errorDetail: errText,
+      };
+    }
+
+    const errText = await tableRes.text();
     return {
       success: false,
-      message: `Réponse du serveur Supabase inattendue (Code HTTP ${response.status}). Vérifiez l'URL de votre projet.`,
-      statusCode: response.status,
+      message: `Statut inattendu lors de la vérification de la table sales_points (Code HTTP ${tableRes.status}).`,
+      statusCode: tableRes.status,
+      tablesFound: false,
+      errorDetail: errText,
     };
   } catch (error: any) {
     return {
@@ -146,7 +198,7 @@ export async function upsertRecordToSupabase(tableName: string, record: any): Pr
   if (!config.isConfigured) return false;
 
   try {
-    const res = await fetch(`${config.url}/rest/v1/${tableName}`, {
+    const res = await fetch(`${config.url}/rest/v1/${tableName}?on_conflict=id`, {
       method: 'POST',
       headers: getSupabaseHeaders(config.anonKey),
       body: JSON.stringify(record),
@@ -239,7 +291,8 @@ export async function pushAllLocalDataToSupabase(data: {
 
     for (const table of tablesToPush) {
       if (table.items && table.items.length > 0) {
-        const res = await fetch(`${config.url}/rest/v1/${table.name}`, {
+        // Envoi avec on_conflict=id explicite pour un upsert PostgREST garanti sans ambiguïté
+        const res = await fetch(`${config.url}/rest/v1/${table.name}?on_conflict=id`, {
           method: 'POST',
           headers: getSupabaseHeaders(config.anonKey),
           body: JSON.stringify(table.items),
@@ -247,10 +300,28 @@ export async function pushAllLocalDataToSupabase(data: {
 
         if (!res.ok) {
           const errText = await res.text();
+          let parsedMsg = errText;
+          try {
+            const errJson = JSON.parse(errText);
+            parsedMsg = errJson.message || errJson.error || errText;
+            if (errJson.hint) parsedMsg += ` (Indice : ${errJson.hint})`;
+            if (errJson.details) parsedMsg += ` [Détails : ${errJson.details}]`;
+          } catch {}
+
+          let userAdvice = '';
+          if (res.status === 404) {
+            userAdvice = ' La table n\'existe pas dans Supabase. Veuillez copier et ré-exécuter le script SQL dans le "SQL Editor" de Supabase en cliquant sur "Run".';
+          } else if (res.status === 401 || res.status === 403) {
+            userAdvice = ' Accès refusé (RLS ou Permissions). Assurez-vous d\'avoir exécuté la partie GRANT et les politiques RLS du script SQL.';
+          } else if (res.status === 400) {
+            userAdvice = ' Mismatch de colonnes ou contrainte de schéma PostgREST.';
+          }
+
           return {
             success: false,
-            message: `Erreur lors de l'envoi de la table "${table.name}". Assurez-vous d'avoir exécuté le script SQL supabase-schema.sql dans Supabase.`,
-            error: errText,
+            message: `Erreur sur la table "${table.name}" (Code HTTP ${res.status}) : ${parsedMsg}.${userAdvice}`,
+            error: `HTTP ${res.status}: ${errText}`,
+            statusCode: res.status,
             details,
           };
         }
@@ -258,28 +329,32 @@ export async function pushAllLocalDataToSupabase(data: {
       }
     }
 
-    // Settings
+    // Paramètres entreprise
     if (data.settings) {
       const settingsPayload = [{ id: 'company-settings-1', ...data.settings }];
-      const res = await fetch(`${config.url}/rest/v1/company_settings`, {
+      const res = await fetch(`${config.url}/rest/v1/company_settings?on_conflict=id`, {
         method: 'POST',
         headers: getSupabaseHeaders(config.anonKey),
         body: JSON.stringify(settingsPayload),
       });
       if (res.ok) {
         details['settings'] = true;
+      } else {
+        const errText = await res.text();
+        console.warn('Erreur lors de la sauvegarde des paramètres dans Supabase:', errText);
       }
     }
 
     return {
       success: true,
-      message: 'Toutes les données ont été synchronisées avec succès vers votre base Supabase !',
+      message: 'Toutes les données locales ont été synchronisées avec succès vers votre base Supabase !',
       details,
     };
   } catch (error: any) {
     return {
       success: false,
       message: `Échec de la synchronisation : ${error?.message || 'Erreur inattendue'}`,
+      error: error?.toString(),
       details,
     };
   }
