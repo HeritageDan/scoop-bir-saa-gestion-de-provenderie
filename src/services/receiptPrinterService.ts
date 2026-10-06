@@ -555,11 +555,13 @@ export const printTestReceipt = async (
     payments: [
       {
         id: 'pmt-test',
+        invoiceId: 'FAC-TEST-001',
+        invoiceNumber: 'FAC-TEST-001',
         date: new Date().toISOString().slice(0, 10),
         amount: 60000,
         method: 'espèces',
-        userId: 'usr-1',
-        userName: 'Caissier Test',
+        userId: 'usr-dev',
+        userName: 'Développeur Système',
       },
     ],
     amountPaid: 60000,

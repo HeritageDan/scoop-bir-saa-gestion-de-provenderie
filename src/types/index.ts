@@ -422,6 +422,8 @@ export interface ReceiptPrinterConfig {
   paperWidth: ReceiptPaperWidth;
   printerName: string;
   numberOfCopies: number;
+  copies?: number;
+  feedLines?: number;
   headerMessage?: string;
   footerMessage: string;
   showBarcode: boolean;

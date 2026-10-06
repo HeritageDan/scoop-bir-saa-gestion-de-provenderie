@@ -11,8 +11,6 @@ import {
   XCircle,
   ExternalLink,
   Menu,
-  Sun,
-  Moon,
   LogOut,
   MapPin,
   Building2,
@@ -38,9 +36,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
     clearAllNotifications,
     settings,
     theme,
-    toggleTheme,
     language,
-    setLanguage,
     t,
     salesPoints,
     currentSalesPointId,
@@ -352,48 +348,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
           aria-label="Recherche globale"
         >
           <Search className="w-4 h-4 sm:w-5 sm:h-5" />
-        </button>
-
-        {/* Language Switcher Button (FR / EN) */}
-        <div className={`flex items-center rounded-lg p-0.5 border text-xs shrink-0 ${
-          theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
-        }`}>
-          <button
-            onClick={() => setLanguage('fr')}
-            className={`px-1.5 sm:px-2 py-0.5 rounded font-semibold text-[10px] sm:text-[11px] transition cursor-pointer ${
-              language === 'fr'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="Passer en Français"
-          >
-            FR
-          </button>
-          <button
-            onClick={() => setLanguage('en')}
-            className={`px-1.5 sm:px-2 py-0.5 rounded font-semibold text-[10px] sm:text-[11px] transition cursor-pointer ${
-              language === 'en'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="Switch to English"
-          >
-            EN
-          </button>
-        </div>
-
-        {/* Theme Switcher Button (Light / Dark) - Always visible on phone and tablet */}
-        <button
-          onClick={toggleTheme}
-          className={`shrink-0 p-1.5 sm:p-2 rounded-lg border text-xs sm:text-sm transition flex items-center justify-center cursor-pointer ${
-            theme === 'dark'
-              ? 'bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700'
-              : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200 shadow-xs'
-          }`}
-          title={theme === 'dark' ? t('header.theme_light') : t('header.theme_dark')}
-          aria-label={theme === 'dark' ? t('header.theme_light') : t('header.theme_dark')}
-        >
-          {theme === 'dark' ? <Sun className="w-4 h-4 shrink-0" /> : <Moon className="w-4 h-4 shrink-0" />}
         </button>
 
         {/* Documentation PDF Quick Access Button */}

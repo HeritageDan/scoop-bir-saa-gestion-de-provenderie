@@ -7,16 +7,12 @@ import {
   EyeOff,
   Shield,
   ArrowRight,
-  Sun,
-  Moon,
-  Globe,
   AlertCircle,
-  UserCheck,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 export const LoginPage: React.FC = () => {
-  const { login, theme, toggleTheme, language, setLanguage, t, users, settings } = useApp();
+  const { login, theme, language, t, settings } = useApp();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -67,47 +63,6 @@ export const LoginPage: React.FC = () => {
             </span>
           </div>
         </div>
-
-        <div className="flex items-center gap-3">
-          {/* Language Switcher */}
-          <div className={`flex items-center rounded-lg p-0.5 border text-xs ${
-            theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
-          }`}>
-            <button
-              onClick={() => setLanguage('fr')}
-              className={`px-2.5 py-1 rounded font-medium transition ${
-                language === 'fr'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              FR
-            </button>
-            <button
-              onClick={() => setLanguage('en')}
-              className={`px-2.5 py-1 rounded font-medium transition ${
-                language === 'en'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              EN
-            </button>
-          </div>
-
-          {/* Theme Switcher */}
-          <button
-            onClick={toggleTheme}
-            className={`p-2 rounded-lg border text-sm transition ${
-              theme === 'dark'
-                ? 'bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700'
-                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-xs'
-            }`}
-            title={theme === 'dark' ? t('header.theme_light') : t('header.theme_dark')}
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
-        </div>
       </header>
 
       {/* Main Login Card Section */}
@@ -148,7 +103,7 @@ export const LoginPage: React.FC = () => {
                     required
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="nom@provenda.net"
+                    placeholder="dev@coopsbir.com"
                     className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
                       theme === 'dark'
                         ? 'bg-slate-800/80 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500'
@@ -197,78 +152,6 @@ export const LoginPage: React.FC = () => {
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
-
-            {/* Quick Login Helper Badges */}
-            <div className="mt-5 pt-4 border-t border-slate-200 dark:border-slate-800">
-              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-2">
-                {language === 'fr' ? 'Comptes par défaut (cliquez pour remplir) :' : 'Default accounts (click to fill):'}
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('amadou.diallo@provenda.net');
-                    setPassword('admin123');
-                  }}
-                  className={`p-2 rounded-xl border text-left cursor-pointer transition flex flex-col ${
-                    theme === 'dark'
-                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700 text-slate-200'
-                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800'
-                  }`}
-                >
-                  <span className="font-bold text-emerald-500">Administrateur</span>
-                  <span className="text-[10px] text-slate-400 font-mono">admin123</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('patrick.kamga@provenda.net');
-                    setPassword('caisse123');
-                  }}
-                  className={`p-2 rounded-xl border text-left cursor-pointer transition flex flex-col ${
-                    theme === 'dark'
-                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700 text-slate-200'
-                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800'
-                  }`}
-                >
-                  <span className="font-bold text-emerald-500">Caissier POS</span>
-                  <span className="text-[10px] text-slate-400 font-mono">caisse123</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('beatrice.ngoue@provenda.net');
-                    setPassword('resp123');
-                  }}
-                  className={`p-2 rounded-xl border text-left cursor-pointer transition flex flex-col ${
-                    theme === 'dark'
-                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700 text-slate-200'
-                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800'
-                  }`}
-                >
-                  <span className="font-bold text-amber-500">Responsable</span>
-                  <span className="text-[10px] text-slate-400 font-mono">resp123</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('samuel.tientcheu@provenda.net');
-                    setPassword('mag123');
-                  }}
-                  className={`p-2 rounded-xl border text-left cursor-pointer transition flex flex-col ${
-                    theme === 'dark'
-                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700 text-slate-200'
-                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800'
-                  }`}
-                >
-                  <span className="font-bold text-blue-500">Magasinier</span>
-                  <span className="text-[10px] text-slate-400 font-mono">mag123</span>
-                </button>
-              </div>
-            </div>
 
             {/* Professional Authentication Notice */}
             <div className={`mt-6 pt-5 border-t text-xs ${

@@ -185,7 +185,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Load initial states from localStorage if available, otherwise use seed data
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('provenda_users');
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
+    if (saved) {
+      try {
+        const parsed: User[] = JSON.parse(saved);
+        // Clean out legacy mock accounts (usr-1, usr-2, usr-3, usr-4)
+        const cleanUsers = parsed.filter(u => !['usr-1', 'usr-2', 'usr-3', 'usr-4'].includes(u.id));
+        // Ensure Developer user is present
+        const hasDev = cleanUsers.some(u => u.role === 'developpeur');
+        if (!hasDev) {
+          cleanUsers.unshift(INITIAL_USERS[0]);
+        }
+        return cleanUsers.length > 0 ? cleanUsers : INITIAL_USERS;
+      } catch (e) {
+        return INITIAL_USERS;
+      }
+    }
+    return INITIAL_USERS;
   });
 
   const [currentUser, setCurrentUserState] = useState<User>(() => {
@@ -194,7 +209,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const found = users.find(u => u.id === savedId && u.active);
       if (found) return found;
     }
-    return users.find(u => u.role === 'administrateur') || users[0];
+    return users.find(u => u.role === 'developpeur') || users[0];
   });
 
   const setCurrentUser = (user: User) => {
@@ -469,7 +484,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Authentication
   const login = (email: string, password: string): { success: boolean; error?: string } => {
-    const target = users.find(u => u.email.trim().toLowerCase() === email.trim().toLowerCase());
+    const cleanEmail = email.trim().toLowerCase();
+    const target = users.find(u =>
+      u.email.trim().toLowerCase() === cleanEmail ||
+      (u.role === 'developpeur' && (cleanEmail === 'dev' || cleanEmail === 'dev@coopsbir.com' || cleanEmail === 'dev@provenda.net'))
+    );
     if (!target) {
       return { success: false, error: t('login.error_invalid') };
     }
@@ -605,12 +624,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addUser = (userData: Omit<User, 'id'>): { success: boolean; error?: string } => {
-    if (currentUser.role !== 'administrateur') {
+    if (currentUser.role !== 'administrateur' && currentUser.role !== 'developpeur') {
       return {
         success: false,
         error: language === 'fr'
-          ? "Action non autorisée : Seul l'administrateur a le privilège de créer des utilisateurs et de leur assigner des rôles."
-          : "Unauthorized: Only the Administrator has the privilege to create users and assign roles."
+          ? "Action non autorisée : Seul le développeur ou l'administrateur a le privilège de créer des utilisateurs et de leur assigner des rôles."
+          : "Unauthorized: Only the Developer or Administrator has the privilege to create users and assign roles."
       };
     }
     const newUser: User = {
@@ -992,7 +1011,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isCredit = false,
     creditDueDate?: string,
     targetSalesPointId?: string
-  ): { success: boolean; invoiceId?: string; error?: string } => {
+  ): { success: boolean; invoiceId?: string; invoice?: Invoice; error?: string } => {
     // 1. Verification of items
     if (!itemsToSell || itemsToSell.length === 0) {
       return { success: false, error: 'Le panier de vente est vide.' };

@@ -25,6 +25,8 @@ import {
   Printer,
   Image as ImageIcon,
   Trash2,
+  Plus,
+  X,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { CompanySettings, Role, ReceiptPrinterConfig, ReceiptPaperWidth } from '../../types';
@@ -55,6 +57,8 @@ export const SettingsManager: React.FC = () => {
     users,
     currentUser,
     setCurrentUser,
+    addUser,
+    updateUser,
     exportSystemBackup,
     restoreSystemBackup,
     resetToDefaultData,
@@ -209,6 +213,59 @@ export const SettingsManager: React.FC = () => {
       getDatabaseStats().then(setIdbStats);
     }
   }, [activeTab, products, invoices, purchases, expenses, stockMovements]);
+
+  // User creation modal state
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'administrateur' as Role,
+    phone: '',
+    discountLimitPercent: 100,
+    assignedSalesPointId: salesPoints[0]?.id || 'pos-1',
+  });
+  const [userCreationError, setUserCreationError] = useState<string | null>(null);
+  const [userCreationSuccess, setUserCreationSuccess] = useState<string | null>(null);
+
+  const handleCreateUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    setUserCreationError(null);
+    setUserCreationSuccess(null);
+    if (!newUserForm.name.trim() || !newUserForm.email.trim() || !newUserForm.password.trim()) {
+      setUserCreationError(language === 'fr' ? 'Veuillez remplir tous les champs obligatoires (Nom, Email, Mot de passe).' : 'Please fill all required fields (Name, Email, Password).');
+      return;
+    }
+    const result = addUser({
+      name: newUserForm.name.trim(),
+      email: newUserForm.email.trim(),
+      password: newUserForm.password.trim(),
+      role: newUserForm.role,
+      phone: newUserForm.phone.trim(),
+      discountLimitPercent: Number(newUserForm.discountLimitPercent) || 0,
+      assignedSalesPointId: newUserForm.assignedSalesPointId,
+      active: true,
+      lastLogin: '',
+    });
+    if (result.success) {
+      setUserCreationSuccess(language === 'fr' ? 'Compte utilisateur créé avec succès !' : 'User account created successfully!');
+      setTimeout(() => {
+        setShowAddUserModal(false);
+        setUserCreationSuccess(null);
+        setNewUserForm({
+          name: '',
+          email: '',
+          password: '',
+          role: 'caissier',
+          phone: '',
+          discountLimitPercent: 0,
+          assignedSalesPointId: salesPoints[0]?.id || 'pos-1',
+        });
+      }, 1000);
+    } else {
+      setUserCreationError(result.error || (language === 'fr' ? 'Échec de la création de l\'utilisateur.' : 'Failed to create user.'));
+    }
+  };
 
   const handleSaveCompany = (e: React.FormEvent) => {
     e.preventDefault();
@@ -467,7 +524,7 @@ export const SettingsManager: React.FC = () => {
           <span>{t('settings.tab_security')}</span>
         </button>
 
-        {(currentUser.role === 'developpeur' || currentUser.role === 'administrateur') && (
+        {currentUser.role === 'developpeur' && (
           <button
             onClick={() => setActiveTab('database')}
             className={`py-2 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
@@ -848,15 +905,30 @@ export const SettingsManager: React.FC = () => {
           <div className={`border rounded-xl overflow-hidden shadow-xs ${
             theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
           }`}>
-            <div className={`p-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+            <div className={`p-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
               theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
             }`}>
-              <h2 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                {t('settings.users_list_title')}
-              </h2>
-              <span className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                {t('settings.users_readonly_notice')}
-              </span>
+              <div>
+                <h2 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  {t('settings.users_list_title')}
+                </h2>
+                <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {language === 'fr'
+                    ? 'Gestion des accès collaborateurs, création des comptes et plafonds de remise'
+                    : 'Staff access management, account creation and discount thresholds'}
+                </p>
+              </div>
+
+              {(currentUser.role === 'developpeur' || currentUser.role === 'administrateur') && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddUserModal(true)}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{language === 'fr' ? 'Créer un Utilisateur' : 'Create User'}</span>
+                </button>
+              )}
             </div>
 
             <div className={`divide-y text-xs ${
@@ -907,13 +979,29 @@ export const SettingsManager: React.FC = () => {
                           {t('settings.users_connected')}
                         </span>
                       ) : (
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-medium border ${
-                          u.active
-                            ? 'bg-slate-500/10 text-slate-400 border-slate-500/20'
-                            : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                        }`}>
-                          {u.active ? (language === 'fr' ? 'Actif' : 'Active') : (language === 'fr' ? 'Inactif' : 'Inactive')}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-medium border ${
+                            u.active
+                              ? 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                              : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                          }`}>
+                            {u.active ? (language === 'fr' ? 'Actif' : 'Active') : (language === 'fr' ? 'Inactif' : 'Inactive')}
+                          </span>
+
+                          {(currentUser.role === 'developpeur' || currentUser.role === 'administrateur') && u.id !== 'usr-dev' && (
+                            <button
+                              type="button"
+                              onClick={() => updateUser({ ...u, active: !u.active })}
+                              className={`text-[10px] px-2 py-1 rounded font-semibold border transition cursor-pointer ${
+                                u.active
+                                  ? 'border-rose-500/30 text-rose-500 hover:bg-rose-500/10'
+                                  : 'border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10'
+                              }`}
+                            >
+                              {u.active ? (language === 'fr' ? 'Désactiver' : 'Deactivate') : (language === 'fr' ? 'Activer' : 'Activate')}
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -921,6 +1009,218 @@ export const SettingsManager: React.FC = () => {
               })}
             </div>
           </div>
+
+          {/* ADD USER MODAL */}
+          {showAddUserModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+              <div className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 space-y-4 ${
+                theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+              }`}>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-700/40">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold">
+                        {language === 'fr' ? 'Créer un Nouveau Compte' : 'Create New Account'}
+                      </h3>
+                      <p className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {currentUser.role === 'developpeur'
+                          ? (language === 'fr' ? 'Le développeur peut créer l\'Administrateur ou des employés.' : 'Developer can create Administrator or staff.')
+                          : (language === 'fr' ? 'Création de comptes opérationnels.' : 'Operational accounts creation.')}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddUserModal(false);
+                      setUserCreationError(null);
+                      setUserCreationSuccess(null);
+                    }}
+                    className={`p-1.5 rounded-lg border transition ${
+                      theme === 'dark' ? 'border-slate-800 text-slate-400 hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {userCreationError && (
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs rounded-xl flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{userCreationError}</span>
+                  </div>
+                )}
+
+                {userCreationSuccess && (
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs rounded-xl flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>{userCreationSuccess}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleCreateUser} className="space-y-3 text-xs">
+                  <div>
+                    <label className="block font-medium mb-1 opacity-80">
+                      {language === 'fr' ? 'Nom complet *' : 'Full Name *'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newUserForm.name}
+                      onChange={e => setNewUserForm({ ...newUserForm, name: e.target.value })}
+                      placeholder="ex: Jean Dupont"
+                      className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                        theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                      }`}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Identifiant / Email *' : 'Username / Email *'}
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={newUserForm.email}
+                        onChange={e => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                        placeholder="admin@coopsbir.com"
+                        className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Mot de passe *' : 'Password *'}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newUserForm.password}
+                        onChange={e => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                        placeholder="••••••••"
+                        className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Rôle dans le système *' : 'System Role *'}
+                      </label>
+                      <select
+                        value={newUserForm.role}
+                        onChange={e => {
+                          const r = e.target.value as Role;
+                          setNewUserForm({
+                            ...newUserForm,
+                            role: r,
+                            discountLimitPercent: r === 'administrateur' ? 100 : r === 'responsable' ? 15 : 0,
+                          });
+                        }}
+                        className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      >
+                        <option value="administrateur">
+                          {language === 'fr' ? 'Administrateur (Gestion complète)' : 'Administrator (Full Business)'}
+                        </option>
+                        <option value="responsable">
+                          {language === 'fr' ? 'Responsable d\'exploitation' : 'Operations Manager'}
+                        </option>
+                        <option value="caissier">
+                          {language === 'fr' ? 'Caissier (Point de vente POS)' : 'Cashier (POS Sales)'}
+                        </option>
+                        <option value="magasinier">
+                          {language === 'fr' ? 'Magasinier (Stocks & Dépôt)' : 'Storekeeper (Inventory)'}
+                        </option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Plafond Remise (%)' : 'Max Discount (%)'}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={newUserForm.discountLimitPercent}
+                        onChange={e => setNewUserForm({ ...newUserForm, discountLimitPercent: Number(e.target.value) })}
+                        disabled={newUserForm.role === 'administrateur'}
+                        className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Téléphone' : 'Phone'}
+                      </label>
+                      <input
+                        type="text"
+                        value={newUserForm.phone}
+                        onChange={e => setNewUserForm({ ...newUserForm, phone: e.target.value })}
+                        placeholder="+237 ..."
+                        className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Point de Vente assigné' : 'Assigned Sales Point'}
+                      </label>
+                      <select
+                        value={newUserForm.assignedSalesPointId}
+                        onChange={e => setNewUserForm({ ...newUserForm, assignedSalesPointId: e.target.value })}
+                        className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      >
+                        {salesPoints.map(sp => (
+                          <option key={sp.id} value={sp.id}>
+                            {sp.name} ({sp.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-700/40">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddUserModal(false)}
+                      className={`px-4 py-2.5 rounded-xl border font-semibold transition cursor-pointer ${
+                        theme === 'dark' ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {language === 'fr' ? 'Annuler' : 'Cancel'}
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition cursor-pointer shadow-xs"
+                    >
+                      {language === 'fr' ? 'Créer le Compte' : 'Create Account'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1051,22 +1351,22 @@ export const SettingsManager: React.FC = () => {
         </form>
       )}
 
-      {/* TAB 4: DATABASE & LOCAL STORAGE (GOOGLE AI STUDIO & DESKTOP POS) */}
-      {activeTab === 'database' && currentUser.role !== 'developpeur' && currentUser.role !== 'administrateur' && (
+      {/* TAB 4: DATABASE & LOCAL STORAGE (STRICTLY DEVELOPER EXCLUSIVE) */}
+      {activeTab === 'database' && currentUser.role !== 'developpeur' && (
         <div className="p-8 rounded-2xl border border-rose-500/30 bg-rose-500/10 text-rose-400 text-center space-y-3">
           <Shield className="w-10 h-10 mx-auto text-rose-500" />
           <h2 className="text-base font-bold">
-            {language === 'fr' ? 'Accès Restreint à l\'Administration' : 'Access Restricted to Administrators'}
+            {language === 'fr' ? 'Accès Strictement Réservé au Développeur Système' : 'Access Strictly Restricted to System Developer'}
           </h2>
           <p className="text-xs max-w-lg mx-auto opacity-90 leading-relaxed">
             {language === 'fr'
-              ? "Le module de sauvegarde, de restauration et de gestion de la base de données est réservé à la direction pour prévenir toute altération ou perte accidentelle des données."
-              : "The database backup, restoration, and management module is restricted to administration to prevent accidental data loss or corruption."}
+              ? "Les interfaces de connexion aux bases de données, configurations Supabase, identifiants backend et sauvegardes système sont strictement réservées au Développeur. L'administrateur et les autres collaborateurs n'y ont pas accès afin de sécuriser les identifiants techniques et l'infrastructure."
+              : "Database connection interfaces, Supabase credentials, backend settings, and system backups are strictly restricted to the System Developer."}
           </p>
         </div>
       )}
 
-      {activeTab === 'database' && (currentUser.role === 'developpeur' || currentUser.role === 'administrateur') && (
+      {activeTab === 'database' && currentUser.role === 'developpeur' && (
         <div className="space-y-6 text-xs">
           {/* OFFLINE-FIRST ARCHITECTURE BANNER */}
           <div className={`border rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs transition-colors ${
