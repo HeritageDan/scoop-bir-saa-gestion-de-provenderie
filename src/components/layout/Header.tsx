@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Role } from '../../types';
-import { getSupabaseConfig } from '../../services/supabaseService';
 
 interface HeaderProps {
   onOpenSearch: () => void;
@@ -49,7 +48,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
     currentSalesPoint,
   } = useApp();
 
-  const supabaseConfig = getSupabaseConfig();
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
@@ -58,6 +57,17 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
   const salesPointRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const roleRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const handleDocumentClick = (e: MouseEvent) => {
@@ -94,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
   const roleLabels: Record<Role, { label: string; desc: string }> = {
     developpeur: {
       label: t('role.developpeur'),
-      desc: language === 'fr' ? 'Superadmin, Sauvegardes, Base Supabase, Restauration' : 'Superadmin, Backups, Supabase DB, Restoration',
+      desc: language === 'fr' ? 'Superadmin, Sauvegardes & Restauration, Audit' : 'Superadmin, Backups & Restoration, Audit',
     },
     administrateur: {
       label: t('role.administrateur'),
@@ -135,36 +145,45 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
             <Menu className="w-5 h-5" />
           </button>
         )}
-        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-emerald-600 flex items-center justify-center font-bold text-white shadow-sm shrink-0">
-          <Warehouse className="w-5 h-5 text-emerald-100" />
-        </div>
+        {settings.logoUrl ? (
+          <img
+            src={settings.logoUrl}
+            alt={settings.name || 'COOPS BIR SAA'}
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg object-contain bg-white p-0.5 border border-slate-200 dark:border-slate-700 shadow-xs shrink-0 cursor-pointer"
+            onClick={() => onNavigateTab('settings')}
+            title="Cliquez pour configurer le logo ou l'entreprise"
+          />
+        ) : (
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-emerald-600 flex items-center justify-center font-bold text-white shadow-sm shrink-0">
+            <Warehouse className="w-5 h-5 text-emerald-100" />
+          </div>
+        )}
         <div>
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <span className="font-bold tracking-tight text-base lg:text-lg">
-              PROVENDA
+            <span className="font-bold tracking-tight text-base lg:text-lg uppercase">
+              {settings.name || 'COOPS BIR SAA'}
             </span>
             <span className="text-[10px] uppercase font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded">
-              v2.2
+              POS
             </span>
-            {supabaseConfig.isConfigured ? (
-              <span
-                onClick={() => onNavigateTab('settings')}
-                className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded cursor-pointer transition hover:bg-emerald-500/20 shrink-0"
-                title="Base de données Cloud Supabase connectée. Cliquez pour gérer."
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Cloud</span>
-              </span>
-            ) : (
-              <span
-                onClick={() => onNavigateTab('settings')}
-                className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500 bg-slate-500/10 border border-slate-500/20 px-1.5 py-0.2 rounded cursor-pointer transition hover:bg-slate-500/20 shrink-0"
-                title="Mode Local (LocalStorage). Cliquez pour configurer Supabase."
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                <span>Local</span>
-              </span>
-            )}
+            <span
+              onClick={() => onNavigateTab('settings')}
+              className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded cursor-pointer transition shrink-0 ${
+                isOnline
+                  ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20'
+                  : 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20'
+              }`}
+              title={
+                isOnline
+                  ? (language === 'fr' ? 'En Ligne — Mode Local Autonome (Google AI Studio Ready)' : 'Online — Autonomous Local Mode (Google AI Studio Ready)')
+                  : (language === 'fr' ? 'Hors Ligne — Base Locale 100% Fonctionnelle' : 'Offline — 100% Functional Local Database')
+              }
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+              <span>{isOnline ? (language === 'fr' ? 'En Ligne' : 'Online') : (language === 'fr' ? 'Hors Ligne' : 'Offline')}</span>
+              <span className="opacity-40">|</span>
+              <span className="font-mono text-[9px] opacity-80">{language === 'fr' ? 'Base Locale' : 'Local DB'}</span>
+            </span>
           </div>
 
           {/* Sales Point Selector Trigger */}

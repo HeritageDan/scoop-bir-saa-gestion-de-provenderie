@@ -763,7 +763,7 @@ export const UserManager: React.FC = () => {
                   </option>
                   {currentUser.role === 'developpeur' && (
                     <option value="developpeur">
-                      {t('role.developpeur')} ({language === 'fr' ? 'Superadmin système, Sauvegardes, Supabase' : 'System Superadmin, Backups, Supabase'})
+                      {t('role.developpeur')} ({language === 'fr' ? 'Superadmin système, Sauvegardes & Restauration, Audit' : 'System Superadmin, Backups & Restoration, Audit'})
                     </option>
                   )}
                 </select>

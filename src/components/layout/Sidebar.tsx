@@ -18,6 +18,7 @@ import {
   Sun,
   Moon,
   BookOpen,
+  Wallet,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -103,6 +104,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Building2,
       badge: null,
       roles: ['administrateur', 'responsable', 'magasinier'],
+    },
+    {
+      id: 'expenses',
+      label: t('nav.expenses'),
+      icon: Wallet,
+      badge: null,
+      roles: ['administrateur', 'responsable', 'caissier'],
     },
     {
       id: 'admin_users',

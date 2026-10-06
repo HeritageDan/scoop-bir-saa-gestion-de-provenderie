@@ -18,6 +18,7 @@ import { LoginPage } from './components/auth/LoginPage';
 import { InvoiceModal } from './components/modals/InvoiceModal';
 import { GlobalSearchModal } from './components/modals/GlobalSearchModal';
 import { DocumentationManager } from './components/documentation/DocumentationManager';
+import { ExpensesManager } from './components/expenses/ExpensesManager';
 import { Invoice } from './types';
 
 function AppContent() {
@@ -111,6 +112,10 @@ function AppContent() {
 
           {currentTab === 'suppliers' && (
             <SuppliersManager onNavigateTab={tab => setCurrentTab(tab)} />
+          )}
+
+          {currentTab === 'expenses' && (
+            <ExpensesManager onOpenReport={() => setCurrentTab('reports')} />
           )}
 
           {currentTab === 'admin_users' && <UserManager />}

@@ -3,16 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Provenda - Gestion de Provenderie</title>
-    <meta name="description" content="Solution digitale intégrée de gestion opérationnelle et financière d'une provenderie : stocks au CMP, caisse POS, remises contrôlées, facturation, inventaires et reporting en FCFA." />
-    <meta property="og:title" content="Provenda - Gestion de Provenderie" />
-    <meta property="og:description" content="Solution digitale intégrée de gestion opérationnelle et financière d'une provenderie : stocks au CMP, caisse POS, remises contrôlées, facturation, inventaires et reporting en FCFA." />
+    <title>COOPS BIR SAA — Gestion de Provenderie & Caisse POS</title>
+    <meta name="description" content="Solution digitale intégrée COOPS BIR SAA : gestion des stocks, caisse POS avec impression tickets thermiques hors-ligne, facturation et reporting financier en FCFA." />
+    <meta property="og:title" content="COOPS BIR SAA — Gestion de Provenderie" />
+    <meta property="og:description" content="Solution digitale intégrée COOPS BIR SAA : gestion des stocks, caisse POS avec impression tickets thermiques hors-ligne, facturation et reporting financier en FCFA." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#059669" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>
 

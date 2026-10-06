@@ -17,13 +17,21 @@ import {
   Tag,
   ShieldAlert,
   Building2,
+  Printer,
+  RefreshCw,
+  X,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Product, ProductCategory, Customer, Invoice } from '../../types';
 import { formatFCFA, formatNumber } from '../../utils/formatters';
+import {
+  getPrinterConfig,
+  printReceipt,
+} from '../../services/receiptPrinterService';
+import { ReceiptPrintModal } from '../receipts/ReceiptPrintModal';
 
 interface PosTerminalProps {
-  onSaleCompleted: (invoice: Invoice) => void;
+  onSaleCompleted?: (invoice: Invoice) => void;
 }
 
 export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => {
@@ -85,6 +93,37 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
   // Status and errors
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Receipt Printing State
+  const [lastInvoice, setLastInvoice] = useState<Invoice | null>(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [printAlert, setPrintAlert] = useState<{
+    type: 'success' | 'error' | 'info';
+    message: string;
+    invoice: Invoice;
+  } | null>(null);
+  const [isRetryingPrint, setIsRetryingPrint] = useState(false);
+
+  const handleRetryPrint = async (inv: Invoice) => {
+    setIsRetryingPrint(true);
+    const cfg = getPrinterConfig();
+    const res = await printReceipt(inv, settings, cfg, false);
+    setIsRetryingPrint(false);
+    if (res.success) {
+      setPrintAlert({
+        type: 'success',
+        message: language === 'fr' ? 'Ticket de caisse imprimé avec succès !' : 'Receipt printed successfully!',
+        invoice: inv,
+      });
+      setTimeout(() => setPrintAlert(null), 3500);
+    } else {
+      setPrintAlert({
+        type: 'error',
+        message: res.error || (language === 'fr' ? "Échec d'impression du ticket. Vérifiez l'imprimante thermique." : 'Print failed. Check thermal printer.'),
+        invoice: inv,
+      });
+    }
+  };
 
   // Selected customer object
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId) || customers[0];
@@ -290,14 +329,46 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
     if (!result.success) {
       setErrorMsg(result.error || 'Erreur lors de la validation de la vente.');
     } else {
-      // Find created invoice and trigger callback to show print modal!
-      const createdInv = invoices.find(i => i.id === result.invoiceId) || invoices[0];
+      // Find created invoice
+      const createdInv = result.invoice || invoices.find(i => i.id === result.invoiceId) || invoices[0];
       handleClearCart();
       setAmountReceived(0);
       setPaymentReference('');
       setSaleNotes('');
+
       if (createdInv) {
-        onSaleCompleted(createdInv);
+        setLastInvoice(createdInv);
+
+        if (onSaleCompleted) {
+          onSaleCompleted(createdInv);
+        }
+
+        const printerConfig = getPrinterConfig();
+        if (printerConfig.autoPrintOnSale) {
+          printReceipt(createdInv, settings, printerConfig, false).then(printRes => {
+            if (!printRes.success) {
+              setPrintAlert({
+                type: 'error',
+                message: language === 'fr'
+                  ? `Vente ${createdInv.number} validée avec succès, mais l'impression automatique du ticket a échoué (${printRes.error || "imprimante non détectée"}).`
+                  : `Sale ${createdInv.number} saved successfully, but auto-printing failed (${printRes.error || "printer offline"}).`,
+                invoice: createdInv,
+              });
+            } else {
+              setPrintAlert({
+                type: 'success',
+                message: language === 'fr'
+                  ? `Vente ${createdInv.number} enregistrée et ticket thermique imprimé !`
+                  : `Sale ${createdInv.number} saved and thermal receipt printed!`,
+                invoice: createdInv,
+              });
+              setTimeout(() => setPrintAlert(null), 4000);
+            }
+          });
+        } else {
+          // Open receipt preview modal directly
+          setShowReceiptModal(true);
+        }
       }
     }
   };
@@ -309,9 +380,61 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
   ];
 
   return (
-    <div className={`h-[calc(100vh-4rem)] flex flex-col lg:flex-row overflow-hidden ${
+    <div className={`h-[calc(100vh-4rem)] flex flex-col lg:flex-row overflow-hidden relative ${
       theme === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-transparent text-slate-850'
     }`}>
+      {/* Thermal Receipt Print Alert Banner (Floating / Non-blocking) */}
+      {printAlert && (
+        <div className={`absolute top-2 left-4 right-4 z-40 p-3 rounded-xl border shadow-xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-200 ${
+          printAlert.type === 'error'
+            ? 'bg-rose-950/95 border-rose-500/50 text-rose-100'
+            : 'bg-emerald-950/95 border-emerald-500/50 text-emerald-100'
+        }`}>
+          <div className="flex items-center gap-2 text-xs">
+            {printAlert.type === 'error' ? (
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            )}
+            <span className="font-semibold">{printAlert.message}</span>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {printAlert.type === 'error' && (
+              <button
+                type="button"
+                disabled={isRetryingPrint}
+                onClick={() => handleRetryPrint(printAlert.invoice)}
+                className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3 h-3 ${isRetryingPrint ? 'animate-spin' : ''}`} />
+                <span>{language === 'fr' ? 'Réessayer l\'impression' : 'Retry Print'}</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setLastInvoice(printAlert.invoice);
+                setShowReceiptModal(true);
+              }}
+              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer border border-slate-700"
+            >
+              <Printer className="w-3 h-3 text-emerald-400" />
+              <span>{language === 'fr' ? 'Aperçu Ticket' : 'Receipt View'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPrintAlert(null)}
+              className="p-1 text-slate-400 hover:text-white rounded cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* LEFT COLUMN: Catalog Picker (Responsive) */}
       <div className={`flex-1 flex flex-col overflow-hidden border-r ${
         theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
@@ -1003,6 +1126,15 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
           </div>
         </div>
       </div>
+
+      {/* Dedicated Thermal Receipt Printing & Preview Modal */}
+      {showReceiptModal && lastInvoice && (
+        <ReceiptPrintModal
+          invoice={lastInvoice}
+          onClose={() => setShowReceiptModal(false)}
+          isReprint={false}
+        />
+      )}
     </div>
   );
 };

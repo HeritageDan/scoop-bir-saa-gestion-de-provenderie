@@ -18,6 +18,7 @@ import {
 import { Invoice } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { formatFCFA, formatDate, formatDateTime } from '../../utils/formatters';
+import { ReceiptPrintModal } from '../receipts/ReceiptPrintModal';
 
 interface InvoiceModalProps {
   invoice: Invoice | null;
@@ -32,6 +33,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 }) => {
   const { settings, currentUser, cancelInvoiceWithCreditNote, theme, language } = useApp();
   const [printFormat, setPrintFormat] = useState<'a4' | 'ticket'>('a4');
+  const [showReceiptThermalModal, setShowReceiptThermalModal] = useState(false);
   const [showCancelPrompt, setShowCancelPrompt] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelError, setCancelError] = useState('');
@@ -143,6 +145,15 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             >
               <Printer className="w-3.5 h-3.5" />
               <span>{language === 'fr' ? 'Imprimer' : 'Print'}</span>
+            </button>
+
+            <button
+              onClick={() => setShowReceiptThermalModal(true)}
+              className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow transition cursor-pointer border border-slate-700"
+              title={language === 'fr' ? 'Imprimer sur imprimante thermique 58/80 mm' : 'Print on 58/80 mm thermal printer'}
+            >
+              <Receipt className="w-3.5 h-3.5 text-emerald-400" />
+              <span>{language === 'fr' ? 'Ticket POS' : 'POS Ticket'}</span>
             </button>
 
             {invoice.remainingBalance > 0 && invoice.status !== 'annulée' && onOpenPaymentModal && (
@@ -258,18 +269,27 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
               {/* Company Header */}
               <div className="flex justify-between items-start border-b border-slate-300 pb-5 mb-5">
-                <div>
-                  <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight">
-                    {settings.name}
-                  </h1>
-                  <p className="text-slate-600 text-[11px] font-medium">{settings.legalStatus}</p>
-                  <p className="text-slate-600 text-[11px] mt-1">{settings.address}, {settings.city}</p>
-                  <p className="text-slate-600 text-[11px]">
-                    {language === 'fr' ? 'Tél :' : 'Tel:'} {settings.phone1} {settings.phone2 ? `/ ${settings.phone2}` : ''}
-                  </p>
-                  <p className="text-slate-600 text-[11px]">Email : {settings.email}</p>
-                  <div className="mt-2 text-[10px] text-slate-500 font-mono">
-                    NIF: {settings.taxId} | RCCM: {settings.tradeRegisterNumber}
+                <div className="flex items-start gap-3">
+                  {settings.logoUrl && (
+                    <img
+                      src={settings.logoUrl}
+                      alt={settings.name}
+                      className="w-16 h-16 object-contain rounded border border-slate-300 p-1 bg-white shrink-0"
+                    />
+                  )}
+                  <div>
+                    <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight">
+                      {settings.name}
+                    </h1>
+                    <p className="text-slate-600 text-[11px] font-medium">{settings.legalStatus}</p>
+                    <p className="text-slate-600 text-[11px] mt-1">{settings.address}, {settings.city}</p>
+                    <p className="text-slate-600 text-[11px]">
+                      {language === 'fr' ? 'Tél :' : 'Tel:'} {settings.phone1} {settings.phone2 ? `/ ${settings.phone2}` : ''}
+                    </p>
+                    <p className="text-slate-600 text-[11px]">Email : {settings.email}</p>
+                    <div className="mt-2 text-[10px] text-slate-500 font-mono">
+                      NIF: {settings.taxId} | RCCM: {settings.tradeRegisterNumber}
+                    </div>
                   </div>
                 </div>
 
@@ -537,6 +557,15 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Thermal POS Receipt Modal */}
+      {showReceiptThermalModal && (
+        <ReceiptPrintModal
+          invoice={invoice}
+          onClose={() => setShowReceiptThermalModal(false)}
+          isReprint={true}
+        />
+      )}
     </div>
   );
 };

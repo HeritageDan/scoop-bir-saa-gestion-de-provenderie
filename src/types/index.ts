@@ -86,6 +86,8 @@ export type StockMovementType =
   | 'consommation interne'
   | 'correction d\'inventaire';
 
+export type SyncStatus = 'synced' | 'pending' | 'syncing' | 'failed';
+
 export interface StockMovement {
   id: string;
   productId: string;
@@ -105,6 +107,8 @@ export interface StockMovement {
   userName: string;
   justification: string;
   timestamp: string;
+  syncStatus?: SyncStatus;
+  deviceId?: string;
 }
 
 export interface Supplier {
@@ -157,6 +161,9 @@ export interface Purchase {
   validatedAt?: string;
   cancelledAt?: string;
   cancellationReason?: string;
+  syncStatus?: SyncStatus;
+  deviceId?: string;
+  updatedAt?: string;
 }
 
 export interface Customer {
@@ -257,6 +264,9 @@ export interface Invoice {
   cancelledBy?: string;
   cancellationReason?: string;
   creditNoteNumber?: string; // ex: AVO-2026-XXXXXX si annulée
+  syncStatus?: SyncStatus;
+  deviceId?: string;
+  updatedAt?: string;
 }
 
 export interface CreditNote {
@@ -321,6 +331,8 @@ export type AuditAction =
   | 'REGLEMENT_CREANCE'
   | 'INVENTAIRE_VALIDE'
   | 'AJUSTEMENT_STOCK'
+  | 'ENREGISTREMENT_DEPENSE'
+  | 'SUPPRESSION_DEPENSE'
   | 'MODIFICATION_UTILISATEUR'
   | 'MODIFICATION_PARAMETRES'
   | 'SAUVEGARDE_SYSTEME'
@@ -339,6 +351,41 @@ export interface AuditLog {
   newValue?: string;
   justification?: string;
   ipAddress?: string;
+}
+
+export type ExpenseCategory =
+  | 'Loyer & Charges locatives'
+  | 'Électricité & Eau'
+  | 'Salaires & Primes du personnel'
+  | 'Entretien & Réparation broyeur/mélangeur'
+  | 'Transport & Carburant logistique'
+  | 'Sacs, ficelles & Emballages'
+  | 'Fournitures de bureau & Télécom'
+  | 'Impôts, taxes & Droits de marché'
+  | 'Frais financiers & Services bancaires'
+  | 'Autres charges opérationnelles';
+
+export type ExpensePaymentMethod = 'espèces' | 'virement' | 'paiement mobile' | 'chèque';
+
+export interface Expense {
+  id: string;
+  referenceNumber: string; // e.g. DEP-2026-000001
+  date: string; // YYYY-MM-DD
+  time?: string; // HH:mm
+  category: ExpenseCategory;
+  description: string;
+  amount: number; // in FCFA
+  paymentMethod: ExpensePaymentMethod;
+  recordedBy: string; // User name
+  userId: string;
+  salesPointId?: string;
+  salesPointName?: string;
+  receiptReference?: string; // N° reçu, facture ou transaction
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
+  syncStatus?: SyncStatus;
+  deviceId?: string;
 }
 
 export interface CompanySettings {
@@ -363,6 +410,23 @@ export interface CompanySettings {
   invoiceFooterNotice: string;
   ticketFooterNotice: string;
   transportFeesIntegratedInCMP: boolean;
+  storeId?: string;
+  deviceId?: string;
+  logoUrl?: string; // Base64 data URL ou URL d'image personnalisée
+}
+
+export type ReceiptPaperWidth = '58mm' | '80mm';
+
+export interface ReceiptPrinterConfig {
+  autoPrintOnSale: boolean;
+  paperWidth: ReceiptPaperWidth;
+  printerName: string;
+  numberOfCopies: number;
+  headerMessage?: string;
+  footerMessage: string;
+  showBarcode: boolean;
+  showLogo: boolean;
+  soundBeepOnPrint: boolean;
 }
 
 export interface AppNotification {
@@ -374,3 +438,4 @@ export interface AppNotification {
   read: boolean;
   linkTab?: string;
 }
+

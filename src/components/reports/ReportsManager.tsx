@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   BarChart3,
   Calendar,
@@ -10,137 +10,207 @@ import {
   Layers,
   CreditCard,
   Percent,
+  Download,
+  Eye,
+  Truck,
+  Wallet,
+  Clock,
+  ArrowRight,
+  Filter,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { formatFCFA, formatDate, formatNumber } from '../../utils/formatters';
+import {
+  DateFilterPreset,
+  DateRange,
+  getDateRangeFromPreset,
+  isDateInRange,
+  formatHumanDateRange,
+  formatToDateInput,
+} from '../../utils/dateFilterUtils';
+import { ReportPrintModal, ReportDocType } from './ReportPrintModal';
+import {
+  generateSalesReportPDF,
+  generateFinancialReportPDF,
+  generateInventoryReportPDF,
+  generatePurchaseReportPDF,
+  generateExpenseReportPDF,
+} from '../../utils/reportPdfGenerator';
 
 export const ReportsManager: React.FC = () => {
-  const { products, invoices, stockMovements, settings, customers, theme, language, t } = useApp();
+  const {
+    products,
+    invoices,
+    purchases,
+    expenses,
+    stockMovements,
+    settings,
+    customers,
+    currentSalesPoint,
+    currentUser,
+    theme,
+    language,
+    t,
+  } = useApp();
 
-  const [dateRange, setDateRange] = useState<'today' | '7days' | 'month' | 'year' | 'all'>('month');
-  const [reportType, setReportType] = useState<'sales_margin' | 'stock_cmp' | 'cash_breakdown'>('sales_margin');
+  // Active Report Tab
+  const [activeReportTab, setActiveReportTab] = useState<ReportDocType>('sales');
 
-  const todayStr = new Date().toISOString().slice(0, 10);
-
-  // Filter invoices for chosen period
-  const validInvoices = invoices.filter(inv => {
-    if (inv.status === 'annulée') return false;
-    if (dateRange === 'today') return inv.date === todayStr;
-    if (dateRange === '7days') {
-      const d = new Date(inv.date);
-      const diff = (Date.now() - d.getTime()) / (1000 * 3600 * 24);
-      return diff <= 7;
-    }
-    if (dateRange === 'month') {
-      const [y, m] = inv.date.split('-');
-      const now = new Date();
-      return Number(y) === now.getFullYear() && Number(m) === now.getMonth() + 1;
-    }
-    return true;
+  // Date Filter Preset & Custom Range
+  const [datePreset, setDatePreset] = useState<DateFilterPreset>('this_month');
+  const [customRange, setCustomRange] = useState<DateRange>(() => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return {
+      startDate: formatToDateInput(firstDay),
+      endDate: formatToDateInput(now),
+    };
   });
 
-  // Financial aggregates
-  const totalGross = validInvoices.reduce((s, i) => s + i.subtotalGross, 0);
-  const totalDiscounts = validInvoices.reduce((s, i) => s + i.totalDiscount, 0);
-  const totalNet = validInvoices.reduce((s, i) => s + i.totalNet, 0);
-  const totalCOGS = validInvoices.reduce((s, i) => s + i.totalCostOfGoodsSold, 0);
-  const totalGrossMargin = totalNet - totalCOGS;
-  const marginOnCost = totalCOGS > 0 ? (totalGrossMargin / totalCOGS) * 100 : 0;
-  const marginOnSales = totalNet > 0 ? (totalGrossMargin / totalNet) * 100 : 0;
+  // Category filter for inventory
+  const [categoryFilter, setCategoryFilter] = useState('all');
 
-  // Payment Breakdown
-  let cashTotal = 0;
-  let mobileTotal = 0;
-  let bankTotal = 0;
-  let creditTotal = 0;
+  // Print Preview Modal
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
-  validInvoices.forEach(inv => {
-    inv.payments.forEach(p => {
-      if (p.method === 'espèces') cashTotal += p.amount;
-      else if (p.method === 'paiement mobile') mobileTotal += p.amount;
-      else if (p.method === 'virement') bankTotal += p.amount;
+  // Resolved Date Range (YYYY-MM-DD)
+  const resolvedDateRange = useMemo(() => {
+    return getDateRangeFromPreset(datePreset, customRange);
+  }, [datePreset, customRange]);
+
+  const { startDate, endDate } = resolvedDateRange;
+
+  // Filtered dataset for active date range
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(
+      inv => inv.status !== 'annulée' && isDateInRange(inv.date, startDate, endDate)
+    );
+  }, [invoices, startDate, endDate]);
+
+  const filteredPurchases = useMemo(() => {
+    return purchases.filter(p => {
+      const d = p.receptionDate || p.orderDate;
+      return isDateInRange(d, startDate, endDate);
     });
-    if (inv.remainingBalance > 0) {
-      creditTotal += inv.remainingBalance;
+  }, [purchases, startDate, endDate]);
+
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter(e => isDateInRange(e.date, startDate, endDate));
+  }, [expenses, startDate, endDate]);
+
+  // Aggregate Key Figures
+  const grossSales = filteredInvoices.reduce((s, i) => s + i.subtotalGross, 0);
+  const totalDiscounts = filteredInvoices.reduce((s, i) => s + i.totalDiscount, 0);
+  const netSales = filteredInvoices.reduce((s, i) => s + i.totalNet, 0);
+  const totalCOGS = filteredInvoices.reduce((s, i) => s + i.totalCostOfGoodsSold, 0);
+  const grossProfit = netSales - totalCOGS;
+  const marginRateSales = netSales > 0 ? (grossProfit / netSales) * 100 : 0;
+
+  const totalPurchasesAmount = filteredPurchases.reduce((s, p) => s + p.totalAmount, 0);
+  const totalExpensesAmount = filteredExpenses.reduce((s, e) => s + e.amount, 0);
+  const netOperatingProfit = grossProfit - totalExpensesAmount;
+
+  const totalStockValuation = useMemo(() => {
+    return products
+      .filter(p => p.status === 'actif')
+      .reduce((sum, p) => sum + p.stockCurrentBaseUnit * p.cmp, 0);
+  }, [products]);
+
+  // Direct PDF Download Handler
+  const handleDirectDownloadPDF = () => {
+    if (activeReportTab === 'sales') {
+      generateSalesReportPDF(invoices, startDate, endDate, settings, currentSalesPoint, currentUser, language);
+    } else if (activeReportTab === 'financial') {
+      generateFinancialReportPDF(invoices, purchases, expenses, products, startDate, endDate, settings, currentSalesPoint, currentUser, language);
+    } else if (activeReportTab === 'inventory') {
+      generateInventoryReportPDF(products, categoryFilter, settings, currentSalesPoint, currentUser, language);
+    } else if (activeReportTab === 'purchases') {
+      generatePurchaseReportPDF(purchases, startDate, endDate, settings, currentSalesPoint, currentUser, language);
+    } else if (activeReportTab === 'expenses') {
+      generateExpenseReportPDF(expenses, startDate, endDate, settings, currentSalesPoint, currentUser, language);
     }
-  });
+  };
 
-  // Product Margin Breakdown
-  const productPerformance: Record<
-    string,
-    {
-      name: string;
-      code: string;
-      category: string;
-      qty: number;
-      revenue: number;
-      cogs: number;
-      margin: number;
-      unit: string;
+  // Export CSV Handler
+  const handleExportCSV = () => {
+    let headers: string[] = [];
+    let rows: (string | number)[][] = [];
+    let filename = `rapport_${activeReportTab}_${startDate}_${endDate}.csv`;
+
+    if (activeReportTab === 'sales') {
+      headers = ['N° Facture', 'Date', 'Client', 'Articles', 'Brut (FCFA)', 'Remise', 'Net (FCFA)', 'Paiement', 'Statut'];
+      rows = filteredInvoices.map(inv => [
+        `"${inv.number}"`,
+        `"${inv.date} ${inv.time || ''}"`,
+        `"${inv.customerName}"`,
+        `"${inv.items.map(it => `${it.productName} (${it.quantity} ${it.unit})`).join(', ')}"`,
+        inv.subtotalGross,
+        inv.totalDiscount,
+        inv.totalNet,
+        `"${inv.payments && inv.payments.length > 0 ? inv.payments[0].method : 'Crédit'}"`,
+        `"${inv.status}"`,
+      ]);
+    } else if (activeReportTab === 'expenses') {
+      headers = ['Réf', 'Date', 'Catégorie', 'Description', 'Montant (FCFA)', 'Règlement', 'Auteur'];
+      rows = filteredExpenses.map(e => [
+        `"${e.referenceNumber}"`,
+        `"${e.date}"`,
+        `"${e.category}"`,
+        `"${e.description.replace(/"/g, '""')}"`,
+        e.amount,
+        `"${e.paymentMethod}"`,
+        `"${e.recordedBy}"`,
+      ]);
+    } else if (activeReportTab === 'purchases') {
+      headers = ['Réf Bon', 'Date', 'Fournisseur', 'Montant Lignes', 'Frais Transport', 'Total TTC (FCFA)', 'Statut'];
+      rows = filteredPurchases.map(p => [
+        `"${p.referenceNumber}"`,
+        `"${p.receptionDate || p.orderDate}"`,
+        `"${p.supplierName}"`,
+        p.subtotal,
+        p.transportFees,
+        p.totalAmount,
+        `"${p.status}"`,
+      ]);
+    } else if (activeReportTab === 'inventory') {
+      headers = ['Code', 'Désignation', 'Catégorie', 'Stock Dispo', 'Unité Base', 'CMP (FCFA)', 'Prix Vente', 'Valeur Actif CMP (FCFA)'];
+      rows = products.filter(p => p.status !== 'archivé').map(p => [
+        `"${p.code}"`,
+        `"${p.name.replace(/"/g, '""')}"`,
+        `"${p.category}"`,
+        p.stockCurrentBaseUnit,
+        `"${p.baseUnit}"`,
+        p.cmp,
+        p.salePrice,
+        p.stockCurrentBaseUnit * p.cmp,
+      ]);
+    } else {
+      headers = ['Poste Analytique', 'Montant (FCFA)'];
+      rows = [
+        ['Chiffre d\'Affaires Brut', grossSales],
+        ['Remises commerciales', -totalDiscounts],
+        ['Chiffre d\'Affaires Net', netSales],
+        ['Coût des Marchandises Vendues (CMP)', -totalCOGS],
+        ['Marge Brute sur Marchandises', grossProfit],
+        ['Charges d\'Exploitation', -totalExpensesAmount],
+        ['Résultat Net d\'Exploitation', netOperatingProfit],
+      ];
     }
-  > = {};
 
-  validInvoices.forEach(inv => {
-    inv.items.forEach(item => {
-      if (!productPerformance[item.productId]) {
-        const pObj = products.find(p => p.id === item.productId);
-        productPerformance[item.productId] = {
-          name: item.productName,
-          code: item.productCode,
-          category: pObj?.category || 'Général',
-          qty: 0,
-          revenue: 0,
-          cogs: 0,
-          margin: 0,
-          unit: item.unit,
-        };
-      }
-      productPerformance[item.productId].qty += item.quantity;
-      productPerformance[item.productId].revenue += item.totalNet;
-      productPerformance[item.productId].cogs += item.costOfGoodsSold;
-      productPerformance[item.productId].margin += item.grossMargin;
-    });
-  });
-
-  const productList = Object.values(productPerformance).sort((a, b) => b.revenue - a.revenue);
-
-  // Stock Valuation
-  const totalStockValuation = products
-    .filter(p => p.status === 'actif')
-    .reduce((sum, p) => sum + p.stockCurrentBaseUnit * p.cmp, 0);
-
-  const exportReportCSV = () => {
-    if (reportType === 'sales_margin') {
-      const headers = ['Code', 'Désignation', 'Catégorie', 'Volume Vendu', 'Unité', 'CA Net (FCFA)', 'CMV (FCFA)', 'Marge Brute (FCFA)', 'Taux Marge (%)'];
-      const rows = productList.map(p => {
-        const rate = p.cogs > 0 ? ((p.margin / p.cogs) * 100).toFixed(1) : '0';
-        return [
-          `"${p.code}"`,
-          `"${p.name.replace(/"/g, '""')}"`,
-          `"${p.category}"`,
-          p.qty,
-          `"${p.unit}"`,
-          p.revenue,
-          p.cogs,
-          p.margin,
-          rate,
-        ].join(';');
-      });
-      const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(';'), ...rows].join('\n');
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
-      link.setAttribute('download', `rapport_ventes_marges_${dateRange}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Top Header */}
-      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 ${
+      <div className={`flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4 ${
         theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
       }`}>
         <div>
@@ -148,453 +218,470 @@ export const ReportsManager: React.FC = () => {
             theme === 'dark' ? 'text-white' : 'text-slate-900'
           }`}>
             <BarChart3 className="w-6 h-6 text-emerald-500" />
-            <span>Rapports d'Exploitation & Rentabilité</span>
+            <span>Centre de Rapports & États de Gestion</span>
           </h1>
           <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-            Analyse des marges par produit au CMP, ventilation des encaissements et valeur d'actif stock.
+            Édition de rapports certifiés multi-pages avec pagination, en-têtes récurrents et export PDF pour l'audit et la direction.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-          {/* Period selector */}
-          <div className={`flex items-center p-1 rounded-xl text-xs border ${
-            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'
-          }`}>
-            {[
-              { id: 'today', label: "Aujourd'hui" },
-              { id: '7days', label: '7 jours' },
-              { id: 'month', label: 'Ce mois' },
-              { id: 'all', label: 'Tout' },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setDateRange(tab.id as any)}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
-                  dateRange === tab.id
-                    ? 'bg-emerald-600 text-white shadow-2xs'
-                    : theme === 'dark'
-                    ? 'text-slate-400 hover:text-white'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
+        {/* Global Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
           <button
-            onClick={exportReportCSV}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition cursor-pointer ${
+            onClick={handleExportCSV}
+            className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition cursor-pointer ${
               theme === 'dark'
                 ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
                 : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-2xs'
             }`}
+            title="Exporter les données au format Excel / CSV"
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-            <span>Exporter CSV</span>
+            <span className="hidden sm:inline">Exporter CSV</span>
           </button>
 
           <button
-            onClick={() => window.print()}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition cursor-pointer ${
+            onClick={handleDirectDownloadPDF}
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition cursor-pointer ${
               theme === 'dark'
                 ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
                 : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-2xs'
             }`}
+            title="Télécharger directement le rapport PDF A4"
           >
-            <Printer className="w-4 h-4 text-slate-400" />
-            <span>Imprimer</span>
+            <Download className="w-4 h-4 text-emerald-500" />
+            <span>Télécharger PDF</span>
+          </button>
+
+          <button
+            onClick={() => setIsPrintModalOpen(true)}
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-md shadow-emerald-600/25 transition cursor-pointer"
+            title="Prévisualiser le document A4 et lancer l'impression"
+          >
+            <Printer className="w-4 h-4" />
+            <span>Prévisualiser & Imprimer</span>
           </button>
         </div>
       </div>
 
-      {/* Report Type Selector */}
-      <div className={`flex border-b overflow-x-auto ${theme === 'dark' ? 'border-slate-800' : 'border-slate-200'}`}>
-        <button
-          onClick={() => setReportType('sales_margin')}
-          className={`py-2 px-4 text-xs font-bold border-b-2 transition whitespace-nowrap cursor-pointer ${
-            reportType === 'sales_margin'
-              ? 'border-emerald-500 text-emerald-500'
-              : theme === 'dark'
-              ? 'border-transparent text-slate-400 hover:text-white'
-              : 'border-transparent text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          Ventes, CMV & Marges Brutes
-        </button>
-        <button
-          onClick={() => setReportType('cash_breakdown')}
-          className={`py-2 px-4 text-xs font-bold border-b-2 transition whitespace-nowrap cursor-pointer ${
-            reportType === 'cash_breakdown'
-              ? 'border-emerald-500 text-emerald-500'
-              : theme === 'dark'
-              ? 'border-transparent text-slate-400 hover:text-white'
-              : 'border-transparent text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          Ventilation des Encaissements & Caisse
-        </button>
-        <button
-          onClick={() => setReportType('stock_cmp')}
-          className={`py-2 px-4 text-xs font-bold border-b-2 transition whitespace-nowrap cursor-pointer ${
-            reportType === 'stock_cmp'
-              ? 'border-emerald-500 text-emerald-500'
-              : theme === 'dark'
-              ? 'border-transparent text-slate-400 hover:text-white'
-              : 'border-transparent text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          Valorisation Actuelle des Stocks (CMP)
-        </button>
+      {/* Date Filter Controls & Presets */}
+      <div className={`p-4 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+        theme === 'dark' ? 'bg-slate-900/70 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+      }`}>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-bold text-slate-400 mr-2 flex items-center gap-1">
+            <Clock className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Période :</span>
+          </span>
+
+          {[
+            { id: 'today', label: "Aujourd'hui" },
+            { id: 'yesterday', label: 'Hier' },
+            { id: 'this_week', label: 'Cette semaine' },
+            { id: 'this_month', label: 'Ce mois' },
+            { id: 'custom', label: 'Personnalisée...' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setDatePreset(tab.id as DateFilterPreset)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                datePreset === tab.id
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : theme === 'dark'
+                  ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Date Pickers for Custom Range */}
+        {datePreset === 'custom' ? (
+          <div className="flex items-center gap-2 text-xs">
+            <div>
+              <span className="text-[10px] text-slate-400 font-bold block mb-0.5">Du :</span>
+              <input
+                type="date"
+                value={customRange.startDate}
+                onChange={e => setCustomRange(prev => ({ ...prev, startDate: e.target.value }))}
+                className={`px-2.5 py-1.5 rounded-lg border text-xs font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                  theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                }`}
+              />
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-400 font-bold block mb-0.5">Au :</span>
+              <input
+                type="date"
+                value={customRange.endDate}
+                onChange={e => setCustomRange(prev => ({ ...prev, endDate: e.target.value }))}
+                className={`px-2.5 py-1.5 rounded-lg border text-xs font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                  theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                }`}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="text-xs text-slate-400 font-mono">
+            {formatHumanDateRange(startDate, endDate, language)}
+          </div>
+        )}
       </div>
 
-      {/* REPORT 1: SALES & MARGIN */}
-      {reportType === 'sales_margin' && (
-        <div className="space-y-6">
-          {/* Key Financial Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className={`border rounded-xl p-4 shadow-xs ${
-              theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-            }`}>
-              <div className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                CA Net de la Période
-              </div>
-              <div className={`text-xl sm:text-2xl font-black mt-1 ${
-                theme === 'dark' ? 'text-white' : 'text-slate-900'
+      {/* KPI Overview Summary Bar */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className={`p-4 rounded-2xl border ${
+          theme === 'dark' ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+        }`}>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CA Net Ventes</span>
+          <div className="text-xl sm:text-2xl font-bold text-emerald-500 font-mono mt-1">
+            {formatFCFA(netSales)}
+          </div>
+          <span className="text-[10px] text-slate-400">
+            {filteredInvoices.length} facture(s) émise(s)
+          </span>
+        </div>
+
+        <div className={`p-4 rounded-2xl border ${
+          theme === 'dark' ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+        }`}>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Marge Brute (CMP)</span>
+          <div className="text-xl sm:text-2xl font-bold text-emerald-400 font-mono mt-1">
+            +{formatFCFA(grossProfit)}
+          </div>
+          <span className="text-[10px] text-slate-400">
+            Taux de marque : <strong className="text-white">{marginRateSales.toFixed(1)}%</strong>
+          </span>
+        </div>
+
+        <div className={`p-4 rounded-2xl border ${
+          theme === 'dark' ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+        }`}>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Dépenses Exploitation</span>
+          <div className="text-xl sm:text-2xl font-bold text-rose-500 font-mono mt-1">
+            -{formatFCFA(totalExpensesAmount)}
+          </div>
+          <span className="text-[10px] text-slate-400">
+            {filteredExpenses.length} charge(s) décaissée(s)
+          </span>
+        </div>
+
+        <div className={`p-4 rounded-2xl border ${
+          theme === 'dark' ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+        }`}>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Résultat Net d'Exploitation</span>
+          <div className={`text-xl sm:text-2xl font-bold font-mono mt-1 ${
+            netOperatingProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
+          }`}>
+            {netOperatingProfit >= 0 ? `+${formatFCFA(netOperatingProfit)}` : formatFCFA(netOperatingProfit)}
+          </div>
+          <span className="text-[10px] text-slate-400">
+            Bénéfice net après charges
+          </span>
+        </div>
+      </div>
+
+      {/* Report Types Tabs Navigation */}
+      <div className={`flex border-b overflow-x-auto gap-2 ${
+        theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
+      }`}>
+        {[
+          { id: 'sales', label: '1. Ventes & Encaissements', icon: DollarSign },
+          { id: 'financial', label: '2. Compte de Résultat & Finances', icon: TrendingUp },
+          { id: 'inventory', label: '3. Stock & Valorisation CMP', icon: Package },
+          { id: 'purchases', label: '4. Approvisionnements Achats', icon: Truck },
+          { id: 'expenses', label: '5. Dépenses d\'Exploitation', icon: Wallet },
+        ].map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeReportTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveReportTab(tab.id as ReportDocType)}
+              className={`py-3 px-4 text-xs font-bold border-b-2 transition whitespace-nowrap flex items-center gap-2 cursor-pointer ${
+                isActive
+                  ? 'border-emerald-500 text-emerald-500 bg-emerald-500/5'
+                  : theme === 'dark'
+                  ? 'border-transparent text-slate-400 hover:text-white hover:border-slate-700'
+                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* On-Screen Report Preview Area */}
+      <div className={`rounded-2xl border p-4 sm:p-6 ${
+        theme === 'dark' ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+      }`}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs uppercase font-bold text-slate-400">Aperçu interactif :</span>
+            <span className="text-xs font-mono font-bold text-white bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-700">
+              {startDate} → {endDate}
+            </span>
+          </div>
+
+          <button
+            onClick={() => setIsPrintModalOpen(true)}
+            className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer"
+          >
+            <span>Ouvrir l'éditeur de mise en page</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Tab 1: Sales Table Preview */}
+        {activeReportTab === 'sales' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className={`border-b text-[11px] font-bold uppercase ${
+                theme === 'dark' ? 'text-slate-400 bg-slate-800/60 border-slate-800' : 'text-slate-600 bg-slate-50 border-slate-200'
               }`}>
-                {formatFCFA(totalNet)}
+                <tr>
+                  <th className="py-2.5 px-3">Date</th>
+                  <th className="py-2.5 px-3">N° Facture</th>
+                  <th className="py-2.5 px-3">Client</th>
+                  <th className="py-2.5 px-3">Articles</th>
+                  <th className="py-2.5 px-3 text-right">Brut</th>
+                  <th className="py-2.5 px-3 text-right">Remise</th>
+                  <th className="py-2.5 px-3 text-right">Net</th>
+                  <th className="py-2.5 px-3 text-right">Marge</th>
+                  <th className="py-2.5 px-3">Statut</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/40 font-mono">
+                {filteredInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center text-slate-400 font-sans">
+                      Aucune vente enregistrée sur cette période.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredInvoices.slice(0, 15).map(inv => (
+                    <tr key={inv.id} className={theme === 'dark' ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50'}>
+                      <td className="py-2.5 px-3 whitespace-nowrap text-slate-400">{formatDate(inv.date)}</td>
+                      <td className="py-2.5 px-3 font-bold text-white whitespace-nowrap">{inv.number}</td>
+                      <td className="py-2.5 px-3 font-sans text-slate-300 font-medium">{inv.customerName}</td>
+                      <td className="py-2.5 px-3 font-sans text-slate-400 text-[11px] truncate max-w-xs">
+                        {inv.items.map(it => `${it.productName} (${it.quantity})`).join(', ')}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-slate-400">{formatNumber(inv.subtotalGross)}</td>
+                      <td className="py-2.5 px-3 text-right text-amber-400">{inv.totalDiscount > 0 ? `-${formatNumber(inv.totalDiscount)}` : '0'}</td>
+                      <td className="py-2.5 px-3 text-right font-bold text-emerald-400">{formatNumber(inv.totalNet)}</td>
+                      <td className="py-2.5 px-3 text-right text-slate-300">+{formatNumber(inv.grossMargin)}</td>
+                      <td className="py-2.5 px-3 font-sans capitalize text-slate-400">{inv.status}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+            {filteredInvoices.length > 15 && (
+              <div className="text-center py-3 text-xs text-slate-400 font-sans border-t border-slate-800">
+                Affichage des 15 premières transactions sur {filteredInvoices.length}. Cliquez sur <strong>Prévisualiser & Imprimer</strong> pour voir et imprimer l'intégralité du rapport.
               </div>
-              <div className={`text-[11px] mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-                Brut: {formatFCFA(totalGross)} | Remises: {formatFCFA(totalDiscounts)}
-              </div>
-            </div>
+            )}
+          </div>
+        )}
 
-            <div className={`border rounded-xl p-4 shadow-xs ${
-              theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-            }`}>
-              <div className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                Coût des Marchandises (CMV)
+        {/* Tab 2: Financial Preview */}
+        {activeReportTab === 'financial' && (
+          <div className="space-y-4 max-w-3xl mx-auto font-sans text-xs">
+            <div className={`p-4 rounded-xl border ${theme === 'dark' ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+              <div className="flex justify-between py-1.5 border-b border-slate-700/50">
+                <span className="font-semibold">Chiffre d'Affaires Brut :</span>
+                <span className="font-mono font-bold">{formatFCFA(grossSales)}</span>
               </div>
-              <div className={`text-xl sm:text-2xl font-black mt-1 ${
-                theme === 'dark' ? 'text-slate-300' : 'text-slate-700'
-              }`}>
-                {formatFCFA(totalCOGS)}
+              <div className="flex justify-between py-1.5 border-b border-slate-700/50 text-amber-400">
+                <span>Remises commerciales déduites :</span>
+                <span className="font-mono">-{formatFCFA(totalDiscounts)}</span>
               </div>
-              <div className={`text-[11px] mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-                Calculé à l'instant T au Coût Moyen Pondéré
+              <div className="flex justify-between py-1.5 border-b border-slate-700/50 font-bold text-emerald-400 text-sm">
+                <span>Chiffre d'Affaires Net :</span>
+                <span className="font-mono">{formatFCFA(netSales)}</span>
               </div>
-            </div>
-
-            <div className={`border rounded-xl p-4 shadow-xs ${
-              theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-            }`}>
-              <div className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                Marge Brute Réalisée
+              <div className="flex justify-between py-1.5 border-b border-slate-700/50 text-slate-400">
+                <span>Coût des Marchandises Vendues (CMP) :</span>
+                <span className="font-mono">-{formatFCFA(totalCOGS)}</span>
               </div>
-              <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                {formatFCFA(totalGrossMargin)}
+              <div className="flex justify-between py-1.5 border-b border-slate-700/50 font-bold text-slate-200">
+                <span>Marge Commerciale Brute :</span>
+                <span className="font-mono text-emerald-400">+{formatFCFA(grossProfit)}</span>
               </div>
-              <div className={`text-[11px] mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-                Gain net d'exploitation sur marchandises
+              <div className="flex justify-between py-1.5 border-b border-slate-700/50 text-rose-400">
+                <span>Charges et Dépenses d'Exploitation :</span>
+                <span className="font-mono">-{formatFCFA(totalExpensesAmount)}</span>
               </div>
-            </div>
-
-            <div className={`border rounded-xl p-4 shadow-xs ${
-              theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-            }`}>
-              <div className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                Rentabilité / Taux
-              </div>
-              <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                {marginOnCost.toFixed(1)}%
-              </div>
-              <div className={`text-[11px] mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-                Taux de marque (sur CA): {marginOnSales.toFixed(1)}%
+              <div className="flex justify-between py-2 text-base font-black text-white pt-2">
+                <span>Résultat Net Réel (Bénéfice) :</span>
+                <span className={`font-mono ${netOperatingProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {netOperatingProfit >= 0 ? `+${formatFCFA(netOperatingProfit)}` : formatFCFA(netOperatingProfit)}
+                </span>
               </div>
             </div>
           </div>
+        )}
 
-          {/* Table of Margin per Product */}
-          <div className={`border rounded-xl overflow-hidden shadow-xs ${
-            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-          }`}>
-            <div className={`p-4 border-b flex justify-between items-center ${
-              theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
-            }`}>
-              <h2 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                Rentabilité Détaillée par Référence de Provende
-              </h2>
-              <span className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                {productList.length} référence(s) vendue(s)
-              </span>
+        {/* Tab 3: Inventory Preview */}
+        {activeReportTab === 'inventory' && (
+          <div className="overflow-x-auto">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-xs text-slate-400">Filtrer par catégorie :</span>
+              <select
+                value={categoryFilter}
+                onChange={e => setCategoryFilter(e.target.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs border focus:outline-none ${
+                  theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'
+                }`}
+              >
+                <option value="all">Toutes les catégories</option>
+                <option value="Matières premières">Matières premières</option>
+                <option value="Concentrés, prémix et compléments">Concentrés, prémix et compléments</option>
+                <option value="Aliments finis">Aliments finis</option>
+                <option value="Autres fournitures">Autres fournitures</option>
+              </select>
             </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className={`border-b text-[10px] uppercase font-bold tracking-wider ${
-                    theme === 'dark'
-                      ? 'bg-slate-850 border-slate-800 text-slate-400'
-                      : 'bg-slate-50 border-slate-200 text-slate-600'
-                  }`}>
-                    <th className="py-3 px-3">Réf.</th>
-                    <th className="py-3 px-3">Désignation</th>
-                    <th className="py-3 px-3">Catégorie</th>
-                    <th className="py-3 px-3 text-right">Volume</th>
-                    <th className="py-3 px-3 text-right">CA Net Réalisé</th>
-                    <th className="py-3 px-3 text-right">Coût CMV (au CMP)</th>
-                    <th className="py-3 px-3 text-right">Marge Brute (FCFA)</th>
-                    <th className="py-3 px-3 text-right">Taux de Marge</th>
-                  </tr>
-                </thead>
-                <tbody className={`divide-y ${theme === 'dark' ? 'divide-slate-800' : 'divide-slate-100'}`}>
-                  {productList.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-500">
-                        Aucune vente pour la période sélectionnée.
+            <table className="w-full text-left text-xs">
+              <thead className={`border-b text-[11px] font-bold uppercase ${
+                theme === 'dark' ? 'text-slate-400 bg-slate-800/60 border-slate-800' : 'text-slate-600 bg-slate-50 border-slate-200'
+              }`}>
+                <tr>
+                  <th className="py-2.5 px-3">Code</th>
+                  <th className="py-2.5 px-3">Produit</th>
+                  <th className="py-2.5 px-3">Catégorie</th>
+                  <th className="py-2.5 px-3 text-right">Stock</th>
+                  <th className="py-2.5 px-3 text-right">CMP (U)</th>
+                  <th className="py-2.5 px-3 text-right">Prix Vente</th>
+                  <th className="py-2.5 px-3 text-right">Valeur Stock (CMP)</th>
+                  <th className="py-2.5 px-3 text-center">État</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/40 font-mono">
+                {products
+                  .filter(p => p.status !== 'archivé' && (categoryFilter === 'all' || p.category === categoryFilter))
+                  .slice(0, 15)
+                  .map(p => (
+                    <tr key={p.id}>
+                      <td className="py-2.5 px-3 text-slate-400">{p.code}</td>
+                      <td className="py-2.5 px-3 font-sans font-medium text-white">{p.name}</td>
+                      <td className="py-2.5 px-3 font-sans text-slate-400 text-[11px]">{p.category}</td>
+                      <td className="py-2.5 px-3 text-right font-bold text-slate-200">{p.stockCurrentBaseUnit} {p.baseUnit}</td>
+                      <td className="py-2.5 px-3 text-right text-slate-400">{formatNumber(p.cmp)} FCFA</td>
+                      <td className="py-2.5 px-3 text-right text-slate-300">{formatNumber(p.salePrice)} FCFA</td>
+                      <td className="py-2.5 px-3 text-right font-bold text-emerald-400">{formatFCFA(p.stockCurrentBaseUnit * p.cmp)}</td>
+                      <td className="py-2.5 px-3 text-center font-sans">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          p.stockCurrentBaseUnit <= 0 ? 'bg-rose-500/20 text-rose-400' : p.stockCurrentBaseUnit <= p.minAlertThresholdBaseUnit ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'
+                        }`}>
+                          {p.stockCurrentBaseUnit <= 0 ? 'Rupture' : p.stockCurrentBaseUnit <= p.minAlertThresholdBaseUnit ? 'Alerte' : 'Normal'}
+                        </span>
                       </td>
                     </tr>
-                  ) : (
-                    productList.map((prod, idx) => {
-                      const tMarge = prod.cogs > 0 ? (prod.margin / prod.cogs) * 100 : 0;
-                      return (
-                        <tr
-                          key={idx}
-                          className={`transition ${
-                            theme === 'dark' ? 'hover:bg-slate-850/60' : 'hover:bg-slate-50'
-                          }`}
-                        >
-                          <td className={`py-3 px-3 font-mono ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                            {prod.code}
-                          </td>
-                          <td className={`py-3 px-3 font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                            {prod.name}
-                          </td>
-                          <td className={`py-3 px-3 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                            {prod.category}
-                          </td>
-                          <td className={`py-3 px-3 text-right font-medium ${
-                            theme === 'dark' ? 'text-slate-200' : 'text-slate-800'
-                          }`}>
-                            {prod.qty} {prod.unit}s
-                          </td>
-                          <td className={`py-3 px-3 text-right font-bold ${
-                            theme === 'dark' ? 'text-white' : 'text-slate-900'
-                          }`}>
-                            {formatFCFA(prod.revenue)}
-                          </td>
-                          <td className={`py-3 px-3 text-right ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                            {formatFCFA(prod.cogs)}
-                          </td>
-                          <td className="py-3 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                            +{formatFCFA(prod.margin)}
-                          </td>
-                          <td className={`py-3 px-3 text-right font-bold ${
-                            theme === 'dark' ? 'text-white' : 'text-slate-900'
-                          }`}>
-                            {tMarge.toFixed(1)}%
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* REPORT 2: CASH BREAKDOWN */}
-      {reportType === 'cash_breakdown' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className={`border rounded-xl p-4 shadow-xs ${
-              theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-            }`}>
-              <div className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                Encaissements Espèces
-              </div>
-              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                {formatFCFA(cashTotal)}
-              </div>
-              <div className={`text-[11px] mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-                Versements en billets & pièces
-              </div>
-            </div>
-
-            <div className={`border rounded-xl p-4 shadow-xs ${
-              theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-            }`}>
-              <div className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                Paiement Mobile (MoMo / OM)
-              </div>
-              <div className="text-2xl font-black text-amber-500 dark:text-amber-400 mt-1">
-                {formatFCFA(mobileTotal)}
-              </div>
-              <div className={`text-[11px] mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-                Transactions électroniques tracées
-              </div>
-            </div>
-
-            <div className={`border rounded-xl p-4 shadow-xs ${
-              theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-            }`}>
-              <div className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                Virements Bancaires
-              </div>
-              <div className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">
-                {formatFCFA(bankTotal)}
-              </div>
-              <div className={`text-[11px] mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-                Chèques & bordereaux bancaires
-              </div>
-            </div>
-
-            <div className={`border rounded-xl p-4 shadow-xs ${
-              theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-            }`}>
-              <div className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                Ventes à Crédit (Non perçues)
-              </div>
-              <div className="text-2xl font-black text-rose-500 dark:text-rose-400 mt-1">
-                {formatFCFA(creditTotal)}
-              </div>
-              <div className={`text-[11px] mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-                Créances ajoutées aux comptes clients
-              </div>
-            </div>
-          </div>
-
-          <div className={`border rounded-xl p-5 shadow-xs ${
-            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-          }`}>
-            <h2 className={`text-sm font-bold mb-3 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-              Récapitulatif Financier Caisse
-            </h2>
-            <div className="space-y-2 text-xs">
-              <div className={`flex justify-between py-2 border-b ${
-                theme === 'dark' ? 'border-slate-800' : 'border-slate-100'
+        {/* Tab 4: Purchases Preview */}
+        {activeReportTab === 'purchases' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className={`border-b text-[11px] font-bold uppercase ${
+                theme === 'dark' ? 'text-slate-400 bg-slate-800/60 border-slate-800' : 'text-slate-600 bg-slate-50 border-slate-200'
               }`}>
-                <span className={theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}>
-                  Total Liquidités Encaissées (Espèces + Mobile + Virement) :
-                </span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                  {formatFCFA(cashTotal + mobileTotal + bankTotal)}
-                </span>
-              </div>
-              <div className={`flex justify-between py-2 border-b ${
-                theme === 'dark' ? 'border-slate-800' : 'border-slate-100'
-              }`}>
-                <span className={theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}>
-                  Total Ventes Réalisées sur la période :
-                </span>
-                <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                  {formatFCFA(totalNet)}
-                </span>
-              </div>
-              <div className="flex justify-between py-2">
-                <span className={theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}>
-                  Taux de Recouvrement Comptant Immédiat :
-                </span>
-                <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                  {totalNet > 0
-                    ? (((cashTotal + mobileTotal + bankTotal) / totalNet) * 100).toFixed(1)
-                    : 0}
-                  %
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* REPORT 3: STOCK CMP VALUATION */}
-      {reportType === 'stock_cmp' && (
-        <div className="space-y-6">
-          <div className={`border rounded-xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-xs ${
-            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-          }`}>
-            <div>
-              <div className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                Valorisation Totale du Stock d'Actif au CMP
-              </div>
-              <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                {formatFCFA(totalStockValuation)}
-              </div>
-              <p className={`text-[11px] mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-                Représente l'actif circulant net de la provenderie valorisé aux coûts pondérés historiques.
-              </p>
-            </div>
-          </div>
-
-          <div className={`border rounded-xl overflow-hidden shadow-xs ${
-            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-          }`}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className={`border-b text-[10px] uppercase font-bold tracking-wider ${
-                    theme === 'dark'
-                      ? 'bg-slate-850 border-slate-800 text-slate-400'
-                      : 'bg-slate-50 border-slate-200 text-slate-600'
-                  }`}>
-                    <th className="py-3 px-3">Réf / Code</th>
-                    <th className="py-3 px-3">Produit</th>
-                    <th className="py-3 px-3">Catégorie</th>
-                    <th className="py-3 px-3 text-right">Quantité Stock</th>
-                    <th className="py-3 px-3 text-right">CMP Unitaire</th>
-                    <th className="py-3 px-3 text-right">Valeur d'Actif (FCFA)</th>
-                    <th className="py-3 px-3 text-right">% du Stock Total</th>
+                <tr>
+                  <th className="py-2.5 px-3">Réf Bon</th>
+                  <th className="py-2.5 px-3">Date</th>
+                  <th className="py-2.5 px-3">Fournisseur</th>
+                  <th className="py-2.5 px-3 text-right">Sous-total</th>
+                  <th className="py-2.5 px-3 text-right">Transport</th>
+                  <th className="py-2.5 px-3 text-right">Total TTC</th>
+                  <th className="py-2.5 px-3">Statut</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/40 font-mono">
+                {filteredPurchases.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-slate-400 font-sans">
+                      Aucun approvisionnement enregistré sur cette période.
+                    </td>
                   </tr>
-                </thead>
-                <tbody className={`divide-y ${theme === 'dark' ? 'divide-slate-800' : 'divide-slate-100'}`}>
-                  {products
-                    .filter(p => p.status === 'actif')
-                    .map(p => {
-                      const val = p.stockCurrentBaseUnit * p.cmp;
-                      const share = totalStockValuation > 0 ? (val / totalStockValuation) * 100 : 0;
-                      return (
-                        <tr
-                          key={p.id}
-                          className={`transition ${
-                            theme === 'dark' ? 'hover:bg-slate-850/60' : 'hover:bg-slate-50'
-                          }`}
-                        >
-                          <td className={`py-3 px-3 font-mono ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                            {p.code}
-                          </td>
-                          <td className={`py-3 px-3 font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                            {p.name}
-                          </td>
-                          <td className={`py-3 px-3 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                            {p.category}
-                          </td>
-                          <td className={`py-3 px-3 text-right font-bold ${
-                            theme === 'dark' ? 'text-white' : 'text-slate-900'
-                          }`}>
-                            {formatNumber(p.stockCurrentBaseUnit)} {p.baseUnit}
-                          </td>
-                          <td className="py-3 px-3 text-right text-emerald-600 dark:text-emerald-400 font-mono font-semibold">
-                            {formatFCFA(p.cmp)}/{p.baseUnit}
-                          </td>
-                          <td className={`py-3 px-3 text-right font-black ${
-                            theme === 'dark' ? 'text-white' : 'text-slate-900'
-                          }`}>
-                            {formatFCFA(val)}
-                          </td>
-                          <td className={`py-3 px-3 text-right ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                            {share.toFixed(1)}%
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
+                ) : (
+                  filteredPurchases.map(p => (
+                    <tr key={p.id}>
+                      <td className="py-2.5 px-3 font-bold text-white">{p.referenceNumber}</td>
+                      <td className="py-2.5 px-3 text-slate-400">{formatDate(p.receptionDate || p.orderDate)}</td>
+                      <td className="py-2.5 px-3 font-sans text-slate-300 font-medium">{p.supplierName}</td>
+                      <td className="py-2.5 px-3 text-right text-slate-400">{formatNumber(p.subtotal)}</td>
+                      <td className="py-2.5 px-3 text-right text-amber-400">{p.transportFees > 0 ? `+${formatNumber(p.transportFees)}` : '0'}</td>
+                      <td className="py-2.5 px-3 text-right font-bold text-emerald-400">{formatFCFA(p.totalAmount)}</td>
+                      <td className="py-2.5 px-3 font-sans capitalize text-slate-400">{p.status}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Tab 5: Expenses Preview */}
+        {activeReportTab === 'expenses' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className={`border-b text-[11px] font-bold uppercase ${
+                theme === 'dark' ? 'text-slate-400 bg-slate-800/60 border-slate-800' : 'text-slate-600 bg-slate-50 border-slate-200'
+              }`}>
+                <tr>
+                  <th className="py-2.5 px-3">Réf</th>
+                  <th className="py-2.5 px-3">Date</th>
+                  <th className="py-2.5 px-3">Catégorie</th>
+                  <th className="py-2.5 px-3">Description</th>
+                  <th className="py-2.5 px-3 text-right">Montant</th>
+                  <th className="py-2.5 px-3">Règlement</th>
+                  <th className="py-2.5 px-3">Auteur</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/40 font-mono">
+                {filteredExpenses.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-slate-400 font-sans">
+                      Aucune dépense enregistrée sur cette période.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredExpenses.map(e => (
+                    <tr key={e.id}>
+                      <td className="py-2.5 px-3 font-bold text-rose-400">{e.referenceNumber}</td>
+                      <td className="py-2.5 px-3 text-slate-400">{formatDate(e.date)}</td>
+                      <td className="py-2.5 px-3 font-sans text-slate-300">{e.category}</td>
+                      <td className="py-2.5 px-3 font-sans text-slate-400 max-w-xs truncate">{e.description}</td>
+                      <td className="py-2.5 px-3 text-right font-bold text-rose-500">{formatFCFA(e.amount)}</td>
+                      <td className="py-2.5 px-3 font-sans text-slate-400 capitalize">{e.paymentMethod}</td>
+                      <td className="py-2.5 px-3 font-sans text-slate-400">{e.recordedBy}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Report Print & PDF Modal */}
+      <ReportPrintModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        reportType={activeReportTab}
+        startDate={startDate}
+        endDate={endDate}
+        categoryFilter={categoryFilter}
+      />
     </div>
   );
 };

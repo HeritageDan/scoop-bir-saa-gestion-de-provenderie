@@ -19,6 +19,7 @@ import {
   SalesPoint,
   Language,
   Theme,
+  Expense,
 } from '../types';
 import {
   INITIAL_USERS,
@@ -33,8 +34,16 @@ import {
   INITIAL_COMPANY_SETTINGS,
   INITIAL_NOTIFICATIONS,
   INITIAL_SALES_POINTS,
+  INITIAL_EXPENSES,
 } from '../data/seedData';
 import { getTranslation } from '../utils/i18n';
+import {
+  openDatabase,
+  saveStoreItems,
+  loadStoreItems,
+  saveMetadata,
+  clearAllIndexedDbStores,
+} from '../services/indexedDbStorage';
 
 interface AppContextType {
   // Theme & Language
@@ -95,7 +104,7 @@ interface AppContextType {
     isCredit?: boolean,
     creditDueDate?: string,
     targetSalesPointId?: string
-  ) => { success: boolean; invoiceId?: string; error?: string };
+  ) => { success: boolean; invoiceId?: string; invoice?: Invoice; error?: string };
   cancelInvoiceWithCreditNote: (invoiceId: string, reason: string) => { success: boolean; error?: string };
 
   // Payments / Debt settlements
@@ -121,6 +130,13 @@ interface AppContextType {
   customers: Customer[];
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'currentDebt'>) => void;
   updateCustomer: (customer: Customer) => void;
+
+  // Operating Expenses
+  expenses: Expense[];
+  allExpenses: Expense[];
+  addExpense: (expense: Omit<Expense, 'id' | 'referenceNumber' | 'createdAt'>) => string;
+  updateExpense: (expense: Expense) => void;
+  deleteExpense: (id: string, reason?: string) => void;
 
   // Audit Logs & Notifications
   auditLogs: AuditLog[];
@@ -251,48 +267,88 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_COMPANY_SETTINGS;
   });
 
+  const [expenses, setExpenses] = useState<Expense[]>(() => {
+    const saved = localStorage.getItem('provenda_expenses');
+    return saved ? JSON.parse(saved) : INITIAL_EXPENSES;
+  });
+
   // Collect all payments from invoices
   const payments = invoices.flatMap(inv => inv.payments || []);
 
-  // Save to localStorage whenever state changes
+  // Initial synchronization with IndexedDB
+  useEffect(() => {
+    const syncWithIndexedDb = async () => {
+      try {
+        await openDatabase();
+        const dbInvoices = await loadStoreItems<Invoice>('invoices');
+        if (dbInvoices && dbInvoices.length > 0 && invoices.length === INITIAL_INVOICES.length) {
+          setInvoices(dbInvoices);
+        }
+        const dbStockMovements = await loadStoreItems<StockMovement>('stockMovements');
+        if (dbStockMovements && dbStockMovements.length > 0 && stockMovements.length === INITIAL_STOCK_MOVEMENTS.length) {
+          setStockMovements(dbStockMovements);
+        }
+      } catch (err) {
+        console.warn('[IndexedDB] Background sync notice:', err);
+      }
+    };
+    syncWithIndexedDb();
+  }, []);
+
+  // Dual-Persistence Engine: Instant localStorage + High-Capacity IndexedDB
+  useEffect(() => {
+    localStorage.setItem('provenda_expenses', JSON.stringify(expenses));
+    saveStoreItems('expenses', expenses);
+  }, [expenses]);
+
   useEffect(() => {
     localStorage.setItem('provenda_users', JSON.stringify(users));
+    saveStoreItems('users', users);
   }, [users]);
 
   useEffect(() => {
     localStorage.setItem('provenda_products', JSON.stringify(products));
+    saveStoreItems('products', products);
   }, [products]);
 
   useEffect(() => {
     localStorage.setItem('provenda_suppliers', JSON.stringify(suppliers));
+    saveStoreItems('suppliers', suppliers);
   }, [suppliers]);
 
   useEffect(() => {
     localStorage.setItem('provenda_customers', JSON.stringify(customers));
+    saveStoreItems('customers', customers);
   }, [customers]);
 
   useEffect(() => {
     localStorage.setItem('provenda_purchases', JSON.stringify(purchases));
+    saveStoreItems('purchases', purchases);
   }, [purchases]);
 
   useEffect(() => {
     localStorage.setItem('provenda_invoices', JSON.stringify(invoices));
+    saveStoreItems('invoices', invoices);
   }, [invoices]);
 
   useEffect(() => {
     localStorage.setItem('provenda_credit_notes', JSON.stringify(creditNotes));
+    saveStoreItems('creditNotes', creditNotes);
   }, [creditNotes]);
 
   useEffect(() => {
     localStorage.setItem('provenda_stock_movements', JSON.stringify(stockMovements));
+    saveStoreItems('stockMovements', stockMovements);
   }, [stockMovements]);
 
   useEffect(() => {
     localStorage.setItem('provenda_inventories', JSON.stringify(inventories));
+    saveStoreItems('inventories', inventories);
   }, [inventories]);
 
   useEffect(() => {
     localStorage.setItem('provenda_audit_logs', JSON.stringify(auditLogs));
+    saveStoreItems('auditLogs', auditLogs);
   }, [auditLogs]);
 
   useEffect(() => {
@@ -301,14 +357,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     localStorage.setItem('provenda_settings', JSON.stringify(settings));
+    saveMetadata('settings', settings);
   }, [settings]);
 
   useEffect(() => {
-    localStorage.setItem('provenda_users', JSON.stringify(users));
-  }, [users]);
-
-  useEffect(() => {
     localStorage.setItem('provenda_sales_points', JSON.stringify(salesPoints));
+    saveStoreItems('salesPoints', salesPoints);
   }, [salesPoints]);
 
   // Theme handling
@@ -1216,7 +1270,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     }
 
-    return { success: true, invoiceId };
+    return { success: true, invoiceId, invoice: newInvoice };
   };
 
   // Non-destructive Invoice Cancellation / Credit Note (Section 10 & Criterion #10)
@@ -1700,6 +1754,77 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCustomers(prev => prev.map(c => (c.id === customer.id ? customer : c)));
   };
 
+  // Expenses Management
+  const addExpense = (
+    expenseData: Omit<Expense, 'id' | 'referenceNumber' | 'createdAt'>
+  ): string => {
+    const year = new Date().getFullYear();
+    const count = expenses.length + 1;
+    const ref = `DEP-${year}-${String(count).padStart(6, '0')}`;
+    const id = `exp-${Date.now()}`;
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 16);
+
+    const effectiveSpId = expenseData.salesPointId || (currentUser.role === 'administrateur'
+      ? (effectiveSalesPointId !== 'all' ? effectiveSalesPointId : (salesPoints[0]?.id || 'pos-1'))
+      : (currentUser.assignedSalesPointId || 'pos-1'));
+    const sp = salesPoints.find(s => s.id === effectiveSpId) || salesPoints[0];
+
+    const newExpense: Expense = {
+      ...expenseData,
+      id,
+      referenceNumber: ref,
+      salesPointId: effectiveSpId,
+      salesPointName: sp?.name,
+      createdAt: now,
+    };
+
+    setExpenses(prev => [newExpense, ...prev]);
+
+    addAuditLog(
+      'ENREGISTREMENT_DEPENSE',
+      `Dépense: ${ref} (${newExpense.category})`,
+      id,
+      undefined,
+      `Montant: ${newExpense.amount.toLocaleString()} FCFA (${newExpense.paymentMethod}) - ${newExpense.description}`,
+      newExpense.notes || 'Enregistrement charge d\'exploitation'
+    );
+
+    return id;
+  };
+
+  const updateExpense = (updatedExpense: Expense) => {
+    const old = expenses.find(e => e.id === updatedExpense.id);
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 16);
+    const finalized = { ...updatedExpense, updatedAt: now };
+
+    setExpenses(prev => prev.map(e => (e.id === updatedExpense.id ? finalized : e)));
+
+    addAuditLog(
+      'ENREGISTREMENT_DEPENSE',
+      `Dépense modifiée: ${updatedExpense.referenceNumber}`,
+      updatedExpense.id,
+      old ? `${old.amount.toLocaleString()} FCFA (${old.category})` : undefined,
+      `${updatedExpense.amount.toLocaleString()} FCFA (${updatedExpense.category}) - ${updatedExpense.description}`,
+      'Mise à jour de la charge opérationnelle'
+    );
+  };
+
+  const deleteExpense = (id: string, reason?: string) => {
+    const target = expenses.find(e => e.id === id);
+    if (!target) return;
+
+    setExpenses(prev => prev.filter(e => e.id !== id));
+
+    addAuditLog(
+      'SUPPRESSION_DEPENSE',
+      `Dépense supprimée: ${target.referenceNumber}`,
+      target.id,
+      `${target.amount.toLocaleString()} FCFA (${target.category})`,
+      undefined,
+      reason || 'Suppression d\'une dépense'
+    );
+  };
+
   // Notifications
   const markNotificationAsRead = (id: string) => {
     setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: true } : n)));
@@ -1744,6 +1869,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         inventories,
         auditLogs,
         settings,
+        expenses,
       },
     };
 
@@ -1752,7 +1878,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       'Base de données complète',
       backupData.checksum,
       undefined,
-      `Export complet réalisé avec succès (${products.length} produits, ${invoices.length} factures)`,
+      `Export complet réalisé avec succès (${products.length} produits, ${invoices.length} factures, ${expenses.length} dépenses)`,
       'Sauvegarde manuelle exportée'
     );
 
@@ -1777,6 +1903,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (parsed.data.stockMovements) setStockMovements(parsed.data.stockMovements);
       if (parsed.data.inventories) setInventories(parsed.data.inventories);
       if (parsed.data.settings) setSettings(parsed.data.settings);
+      if (parsed.data.expenses) setExpenses(parsed.data.expenses);
 
       const restoreLog: AuditLog = {
         id: `aud-restore-${Date.now()}`,
@@ -1815,7 +1942,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuditLogs(INITIAL_AUDIT_LOGS);
     setNotifications(INITIAL_NOTIFICATIONS);
     setSettings(INITIAL_COMPANY_SETTINGS);
+    setExpenses(INITIAL_EXPENSES);
     localStorage.clear();
+    clearAllIndexedDbStores();
   };
 
   const getLowStockProducts = () => {
@@ -1844,6 +1973,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const scopedInventories = currentUser.role === 'administrateur'
     ? (effectiveSalesPointId === 'all' ? inventories : inventories.filter(inv => (inv.salesPointId || 'pos-1') === effectiveSalesPointId))
     : inventories.filter(inv => (inv.salesPointId || 'pos-1') === (currentUser.assignedSalesPointId || 'pos-1'));
+
+  const scopedExpenses = currentUser.role === 'administrateur'
+    ? (effectiveSalesPointId === 'all' ? expenses : expenses.filter(e => (e.salesPointId || 'pos-1') === effectiveSalesPointId))
+    : expenses.filter(e => (e.salesPointId || 'pos-1') === (currentUser.assignedSalesPointId || 'pos-1'));
 
   return (
     <AppContext.Provider
@@ -1902,6 +2035,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         customers,
         addCustomer,
         updateCustomer,
+        expenses: scopedExpenses,
+        allExpenses: expenses,
+        addExpense,
+        updateExpense,
+        deleteExpense,
         auditLogs,
         addAuditLog,
         notifications,

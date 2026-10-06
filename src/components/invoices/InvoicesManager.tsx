@@ -17,6 +17,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { Invoice } from '../../types';
 import { formatFCFA, formatDate, formatDateTime } from '../../utils/formatters';
+import { ReceiptPrintModal } from '../receipts/ReceiptPrintModal';
 
 interface InvoicesManagerProps {
   onOpenInvoiceModal: (invoice: Invoice) => void;
@@ -32,6 +33,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
   const [activeTab, setActiveTab] = useState<'invoices' | 'creditNotes'>('invoices');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'payée' | 'partielle' | 'crédit' | 'annulée'>('all');
+  const [receiptModalInvoice, setReceiptModalInvoice] = useState<Invoice | null>(null);
 
   const filteredInvoices = invoices.filter(inv => {
     const matchesPoint =
@@ -307,13 +309,25 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
                       <td className="py-3 px-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            onClick={() => setReceiptModalInvoice(inv)}
+                            className={`p-1.5 rounded transition cursor-pointer ${
+                              theme === 'dark'
+                                ? 'text-emerald-400 hover:text-emerald-300 hover:bg-slate-800'
+                                : 'text-emerald-600 hover:text-emerald-700 hover:bg-slate-100'
+                            }`}
+                            title={language === 'fr' ? 'Imprimer / Réimprimer Ticket POS' : 'Print / Reprint POS Receipt'}
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+
+                          <button
                             onClick={() => onOpenInvoiceModal(inv)}
                             className={`p-1.5 rounded transition cursor-pointer ${
                               theme === 'dark'
                                 ? 'text-slate-400 hover:text-white hover:bg-slate-800'
                                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                             }`}
-                            title={language === 'fr' ? 'Consulter et Imprimer Facture' : 'View and Print Invoice'}
+                            title={language === 'fr' ? 'Consulter et Imprimer Facture A4' : 'View and Print A4 Invoice'}
                           >
                             <Eye className="w-4 h-4" />
                           </button>
@@ -404,6 +418,15 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
             </table>
           </div>
         </div>
+      )}
+
+      {/* POS Thermal Receipt Modal for Reprinting */}
+      {receiptModalInvoice && (
+        <ReceiptPrintModal
+          invoice={receiptModalInvoice}
+          onClose={() => setReceiptModalInvoice(null)}
+          isReprint={true}
+        />
       )}
     </div>
   );
