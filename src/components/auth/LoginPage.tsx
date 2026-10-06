@@ -16,7 +16,7 @@ import {
 import { useApp } from '../../context/AppContext';
 
 export const LoginPage: React.FC = () => {
-  const { login, theme, toggleTheme, language, setLanguage, t, users } = useApp();
+  const { login, theme, toggleTheme, language, setLanguage, t, users, settings } = useApp();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,13 +47,23 @@ export const LoginPage: React.FC = () => {
         theme === 'dark' ? 'border-slate-800 bg-slate-900/60' : 'border-slate-200 bg-white/80'
       } backdrop-blur-sm`}>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold shadow-sm">
-            <Warehouse className="w-5 h-5 text-emerald-100" />
-          </div>
+          {settings.logoUrl ? (
+            <img
+              src={settings.logoUrl}
+              alt={settings.name || 'COOPS BIR SAA'}
+              className="w-9 h-9 rounded-lg object-contain bg-white p-0.5 border border-slate-200 dark:border-slate-700 shadow-sm"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold shadow-sm">
+              <Warehouse className="w-5 h-5 text-emerald-100" />
+            </div>
+          )}
           <div>
-            <span className="font-bold tracking-tight text-base sm:text-lg">PROVENDA</span>
+            <span className="font-bold tracking-tight text-base sm:text-lg uppercase">
+              {settings.name || 'COOPS BIR SAA'}
+            </span>
             <span className="ml-2 text-[10px] uppercase font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
-              v2.2
+              POS
             </span>
           </div>
         </div>
@@ -187,6 +197,78 @@ export const LoginPage: React.FC = () => {
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
+
+            {/* Quick Login Helper Badges */}
+            <div className="mt-5 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-2">
+                {language === 'fr' ? 'Comptes par défaut (cliquez pour remplir) :' : 'Default accounts (click to fill):'}
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('amadou.diallo@provenda.net');
+                    setPassword('admin123');
+                  }}
+                  className={`p-2 rounded-xl border text-left cursor-pointer transition flex flex-col ${
+                    theme === 'dark'
+                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700 text-slate-200'
+                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800'
+                  }`}
+                >
+                  <span className="font-bold text-emerald-500">Administrateur</span>
+                  <span className="text-[10px] text-slate-400 font-mono">admin123</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('patrick.kamga@provenda.net');
+                    setPassword('caisse123');
+                  }}
+                  className={`p-2 rounded-xl border text-left cursor-pointer transition flex flex-col ${
+                    theme === 'dark'
+                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700 text-slate-200'
+                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800'
+                  }`}
+                >
+                  <span className="font-bold text-emerald-500">Caissier POS</span>
+                  <span className="text-[10px] text-slate-400 font-mono">caisse123</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('beatrice.ngoue@provenda.net');
+                    setPassword('resp123');
+                  }}
+                  className={`p-2 rounded-xl border text-left cursor-pointer transition flex flex-col ${
+                    theme === 'dark'
+                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700 text-slate-200'
+                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800'
+                  }`}
+                >
+                  <span className="font-bold text-amber-500">Responsable</span>
+                  <span className="text-[10px] text-slate-400 font-mono">resp123</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('samuel.tientcheu@provenda.net');
+                    setPassword('mag123');
+                  }}
+                  className={`p-2 rounded-xl border text-left cursor-pointer transition flex flex-col ${
+                    theme === 'dark'
+                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700 text-slate-200'
+                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800'
+                  }`}
+                >
+                  <span className="font-bold text-blue-500">Magasinier</span>
+                  <span className="text-[10px] text-slate-400 font-mono">mag123</span>
+                </button>
+              </div>
+            </div>
 
             {/* Professional Authentication Notice */}
             <div className={`mt-6 pt-5 border-t text-xs ${
