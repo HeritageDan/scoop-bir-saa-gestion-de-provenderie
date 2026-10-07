@@ -608,12 +608,12 @@ export const StockManager: React.FC = () => {
         >
           <div
             className={`border w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 cursor-default ${
-              theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-850'
+              theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-850'
             }`}
             onClick={e => e.stopPropagation()}
           >
             <div className={`p-4 border-b flex items-center justify-between ${
-              theme === 'dark' ? 'bg-slate-850 border-slate-700' : 'bg-slate-50 border-slate-200'
+              theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
             }`}>
               <h3 className={`font-bold text-sm sm:text-base flex items-center gap-2 ${
                 theme === 'dark' ? 'text-white' : 'text-slate-900'
@@ -631,27 +631,27 @@ export const StockManager: React.FC = () => {
 
             <form onSubmit={handleManualAdjustmentSubmit} className="p-4 space-y-3.5 text-xs">
               {adjustError && (
-                <div className="p-2 bg-rose-500/10 border border-rose-500/30 text-rose-500 rounded-lg">
+                <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 text-rose-500 dark:text-rose-400 rounded-lg">
                   {adjustError}
                 </div>
               )}
               {adjustSuccess && (
-                <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 rounded-lg">
+                <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 dark:text-emerald-400 rounded-lg">
                   {adjustSuccess}
                 </div>
               )}
 
               <div>
-                <label className="block text-slate-400 mb-1 font-medium">
+                <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                   {language === 'fr' ? 'Produit concerné :' : 'Target Product:'}
                 </label>
                 <select
                   value={selectedProductId}
                   onChange={e => setSelectedProductId(e.target.value)}
-                  className={`w-full rounded-lg px-3 py-2 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                  className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                     theme === 'dark'
-                      ? 'bg-slate-800 border-slate-700 text-white'
-                      : 'bg-slate-50 border-slate-300 text-slate-850'
+                      ? 'bg-slate-950 border-slate-700 text-white'
+                      : 'bg-white border-slate-300 text-slate-900'
                   }`}
                 >
                   {products
@@ -666,16 +666,16 @@ export const StockManager: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">
+                  <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                     {language === 'fr' ? 'Motif opérationnel :' : 'Operational Reason:'}
                   </label>
                   <select
                     value={adjustType}
                     onChange={e => setAdjustType(e.target.value as any)}
-                    className={`w-full rounded-lg px-3 py-2 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                       theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white'
-                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                        ? 'bg-slate-950 border-slate-700 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   >
                     <option value="produit endommagé">{language === 'fr' ? 'Produit endommagé' : 'Damaged goods'}</option>
@@ -686,16 +686,16 @@ export const StockManager: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">
+                  <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                     {language === 'fr' ? 'Sens du flux :' : 'Flow Direction:'}
                   </label>
                   <select
                     value={isNegativeChange ? 'sortie' : 'entrée'}
                     onChange={e => setIsNegativeChange(e.target.value === 'sortie')}
-                    className={`w-full rounded-lg px-3 py-2 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                       theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white'
-                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                        ? 'bg-slate-950 border-slate-700 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   >
                     <option value="sortie">{language === 'fr' ? 'Sortie / Diminution (-)' : 'Outflow / Decrease (-)'}</option>
@@ -705,7 +705,7 @@ export const StockManager: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1 font-medium">
+                <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                   Quantité ({selectedProduct.saleUnit}s de {selectedProduct.conversionFactor}{' '}
                   {selectedProduct.baseUnit}) :
                 </label>
@@ -716,14 +716,14 @@ export const StockManager: React.FC = () => {
                     step="0.1"
                     value={adjustQtyCommercial}
                     onChange={e => setAdjustQtyCommercial(Number(e.target.value))}
-                    className={`flex-1 rounded-lg px-3 py-2 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    className={`flex-1 rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                       theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white'
-                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                        ? 'bg-slate-950 border-slate-700 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
                     }`}
                     required
                   />
-                  <span className="text-slate-400 font-medium">
+                  <span className="text-slate-500 dark:text-slate-300 font-bold text-xs">
                     = {adjustQtyCommercial * selectedProduct.conversionFactor}{' '}
                     {selectedProduct.baseUnit}
                   </span>
@@ -731,7 +731,7 @@ export const StockManager: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1 font-medium">
+                <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                   {language === 'fr' ? 'Justification détaillée (Obligatoire) :' : 'Detailed Justification (Required):'}
                 </label>
                 <textarea
@@ -739,32 +739,28 @@ export const StockManager: React.FC = () => {
                   value={justification}
                   onChange={e => setJustification(e.target.value)}
                   placeholder={language === 'fr' ? 'Ex: Sac déchiré lors du déchargement, perte au sol...' : 'E.g.: Bag torn during unloading...'}
-                  className={`w-full rounded-lg p-2.5 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                  className={`w-full rounded-xl p-3 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                     theme === 'dark'
-                      ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
-                      : 'bg-slate-50 border-slate-300 text-slate-850 placeholder-slate-400'
+                      ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500'
+                      : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                   }`}
                   required
                 />
               </div>
 
-              <div className={`pt-2 border-t flex justify-end gap-2 ${
+              <div className={`pt-3 border-t flex justify-end gap-2.5 ${
                 theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
               }`}>
                 <button
                   type="button"
                   onClick={() => setShowAdjustmentModal(false)}
-                  className={`px-3 py-2 rounded-lg text-xs cursor-pointer ${
-                    theme === 'dark'
-                      ? 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                  }`}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
                 >
                   {language === 'fr' ? 'Annuler' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg text-xs shadow-xs cursor-pointer"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition cursor-pointer"
                 >
                   {language === 'fr' ? "Enregistrer l'Ajustement" : 'Save Adjustment'}
                 </button>
@@ -782,12 +778,12 @@ export const StockManager: React.FC = () => {
         >
           <div
             className={`border rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col cursor-default ${
-              theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-850'
+              theme === 'dark' ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-850'
             }`}
             onClick={e => e.stopPropagation()}
           >
             <div className={`p-5 border-b flex items-center justify-between ${
-              theme === 'dark' ? 'bg-slate-850 border-slate-700' : 'bg-slate-50 border-slate-200'
+              theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
             }`}>
               <div className="flex items-center gap-2">
                 <Boxes className="w-5 h-5 text-emerald-500" />
@@ -844,14 +840,14 @@ export const StockManager: React.FC = () => {
               className="p-5 overflow-y-auto space-y-4 flex-1 text-xs"
             >
               {newProdError && (
-                <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-500 rounded-lg">
+                <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-500 dark:text-rose-400 rounded-xl font-semibold">
                   {newProdError}
                 </div>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">
+                  <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                     {language === 'fr' ? 'Code / Réf *' : 'Code / SKU *'}
                   </label>
                   <input
@@ -860,15 +856,15 @@ export const StockManager: React.FC = () => {
                     value={newProdCode}
                     onChange={e => setNewProdCode(e.target.value)}
                     placeholder="PRD-012"
-                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    className={`w-full rounded-xl p-2.5 text-xs font-mono font-bold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                       theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
-                        : 'bg-slate-50 border-slate-300 text-slate-850 placeholder-slate-400'
+                        ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500'
+                        : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                     }`}
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-slate-400 mb-1 font-medium">
+                  <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                     {language === 'fr' ? 'Désignation du Produit *' : 'Product Name *'}
                   </label>
                   <input
@@ -877,10 +873,10 @@ export const StockManager: React.FC = () => {
                     value={newProdName}
                     onChange={e => setNewProdName(e.target.value)}
                     placeholder={language === 'fr' ? 'Ex: Aliment Pondeuse Finition - Sac 50kg' : 'Ex: Layer Feed Finisher - 50kg bag'}
-                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    className={`w-full rounded-xl p-2.5 text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                       theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
-                        : 'bg-slate-50 border-slate-300 text-slate-850 placeholder-slate-400'
+                        ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500'
+                        : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                     }`}
                   />
                 </div>
@@ -888,16 +884,16 @@ export const StockManager: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">
+                  <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                     {language === 'fr' ? 'Catégorie' : 'Category'}
                   </label>
                   <select
                     value={newProdCategory}
                     onChange={e => setNewProdCategory(e.target.value as any)}
-                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    className={`w-full rounded-xl p-2.5 text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${
                       theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white'
-                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                        ? 'bg-slate-950 border-slate-700 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   >
                     <option value="Matières premières">{language === 'fr' ? 'Matières premières' : 'Raw materials'}</option>
@@ -907,7 +903,7 @@ export const StockManager: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">
+                  <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                     {language === 'fr' ? 'Conditionnement' : 'Packaging'}
                   </label>
                   <input
@@ -915,10 +911,10 @@ export const StockManager: React.FC = () => {
                     value={newProdPackaging}
                     onChange={e => setNewProdPackaging(e.target.value)}
                     placeholder="Sac de 50 kg / Vrac"
-                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    className={`w-full rounded-xl p-2.5 text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                       theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
-                        : 'bg-slate-50 border-slate-300 text-slate-850 placeholder-slate-400'
+                        ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500'
+                        : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                     }`}
                   />
                 </div>
@@ -926,16 +922,16 @@ export const StockManager: React.FC = () => {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">
+                  <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                     {language === 'fr' ? 'Unité de Stock' : 'Stock Unit'}
                   </label>
                   <select
                     value={newProdBaseUnit}
                     onChange={e => setNewProdBaseUnit(e.target.value as any)}
-                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    className={`w-full rounded-xl p-2.5 text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${
                       theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white'
-                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                        ? 'bg-slate-950 border-slate-700 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   >
                     <option value="kilogramme">kilogramme (kg)</option>
@@ -946,16 +942,16 @@ export const StockManager: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">
+                  <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                     {language === 'fr' ? 'Unité Commerciale' : 'Sale Unit'}
                   </label>
                   <select
                     value={newProdSaleUnit}
                     onChange={e => setNewProdSaleUnit(e.target.value as any)}
-                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    className={`w-full rounded-xl p-2.5 text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${
                       theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white'
-                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                        ? 'bg-slate-950 border-slate-700 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   >
                     <option value="sac">sac</option>
@@ -967,7 +963,7 @@ export const StockManager: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">
+                  <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                     {language === 'fr' ? 'Facteur Conversion' : 'Conversion Factor'}
                   </label>
                   <input
@@ -975,10 +971,10 @@ export const StockManager: React.FC = () => {
                     min="1"
                     value={newProdFactor}
                     onChange={e => setNewProdFactor(Number(e.target.value))}
-                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    className={`w-full rounded-xl p-2.5 text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                       theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white'
-                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                        ? 'bg-slate-950 border-slate-700 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   />
                 </div>
@@ -986,7 +982,7 @@ export const StockManager: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">
+                  <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                     {language === 'fr' ? 'Prix Achat Catalogue (FCFA)' : 'Purchase Price (FCFA)'}
                   </label>
                   <input
@@ -994,15 +990,15 @@ export const StockManager: React.FC = () => {
                     min="0"
                     value={newProdPurchasePrice}
                     onChange={e => setNewProdPurchasePrice(Number(e.target.value))}
-                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    className={`w-full rounded-xl p-2.5 text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                       theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white'
-                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                        ? 'bg-slate-950 border-slate-700 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">
+                  <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                     {language === 'fr' ? 'Prix Vente Unitaire (FCFA) *' : 'Unit Sale Price (FCFA) *'}
                   </label>
                   <input
@@ -1011,10 +1007,10 @@ export const StockManager: React.FC = () => {
                     required
                     value={newProdSalePrice}
                     onChange={e => setNewProdSalePrice(Number(e.target.value))}
-                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    className={`w-full rounded-xl p-2.5 text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                       theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white'
-                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                        ? 'bg-slate-950 border-slate-700 text-emerald-400'
+                        : 'bg-white border-slate-300 text-emerald-700'
                     }`}
                   />
                 </div>
@@ -1022,7 +1018,7 @@ export const StockManager: React.FC = () => {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">
+                  <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                     {language === 'fr' ? `Stock Initial (${newProdBaseUnit})` : `Initial Stock (${newProdBaseUnit})`}
                   </label>
                   <input
@@ -1030,15 +1026,15 @@ export const StockManager: React.FC = () => {
                     min="0"
                     value={newProdInitialStock}
                     onChange={e => setNewProdInitialStock(Number(e.target.value))}
-                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    className={`w-full rounded-xl p-2.5 text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                       theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white'
-                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                        ? 'bg-slate-950 border-slate-700 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">
+                  <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                     {language === 'fr' ? `CMP Initial (FCFA/${newProdBaseUnit})` : `Initial CMP (FCFA/${newProdBaseUnit})`}
                   </label>
                   <input
@@ -1046,15 +1042,15 @@ export const StockManager: React.FC = () => {
                     min="0"
                     value={newProdInitialCmp}
                     onChange={e => setNewProdInitialCmp(Number(e.target.value))}
-                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    className={`w-full rounded-xl p-2.5 text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                       theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white'
-                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                        ? 'bg-slate-950 border-slate-700 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">
+                  <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                     {language === 'fr' ? `Seuil d'Alerte (${newProdBaseUnit})` : `Alert Threshold (${newProdBaseUnit})`}
                   </label>
                   <input
@@ -1062,17 +1058,17 @@ export const StockManager: React.FC = () => {
                     min="0"
                     value={newProdMinAlert}
                     onChange={e => setNewProdMinAlert(Number(e.target.value))}
-                    className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    className={`w-full rounded-xl p-2.5 text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                       theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white'
-                        : 'bg-slate-50 border-slate-300 text-slate-850'
+                        ? 'bg-slate-950 border-slate-700 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1 font-medium">
+                <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
                   {language === 'fr' ? 'Description / Composition' : 'Description / Notes'}
                 </label>
                 <textarea
@@ -1080,31 +1076,27 @@ export const StockManager: React.FC = () => {
                   value={newProdDescription}
                   onChange={e => setNewProdDescription(e.target.value)}
                   placeholder={language === 'fr' ? 'Composition technique, taux de protéines brutes, vitamines...' : 'Technical details, protein levels...'}
-                  className={`w-full rounded-lg p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                  className={`w-full rounded-xl p-2.5 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                     theme === 'dark'
-                      ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
-                      : 'bg-slate-50 border-slate-300 text-slate-850 placeholder-slate-400'
+                      ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500'
+                      : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                   }`}
                 />
               </div>
 
-              <div className={`pt-3 border-t flex justify-end gap-2 ${
+              <div className={`pt-3 border-t flex justify-end gap-2.5 ${
                 theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
               }`}>
                 <button
                   type="button"
                   onClick={() => setShowNewProductModal(false)}
-                  className={`px-4 py-2 rounded-lg font-medium cursor-pointer ${
-                    theme === 'dark'
-                      ? 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                  }`}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
                 >
                   {language === 'fr' ? 'Annuler' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2 rounded-lg shadow-xs cursor-pointer"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition cursor-pointer"
                 >
                   {language === 'fr' ? 'Enregistrer le Produit' : 'Save Product'}
                 </button>
