@@ -285,6 +285,25 @@ CREATE TABLE IF NOT EXISTS public.company_settings (
   "transportFeesIntegratedInCMP" BOOLEAN DEFAULT true
 );
 
+-- 13. Table des Dépenses d'Exploitation
+CREATE TABLE IF NOT EXISTS public.expenses (
+  id TEXT PRIMARY KEY,
+  "referenceNumber" TEXT NOT NULL,
+  date TEXT NOT NULL,
+  time TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC DEFAULT 0,
+  "paymentMethod" TEXT NOT NULL,
+  "recordedBy" TEXT NOT NULL,
+  "userId" TEXT NOT NULL,
+  "salesPointId" TEXT,
+  "salesPointName" TEXT,
+  "receiptReference" TEXT,
+  notes TEXT,
+  "createdAt" TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ==============================================================================
 -- PERMISSIONS & DROITS D'ACCÈS DU RÔLE PUBLIC (ANON & AUTHENTICATED)
 -- ==============================================================================
@@ -311,6 +330,7 @@ ALTER TABLE public.stock_movements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.company_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
 
 DO $$
 DECLARE
@@ -320,7 +340,7 @@ BEGIN
     SELECT unnest(ARRAY[
       'sales_points', 'users', 'suppliers', 'customers', 'products',
       'purchases', 'invoices', 'credit_notes', 'stock_movements',
-      'inventory_sessions', 'audit_logs', 'company_settings'
+      'inventory_sessions', 'audit_logs', 'company_settings', 'expenses'
     ])
   LOOP
     EXECUTE format('DROP POLICY IF EXISTS "Allow full access to %I" ON public.%I', tbl, tbl);

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
   User,
   Role,
@@ -165,9 +165,32 @@ interface AppContextType {
   // Helper selectors
   getLowStockProducts: () => Product[];
   getOutOfStockProducts: () => Product[];
+
+  // Cloud Supabase Sync Engine
+  syncStatus: 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
+  lastSyncTime: Date | null;
+  syncErrorMessage?: string;
+  triggerManualSync: (silent?: boolean) => Promise<void>;
+  isSupabaseConfigured: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+// Helper utilitaire pour fusionner deux listes d'entités par leur ID sans écraser les modifications locales non poussées
+function mergeEntityLists<T extends { id?: string }>(localList: T[], remoteList: T[]): T[] {
+  const map = new Map<string, T>();
+  for (const item of localList) {
+    if (item && item.id) {
+      map.set(item.id, item);
+    }
+  }
+  for (const item of remoteList) {
+    if (item && item.id) {
+      map.set(item.id, item);
+    }
+  }
+  return Array.from(map.values());
+}
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Theme state
@@ -325,121 +348,326 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     syncWithIndexedDb();
   }, []);
 
-  // Automatic Background Cloud Supabase Synchronization
+  // Cloud Supabase Sync States
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error' | 'offline'>('idle');
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(() => {
+    const saved = localStorage.getItem('provenda_last_sync_time');
+    return saved ? new Date(saved) : null;
+  });
+  const [syncErrorMessage, setSyncErrorMessage] = useState<string | undefined>();
+
+  // Flag and refs for automatic background 2-way synchronization
+  const hasLocalChangesRef = useRef(false);
+  const isSyncingRemoteRef = useRef(false);
+  const isInitialMount = useRef(true);
+  const pushTimerRef = useRef<any>(null);
+
   useEffect(() => {
-    const syncWithSupabase = async () => {
-      const config = getSupabaseConfig();
-      if (!config.isConfigured) return;
-      try {
-        const pullRes = await pullAllDataFromSupabase();
-        if (pullRes.success && pullRes.data) {
-          const d = pullRes.data;
-          if (Array.isArray(d.users) && d.users.length > 0) {
-            setUsers(prev => {
-              const merged = [...d.users!];
-              if (!merged.some(u => u.role === 'developpeur')) {
-                const dev = prev.find(u => u.role === 'developpeur') || INITIAL_USERS[0];
-                merged.unshift(dev);
-              }
-              localStorage.setItem('provenda_users', JSON.stringify(merged));
-              return merged;
-            });
-          }
-          if (Array.isArray(d.products) && d.products.length > 0) {
-            setProducts(d.products);
-            localStorage.setItem('provenda_products', JSON.stringify(d.products));
-          }
-          if (Array.isArray(d.suppliers) && d.suppliers.length > 0) {
-            setSuppliers(d.suppliers);
-            localStorage.setItem('provenda_suppliers', JSON.stringify(d.suppliers));
-          }
-          if (Array.isArray(d.customers) && d.customers.length > 0) {
-            setCustomers(d.customers);
-            localStorage.setItem('provenda_customers', JSON.stringify(d.customers));
-          }
-          if (Array.isArray(d.purchases) && d.purchases.length > 0) {
-            setPurchases(d.purchases);
-            localStorage.setItem('provenda_purchases', JSON.stringify(d.purchases));
-          }
-          if (Array.isArray(d.invoices) && d.invoices.length > 0) {
-            setInvoices(d.invoices);
-            localStorage.setItem('provenda_invoices', JSON.stringify(d.invoices));
-          }
-          if (Array.isArray(d.stockMovements) && d.stockMovements.length > 0) {
-            setStockMovements(d.stockMovements);
-            localStorage.setItem('provenda_stock_movements', JSON.stringify(d.stockMovements));
-          }
-          if (Array.isArray(d.expenses) && d.expenses.length > 0) {
-            setExpenses(d.expenses);
-            localStorage.setItem('provenda_expenses', JSON.stringify(d.expenses));
-          }
-          if (d.settings && typeof d.settings === 'object') {
-            setSettings(d.settings);
-            localStorage.setItem('provenda_settings', JSON.stringify(d.settings));
-          }
-        }
-      } catch (err) {
-        console.warn('[Supabase] Sync notice:', err);
-      }
-    };
-    syncWithSupabase();
+    const timer = setTimeout(() => {
+      isInitialMount.current = false;
+    }, 2000);
+    return () => clearTimeout(timer);
   }, []);
 
-  // Dual-Persistence Engine: Instant localStorage + High-Capacity IndexedDB
+  // Fonction de poussée automatique de l'état complet vers Supabase
+  const pushCurrentStateToSupabase = useCallback(async () => {
+    const config = getSupabaseConfig();
+    if (!config.isConfigured || !navigator.onLine) return;
+
+    try {
+      const currentUsers = JSON.parse(localStorage.getItem('provenda_users') || '[]');
+      const currentProducts = JSON.parse(localStorage.getItem('provenda_products') || '[]');
+      const currentSuppliers = JSON.parse(localStorage.getItem('provenda_suppliers') || '[]');
+      const currentCustomers = JSON.parse(localStorage.getItem('provenda_customers') || '[]');
+      const currentPurchases = JSON.parse(localStorage.getItem('provenda_purchases') || '[]');
+      const currentInvoices = JSON.parse(localStorage.getItem('provenda_invoices') || '[]');
+      const currentCreditNotes = JSON.parse(localStorage.getItem('provenda_credit_notes') || '[]');
+      const currentStockMovements = JSON.parse(localStorage.getItem('provenda_stock_movements') || '[]');
+      const currentInventories = JSON.parse(localStorage.getItem('provenda_inventories') || '[]');
+      const currentSalesPoints = JSON.parse(localStorage.getItem('provenda_sales_points') || '[]');
+      const currentAuditLogs = JSON.parse(localStorage.getItem('provenda_audit_logs') || '[]');
+      const currentSettings = JSON.parse(localStorage.getItem('provenda_settings') || '{}');
+      const currentExpenses = JSON.parse(localStorage.getItem('provenda_expenses') || '[]');
+
+      await pushAllLocalDataToSupabase({
+        users: currentUsers,
+        products: currentProducts,
+        suppliers: currentSuppliers,
+        customers: currentCustomers,
+        purchases: currentPurchases,
+        invoices: currentInvoices,
+        creditNotes: currentCreditNotes,
+        stockMovements: currentStockMovements,
+        inventories: currentInventories,
+        salesPoints: currentSalesPoints.length > 0 ? currentSalesPoints : salesPoints,
+        auditLogs: currentAuditLogs,
+        settings: currentSettings,
+        expenses: currentExpenses,
+      });
+      hasLocalChangesRef.current = false;
+    } catch (err) {
+      console.warn('[Supabase Push Error]:', err);
+    }
+  }, [salesPoints]);
+
+  const scheduleBackgroundPush = useCallback(() => {
+    hasLocalChangesRef.current = true;
+    if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+    pushTimerRef.current = setTimeout(() => {
+      pushCurrentStateToSupabase();
+    }, 1500);
+  }, [pushCurrentStateToSupabase]);
+
+  // Automatic Background Cloud Supabase Synchronization Function
+  const performAutomaticSync = useCallback(async (silent = true) => {
+    const config = getSupabaseConfig();
+    if (!config.isConfigured) {
+      setSyncStatus('idle');
+      return;
+    }
+
+    if (!navigator.onLine) {
+      setSyncStatus('offline');
+      return;
+    }
+
+    if (!silent) {
+      setSyncStatus('syncing');
+    }
+
+    try {
+      isSyncingRemoteRef.current = true;
+      const pullRes = await pullAllDataFromSupabase();
+      if (pullRes.success && pullRes.data) {
+        const d = pullRes.data;
+
+        if (Array.isArray(d.users) && d.users.length > 0) {
+          setUsers(prev => {
+            const merged = mergeEntityLists(prev, d.users!);
+            if (!merged.some(u => u.role === 'developpeur')) {
+              const dev = prev.find(u => u.role === 'developpeur') || INITIAL_USERS[0];
+              merged.unshift(dev);
+            }
+            localStorage.setItem('provenda_users', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (Array.isArray(d.products) && d.products.length > 0) {
+          setProducts(prev => {
+            const merged = mergeEntityLists(prev, d.products!);
+            localStorage.setItem('provenda_products', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (Array.isArray(d.suppliers) && d.suppliers.length > 0) {
+          setSuppliers(prev => {
+            const merged = mergeEntityLists(prev, d.suppliers!);
+            localStorage.setItem('provenda_suppliers', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (Array.isArray(d.customers) && d.customers.length > 0) {
+          setCustomers(prev => {
+            const merged = mergeEntityLists(prev, d.customers!);
+            localStorage.setItem('provenda_customers', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (Array.isArray(d.purchases) && d.purchases.length > 0) {
+          setPurchases(prev => {
+            const merged = mergeEntityLists(prev, d.purchases!);
+            localStorage.setItem('provenda_purchases', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (Array.isArray(d.invoices) && d.invoices.length > 0) {
+          setInvoices(prev => {
+            const merged = mergeEntityLists(prev, d.invoices!);
+            merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            localStorage.setItem('provenda_invoices', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (Array.isArray(d.creditNotes) && d.creditNotes.length > 0) {
+          setCreditNotes(prev => {
+            const merged = mergeEntityLists(prev, d.creditNotes!);
+            localStorage.setItem('provenda_credit_notes', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (Array.isArray(d.stockMovements) && d.stockMovements.length > 0) {
+          setStockMovements(prev => {
+            const merged = mergeEntityLists(prev, d.stockMovements!);
+            merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            localStorage.setItem('provenda_stock_movements', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (Array.isArray(d.inventories) && d.inventories.length > 0) {
+          setInventories(prev => {
+            const merged = mergeEntityLists(prev, d.inventories!);
+            localStorage.setItem('provenda_inventories', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (Array.isArray(d.expenses) && d.expenses.length > 0) {
+          setExpenses(prev => {
+            const merged = mergeEntityLists(prev, d.expenses!);
+            merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            localStorage.setItem('provenda_expenses', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (d.settings && typeof d.settings === 'object' && d.settings.name) {
+          setSettings(prev => {
+            const merged = { ...prev, ...d.settings };
+            localStorage.setItem('provenda_settings', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        // Si des modifications locales étaient en attente ou si synchro manuelle forcée, pousser
+        if (hasLocalChangesRef.current || !silent) {
+          await pushCurrentStateToSupabase();
+        }
+
+        const now = new Date();
+        setLastSyncTime(now);
+        localStorage.setItem('provenda_last_sync_time', now.toISOString());
+        setSyncStatus('synced');
+        setSyncErrorMessage(undefined);
+      } else {
+        setSyncStatus('error');
+        setSyncErrorMessage(pullRes.message);
+      }
+    } catch (err: any) {
+      console.warn('[Supabase Sync Error]:', err);
+      setSyncStatus('error');
+      setSyncErrorMessage(err?.message || 'Erreur réseau');
+    } finally {
+      setTimeout(() => {
+        isSyncingRemoteRef.current = false;
+      }, 600);
+    }
+  }, [pushCurrentStateToSupabase]);
+
+  const triggerManualSync = useCallback(async (silent = false) => {
+    await performAutomaticSync(silent);
+  }, [performAutomaticSync]);
+
+  // Periodic and Event-Driven Cloud Synchronization Poller
+  useEffect(() => {
+    // 1. Synchronisation initiale immédiate au montage
+    performAutomaticSync(false);
+
+    // 2. Synchronisation d'arrière-plan récurrente toutes les 20 secondes
+    const intervalId = setInterval(() => {
+      performAutomaticSync(true);
+    }, 20000);
+
+    // 3. Synchronisation instantanée dès que la fenêtre/onglet reprend le focus
+    const handleFocus = () => {
+      performAutomaticSync(true);
+    };
+
+    // 4. Synchronisation dès que la connexion Internet est rétablie
+    const handleOnline = () => {
+      setSyncStatus('syncing');
+      performAutomaticSync(false);
+    };
+
+    const handleOffline = () => {
+      setSyncStatus('offline');
+    };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [performAutomaticSync]);
+
+  // Dual-Persistence Engine: Instant localStorage + High-Capacity IndexedDB + Cloud Sync
   useEffect(() => {
     localStorage.setItem('provenda_expenses', JSON.stringify(expenses));
     saveStoreItems('expenses', expenses);
-  }, [expenses]);
+    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
+  }, [expenses, scheduleBackgroundPush]);
 
   useEffect(() => {
     localStorage.setItem('provenda_users', JSON.stringify(users));
     saveStoreItems('users', users);
-  }, [users]);
+    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
+  }, [users, scheduleBackgroundPush]);
 
   useEffect(() => {
     localStorage.setItem('provenda_products', JSON.stringify(products));
     saveStoreItems('products', products);
-  }, [products]);
+    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
+  }, [products, scheduleBackgroundPush]);
 
   useEffect(() => {
     localStorage.setItem('provenda_suppliers', JSON.stringify(suppliers));
     saveStoreItems('suppliers', suppliers);
-  }, [suppliers]);
+    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
+  }, [suppliers, scheduleBackgroundPush]);
 
   useEffect(() => {
     localStorage.setItem('provenda_customers', JSON.stringify(customers));
     saveStoreItems('customers', customers);
-  }, [customers]);
+    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
+  }, [customers, scheduleBackgroundPush]);
 
   useEffect(() => {
     localStorage.setItem('provenda_purchases', JSON.stringify(purchases));
     saveStoreItems('purchases', purchases);
-  }, [purchases]);
+    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
+  }, [purchases, scheduleBackgroundPush]);
 
   useEffect(() => {
     localStorage.setItem('provenda_invoices', JSON.stringify(invoices));
     saveStoreItems('invoices', invoices);
-  }, [invoices]);
+    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
+  }, [invoices, scheduleBackgroundPush]);
 
   useEffect(() => {
     localStorage.setItem('provenda_credit_notes', JSON.stringify(creditNotes));
     saveStoreItems('creditNotes', creditNotes);
-  }, [creditNotes]);
+    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
+  }, [creditNotes, scheduleBackgroundPush]);
 
   useEffect(() => {
     localStorage.setItem('provenda_stock_movements', JSON.stringify(stockMovements));
     saveStoreItems('stockMovements', stockMovements);
-  }, [stockMovements]);
+    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
+  }, [stockMovements, scheduleBackgroundPush]);
 
   useEffect(() => {
     localStorage.setItem('provenda_inventories', JSON.stringify(inventories));
     saveStoreItems('inventories', inventories);
-  }, [inventories]);
+    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
+  }, [inventories, scheduleBackgroundPush]);
 
   useEffect(() => {
     localStorage.setItem('provenda_audit_logs', JSON.stringify(auditLogs));
     saveStoreItems('auditLogs', auditLogs);
-  }, [auditLogs]);
+    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
+  }, [auditLogs, scheduleBackgroundPush]);
 
   useEffect(() => {
     localStorage.setItem('provenda_notifications', JSON.stringify(notifications));
@@ -448,7 +676,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('provenda_settings', JSON.stringify(settings));
     saveMetadata('settings', settings);
-  }, [settings]);
+    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
+  }, [settings, scheduleBackgroundPush]);
 
   useEffect(() => {
     localStorage.setItem('provenda_sales_points', JSON.stringify(salesPoints));
@@ -617,6 +846,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       `Connexion réussie (${target.role})`,
       'Authentification avec mot de passe'
     );
+    performAutomaticSync(false).catch(() => {});
     return { success: true };
   };
 
@@ -2394,6 +2624,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetToDefaultData,
         getLowStockProducts,
         getOutOfStockProducts,
+        syncStatus,
+        lastSyncTime,
+        syncErrorMessage,
+        triggerManualSync,
+        isSupabaseConfigured: getSupabaseConfig().isConfigured,
       }}
     >
       {children}

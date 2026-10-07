@@ -164,6 +164,8 @@ export function inspectSupabaseKey(key: string, expectedUrl?: string): KeyInspec
   }
 }
 
+import { defaultSupabaseConfig } from '../config/supabaseDefaultConfig';
+
 // Récupération des valeurs configurées dans les variables d'environnement Vercel
 export function getVercelEnvConfig(): { url: string; anonKey: string; isAvailable: boolean } {
   const envUrl = normalizeSupabaseUrl((import.meta as any).env?.VITE_SUPABASE_URL || (import.meta as any).env?.SUPABASE_URL || '');
@@ -175,8 +177,28 @@ export function getVercelEnvConfig(): { url: string; anonKey: string; isAvailabl
   };
 }
 
-// Récupération de la configuration Supabase (priorité au localStorage personnalisé s'il existe, sinon variables d'environnement Vercel)
+// Récupération de la configuration Supabase (priorité au localStorage personnalisé s'il existe, sinon variables d'environnement Vercel ou config par défaut)
 export function getSupabaseConfig(): SupabaseConfig {
+  // Détection automatique via paramètres d'URL (?sb_url=...&sb_key=...) pour initialisation rapide sans saisie
+  if (typeof window !== 'undefined' && window.location) {
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '');
+      const paramUrl = normalizeSupabaseUrl(searchParams.get('sb_url') || searchParams.get('supabase_url') || hashParams.get('sb_url') || hashParams.get('supabase_url') || '');
+      const paramKey = normalizeSupabaseKey(searchParams.get('sb_key') || searchParams.get('supabase_key') || hashParams.get('sb_key') || hashParams.get('supabase_key') || '');
+      if (paramUrl && paramKey) {
+        localStorage.setItem('provenda_supabase_url', paramUrl);
+        localStorage.setItem('provenda_supabase_key', paramKey);
+        return {
+          url: paramUrl,
+          anonKey: paramKey,
+          isConfigured: true,
+          source: 'localStorage',
+        };
+      }
+    } catch {}
+  }
+
   const localUrl = normalizeSupabaseUrl(localStorage.getItem('provenda_supabase_url') || '');
   const localKey = normalizeSupabaseKey(localStorage.getItem('provenda_supabase_key') || '');
 
@@ -199,12 +221,41 @@ export function getSupabaseConfig(): SupabaseConfig {
     };
   }
 
+  const defUrl = normalizeSupabaseUrl(defaultSupabaseConfig.url || '');
+  const defKey = normalizeSupabaseKey(defaultSupabaseConfig.anonKey || '');
+  if (defUrl && defKey) {
+    return {
+      url: defUrl,
+      anonKey: defKey,
+      isConfigured: true,
+      source: 'env',
+    };
+  }
+
   return {
     url: '',
     anonKey: '',
     isConfigured: false,
     source: 'none',
   };
+}
+
+// Récupération rapide des utilisateurs depuis Supabase (utilisé notamment avant la connexion)
+export async function fetchUsersFromSupabase(): Promise<any[] | null> {
+  const config = getSupabaseConfig();
+  if (!config.isConfigured || !config.url || !config.anonKey) return null;
+  try {
+    const res = await fetch(`${config.url}/rest/v1/users?select=*`, {
+      method: 'GET',
+      headers: getSupabaseHeaders(config.anonKey),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('[Supabase] Fetch users error:', err);
+  }
+  return null;
 }
 
 // Enregistrement manuel de la configuration Supabase dans le navigateur
@@ -502,6 +553,7 @@ export async function pushAllLocalDataToSupabase(data: {
   salesPoints: any[];
   auditLogs: any[];
   settings: any;
+  expenses?: any[];
 }): Promise<SupabaseSyncResult> {
   const config = getSupabaseConfig();
   if (!config.isConfigured) {
@@ -544,6 +596,7 @@ export async function pushAllLocalDataToSupabase(data: {
       { name: 'stock_movements', items: data.stockMovements },
       { name: 'inventory_sessions', items: data.inventories },
       { name: 'audit_logs', items: data.auditLogs },
+      { name: 'expenses', items: data.expenses || [] },
     ];
 
     for (const table of tablesToPush) {
@@ -659,6 +712,7 @@ export async function pullAllDataFromSupabase(): Promise<{
     salesPoints?: any[];
     auditLogs?: any[];
     settings?: any;
+    expenses?: any[];
   };
 }> {
   const config = getSupabaseConfig();
@@ -683,6 +737,7 @@ export async function pullAllDataFromSupabase(): Promise<{
       salesPoints,
       auditLogs,
       settingsArray,
+      expenses,
     ] = await Promise.all([
       fetchTableFromSupabase('products'),
       fetchTableFromSupabase('customers'),
@@ -696,6 +751,7 @@ export async function pullAllDataFromSupabase(): Promise<{
       fetchTableFromSupabase('sales_points'),
       fetchTableFromSupabase('audit_logs'),
       fetchTableFromSupabase('company_settings'),
+      fetchTableFromSupabase('expenses'),
     ]);
 
     const result: any = {};
@@ -711,6 +767,7 @@ export async function pullAllDataFromSupabase(): Promise<{
     if (salesPoints) result.salesPoints = salesPoints;
     if (auditLogs) result.auditLogs = auditLogs;
     if (settingsArray && settingsArray.length > 0) result.settings = settingsArray[0];
+    if (expenses) result.expenses = expenses;
 
     return {
       success: true,
