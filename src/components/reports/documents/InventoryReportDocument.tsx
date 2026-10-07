@@ -174,7 +174,7 @@ export const InventoryReportDocument: React.FC<InventoryReportDocumentProps> = (
                   {formatNumber(totalStockQtyBase)} kg/L
                 </td>
                 <td colSpan={3} className="border-r border-slate-300"></td>
-                <td className="p-2.5 text-right font-mono text-emerald-900 border-r border-slate-300 whitespace-nowrap text-xs bg-emerald-100/70">
+                <td className="p-2.5 text-right font-mono text-slate-900 font-bold border-r border-slate-300 whitespace-nowrap text-xs bg-slate-200">
                   {formatFCFA(totalStockValuation)}
                 </td>
                 <td colSpan={2} className="p-2.5 text-right text-[10px] text-slate-600 font-mono">

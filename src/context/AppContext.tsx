@@ -44,6 +44,14 @@ import {
   saveMetadata,
   clearAllIndexedDbStores,
 } from '../services/indexedDbStorage';
+import {
+  getSupabaseConfig,
+  pullAllDataFromSupabase,
+  upsertRecordToSupabase,
+  deleteRecordFromSupabase,
+  clearAllSupabaseTransactions,
+  pushAllLocalDataToSupabase,
+} from '../services/supabaseService';
 
 interface AppContextType {
   // Theme & Language
@@ -64,7 +72,7 @@ interface AppContextType {
 
   // Authentication
   isAuthenticated: boolean;
-  login: (email: string, password: string) => { success: boolean; error?: string };
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 
   // Current user & Users Management (Admin creates users & assigns roles)
@@ -317,6 +325,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     syncWithIndexedDb();
   }, []);
 
+  // Automatic Background Cloud Supabase Synchronization
+  useEffect(() => {
+    const syncWithSupabase = async () => {
+      const config = getSupabaseConfig();
+      if (!config.isConfigured) return;
+      try {
+        const pullRes = await pullAllDataFromSupabase();
+        if (pullRes.success && pullRes.data) {
+          const d = pullRes.data;
+          if (Array.isArray(d.users) && d.users.length > 0) {
+            setUsers(prev => {
+              const merged = [...d.users!];
+              if (!merged.some(u => u.role === 'developpeur')) {
+                const dev = prev.find(u => u.role === 'developpeur') || INITIAL_USERS[0];
+                merged.unshift(dev);
+              }
+              localStorage.setItem('provenda_users', JSON.stringify(merged));
+              return merged;
+            });
+          }
+          if (Array.isArray(d.products) && d.products.length > 0) {
+            setProducts(d.products);
+            localStorage.setItem('provenda_products', JSON.stringify(d.products));
+          }
+          if (Array.isArray(d.suppliers) && d.suppliers.length > 0) {
+            setSuppliers(d.suppliers);
+            localStorage.setItem('provenda_suppliers', JSON.stringify(d.suppliers));
+          }
+          if (Array.isArray(d.customers) && d.customers.length > 0) {
+            setCustomers(d.customers);
+            localStorage.setItem('provenda_customers', JSON.stringify(d.customers));
+          }
+          if (Array.isArray(d.purchases) && d.purchases.length > 0) {
+            setPurchases(d.purchases);
+            localStorage.setItem('provenda_purchases', JSON.stringify(d.purchases));
+          }
+          if (Array.isArray(d.invoices) && d.invoices.length > 0) {
+            setInvoices(d.invoices);
+            localStorage.setItem('provenda_invoices', JSON.stringify(d.invoices));
+          }
+          if (Array.isArray(d.stockMovements) && d.stockMovements.length > 0) {
+            setStockMovements(d.stockMovements);
+            localStorage.setItem('provenda_stock_movements', JSON.stringify(d.stockMovements));
+          }
+          if (Array.isArray(d.expenses) && d.expenses.length > 0) {
+            setExpenses(d.expenses);
+            localStorage.setItem('provenda_expenses', JSON.stringify(d.expenses));
+          }
+          if (d.settings && typeof d.settings === 'object') {
+            setSettings(d.settings);
+            localStorage.setItem('provenda_settings', JSON.stringify(d.settings));
+          }
+        }
+      } catch (err) {
+        console.warn('[Supabase] Sync notice:', err);
+      }
+    };
+    syncWithSupabase();
+  }, []);
+
   // Dual-Persistence Engine: Instant localStorage + High-Capacity IndexedDB
   useEffect(() => {
     localStorage.setItem('provenda_expenses', JSON.stringify(expenses));
@@ -490,12 +558,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Authentication
-  const login = (email: string, password: string): { success: boolean; error?: string } => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
-    const target = users.find(u =>
+    let target = users.find(u =>
       u.email.trim().toLowerCase() === cleanEmail ||
       (u.role === 'developpeur' && (cleanEmail === 'dev' || cleanEmail === 'dev@coopsbir.com' || cleanEmail === 'dev@provenda.net'))
     );
+
+    // If not found locally, query Supabase directly
+    if (!target) {
+      const config = getSupabaseConfig();
+      if (config.isConfigured) {
+        try {
+          const res = await fetch(`${config.url}/rest/v1/users?email=ilike.${encodeURIComponent(cleanEmail)}&select=*`, {
+            method: 'GET',
+            headers: {
+              'apikey': config.anonKey,
+              'Authorization': `Bearer ${config.anonKey}`,
+            },
+          });
+          if (res.ok) {
+            const remoteUsers: User[] = await res.json();
+            if (remoteUsers && remoteUsers.length > 0) {
+              const remoteUser = remoteUsers[0];
+              target = remoteUser;
+              setUsers(prev => {
+                const copy = [...prev.filter(u => u.id !== remoteUser.id && u.email.toLowerCase() !== cleanEmail), remoteUser];
+                localStorage.setItem('provenda_users', JSON.stringify(copy));
+                return copy;
+              });
+            }
+          }
+        } catch (err) {
+          console.warn('[Supabase] Login check failed:', err);
+        }
+      }
+    }
+
     if (!target) {
       return { success: false, error: t('login.error_invalid') };
     }
@@ -620,6 +719,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (currentUser.id === updatedUser.id) {
       setCurrentUser(updatedUser);
     }
+    upsertRecordToSupabase('users', updatedUser).catch(() => {});
     addAuditLog(
       'MODIFICATION_UTILISATEUR',
       `Utilisateur: ${updatedUser.name}`,
@@ -690,6 +790,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       password: userData.password || 'provenda123',
     };
     setUsers(prev => [...prev, newUser]);
+    upsertRecordToSupabase('users', newUser).catch(() => {});
     addAuditLog(
       'MODIFICATION_UTILISATEUR',
       `Nouvel utilisateur: ${newUser.name}`,
@@ -704,7 +805,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deactivateUser = (userId: string) => {
     const target = users.find(u => u.id === userId);
     if (!target) return;
-    setUsers(prev => prev.map(u => (u.id === userId ? { ...u, active: false } : u)));
+    const updated = { ...target, active: false };
+    setUsers(prev => prev.map(u => (u.id === userId ? updated : u)));
+    upsertRecordToSupabase('users', updated).catch(() => {});
     addAuditLog('MODIFICATION_UTILISATEUR', `Désactivation utilisateur: ${target.name}`, target.id, 'Actif', 'Inactif', 'Désactivation du compte utilisateur');
   };
 
@@ -734,6 +837,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setProducts(prev => [...prev, newProduct]);
+    upsertRecordToSupabase('products', newProduct).catch(() => {});
 
     addAuditLog(
       'CRÉATION_PRODUIT',
@@ -764,6 +868,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         timestamp: now,
       };
       setStockMovements(prev => [movement, ...prev]);
+      upsertRecordToSupabase('stock_movements', movement).catch(() => {});
     }
   };
 
@@ -794,6 +899,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setProducts(prev => prev.map(p => (p.id === updatedProduct.id ? finalProduct : p)));
+    upsertRecordToSupabase('products', finalProduct).catch(() => {});
 
     if (priceChanged) {
       addAuditLog(
@@ -819,22 +925,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const archiveProduct = (productId: string) => {
     const target = products.find(p => p.id === productId);
     if (!target) return;
-    setProducts(prev => prev.map(p => (p.id === productId ? { ...p, status: 'archivé' } : p)));
+    const updated = { ...target, status: 'archivé' as const };
+    setProducts(prev => prev.map(p => (p.id === productId ? updated : p)));
+    upsertRecordToSupabase('products', updated).catch(() => {});
     addAuditLog('MODIFICATION_PRODUIT', `Archivage produit: ${target.name}`, target.id, target.status, 'archivé', 'Archivage du produit');
   };
 
   const unarchiveProduct = (productId: string) => {
     const target = products.find(p => p.id === productId);
     if (!target) return;
-    setProducts(prev => prev.map(p => (p.id === productId ? { ...p, status: 'actif' } : p)));
+    const updated = { ...target, status: 'actif' as const };
+    setProducts(prev => prev.map(p => (p.id === productId ? updated : p)));
+    upsertRecordToSupabase('products', updated).catch(() => {});
     addAuditLog('MODIFICATION_PRODUIT', `Réactivation produit: ${target.name}`, target.id, target.status, 'actif', 'Réactivation du produit');
   };
 
   const maskProduct = (productId: string) => {
     const target = products.find(p => p.id === productId);
     if (!target) return;
-    const nextStatus = target.status === 'masqué' ? 'actif' : 'masqué';
-    setProducts(prev => prev.map(p => (p.id === productId ? { ...p, status: nextStatus } : p)));
+    const nextStatus = target.status === 'masqué' ? 'actif' as const : 'masqué' as const;
+    const updated = { ...target, status: nextStatus };
+    setProducts(prev => prev.map(p => (p.id === productId ? updated : p)));
+    upsertRecordToSupabase('products', updated).catch(() => {});
     addAuditLog('MODIFICATION_PRODUIT', `Masquage produit: ${target.name}`, target.id, target.status, nextStatus, 'Modification visibilité');
   };
 
@@ -1310,13 +1422,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setStockMovements(prev => [...stockMovementsToCreate, ...prev]);
     setInvoices(prev => [newInvoice, ...prev]);
 
+    // Background Supabase Sync for Sale
+    upsertRecordToSupabase('invoices', newInvoice).catch(() => {});
+    stockMovementsToCreate.forEach(m => upsertRecordToSupabase('stock_movements', m).catch(() => {}));
+    itemsToSell.forEach(item => {
+      const p = updatedProducts.find(prod => prod.id === item.productId);
+      if (p) upsertRecordToSupabase('products', p).catch(() => {});
+    });
+
     // Update customer debt if credit
     if (remainingBalance > 0 && customer.id !== 'cst-0') {
+      const updatedCust = { ...customer, currentDebt: customer.currentDebt + remainingBalance };
       setCustomers(prev =>
         prev.map(c =>
-          c.id === customer.id ? { ...c, currentDebt: c.currentDebt + remainingBalance } : c
+          c.id === customer.id ? updatedCust : c
         )
       );
+      upsertRecordToSupabase('customers', updatedCust).catch(() => {});
     }
 
     // 9. Audit log entry
@@ -1788,16 +1910,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString().slice(0, 10),
     };
     setSuppliers(prev => [...prev, newSupplier]);
+    upsertRecordToSupabase('suppliers', newSupplier).catch(() => {});
   };
 
   const updateSupplier = (supplier: Supplier) => {
     setSuppliers(prev => prev.map(s => (s.id === supplier.id ? supplier : s)));
+    upsertRecordToSupabase('suppliers', supplier).catch(() => {});
   };
 
   const deleteSupplier = (supplierId: string) => {
     const s = suppliers.find(sup => sup.id === supplierId);
     if (!s) return;
     setSuppliers(prev => prev.filter(sup => sup.id !== supplierId));
+    deleteRecordFromSupabase('suppliers', supplierId).catch(() => {});
     addAuditLog(
       'MODIFICATION_PARAMETRES',
       `Fournisseur supprimé: ${s.name}`,
@@ -1818,10 +1943,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString().slice(0, 10),
     };
     setCustomers(prev => [...prev, newCustomer]);
+    upsertRecordToSupabase('customers', newCustomer).catch(() => {});
   };
 
   const updateCustomer = (customer: Customer) => {
     setCustomers(prev => prev.map(c => (c.id === customer.id ? customer : c)));
+    upsertRecordToSupabase('customers', customer).catch(() => {});
   };
 
   // Expenses Management
@@ -1849,6 +1976,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setExpenses(prev => [newExpense, ...prev]);
+    upsertRecordToSupabase('expenses', newExpense).catch(() => {});
 
     addAuditLog(
       'ENREGISTREMENT_DEPENSE',
@@ -1868,6 +1996,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const finalized = { ...updatedExpense, updatedAt: now };
 
     setExpenses(prev => prev.map(e => (e.id === updatedExpense.id ? finalized : e)));
+    upsertRecordToSupabase('expenses', finalized).catch(() => {});
 
     addAuditLog(
       'ENREGISTREMENT_DEPENSE',
@@ -1884,6 +2013,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!target) return;
 
     setExpenses(prev => prev.filter(e => e.id !== id));
+    deleteRecordFromSupabase('expenses', id).catch(() => {});
 
     addAuditLog(
       'SUPPRESSION_DEPENSE',
@@ -1908,6 +2038,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateSettings = (newSettings: CompanySettings) => {
     const old = { ...settings };
     setSettings(newSettings);
+    upsertRecordToSupabase('company_settings', { id: 'company-settings-1', ...newSettings }).catch(() => {});
     addAuditLog(
       'MODIFICATION_PARAMETRES',
       'Paramètres Système & Entreprise',
@@ -1958,22 +2089,65 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const restoreSystemBackup = (jsonString: string): { success: boolean; message: string } => {
     try {
       const parsed = JSON.parse(jsonString);
-      if (!parsed.data || !parsed.data.products || !parsed.data.invoices) {
+      const data = parsed && typeof parsed === 'object' && parsed.data ? parsed.data : parsed;
+      if (!data || typeof data !== 'object') {
         return { success: false, message: 'Fichier de sauvegarde invalide ou corrompu.' };
       }
 
-      if (parsed.data.users) setUsers(parsed.data.users);
-      if (parsed.data.salesPoints) setSalesPoints(parsed.data.salesPoints);
-      if (parsed.data.products) setProducts(parsed.data.products);
-      if (parsed.data.suppliers) setSuppliers(parsed.data.suppliers);
-      if (parsed.data.customers) setCustomers(parsed.data.customers);
-      if (parsed.data.purchases) setPurchases(parsed.data.purchases);
-      if (parsed.data.invoices) setInvoices(parsed.data.invoices);
-      if (parsed.data.creditNotes) setCreditNotes(parsed.data.creditNotes);
-      if (parsed.data.stockMovements) setStockMovements(parsed.data.stockMovements);
-      if (parsed.data.inventories) setInventories(parsed.data.inventories);
-      if (parsed.data.settings) setSettings(parsed.data.settings);
-      if (parsed.data.expenses) setExpenses(parsed.data.expenses);
+      const hasValidData = data.products || data.invoices || data.users || data.customers || data.purchases || data.settings;
+      if (!hasValidData) {
+        return { success: false, message: 'Fichier de sauvegarde invalide ou vide.' };
+      }
+
+      if (Array.isArray(data.users) && data.users.length > 0) {
+        setUsers(prev => {
+          const merged = [...data.users];
+          if (!merged.some((u: any) => u.role === 'developpeur')) {
+            const dev = prev.find(u => u.role === 'developpeur') || INITIAL_USERS[0];
+            merged.unshift(dev);
+          }
+          localStorage.setItem('provenda_users', JSON.stringify(merged));
+          return merged;
+        });
+      }
+      if (Array.isArray(data.salesPoints) && data.salesPoints.length > 0) setSalesPoints(data.salesPoints);
+      if (Array.isArray(data.products) && data.products.length > 0) {
+        setProducts(data.products);
+        localStorage.setItem('provenda_products', JSON.stringify(data.products));
+      }
+      if (Array.isArray(data.suppliers) && data.suppliers.length > 0) {
+        setSuppliers(data.suppliers);
+        localStorage.setItem('provenda_suppliers', JSON.stringify(data.suppliers));
+      }
+      if (Array.isArray(data.customers) && data.customers.length > 0) {
+        setCustomers(data.customers);
+        localStorage.setItem('provenda_customers', JSON.stringify(data.customers));
+      }
+      if (Array.isArray(data.purchases) && data.purchases.length > 0) {
+        setPurchases(data.purchases);
+        localStorage.setItem('provenda_purchases', JSON.stringify(data.purchases));
+      }
+      if (Array.isArray(data.invoices) && data.invoices.length > 0) {
+        setInvoices(data.invoices);
+        localStorage.setItem('provenda_invoices', JSON.stringify(data.invoices));
+      }
+      if (Array.isArray(data.creditNotes)) {
+        setCreditNotes(data.creditNotes);
+        localStorage.setItem('provenda_credit_notes', JSON.stringify(data.creditNotes));
+      }
+      if (Array.isArray(data.stockMovements) && data.stockMovements.length > 0) {
+        setStockMovements(data.stockMovements);
+        localStorage.setItem('provenda_stock_movements', JSON.stringify(data.stockMovements));
+      }
+      if (Array.isArray(data.inventories)) setInventories(data.inventories);
+      if (data.settings && typeof data.settings === 'object') {
+        setSettings(data.settings);
+        localStorage.setItem('provenda_settings', JSON.stringify(data.settings));
+      }
+      if (Array.isArray(data.expenses) && data.expenses.length > 0) {
+        setExpenses(data.expenses);
+        localStorage.setItem('provenda_expenses', JSON.stringify(data.expenses));
+      }
 
       const restoreLog: AuditLog = {
         id: `aud-restore-${Date.now()}`,
@@ -1984,11 +2158,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         action: 'RESTAURATION_SYSTEME',
         targetObject: `Restauration archive du ${parsed.exportDate || 'date inconnue'}`,
         objectId: parsed.checksum || 'restored-archive',
-        justification: `Restauration réussie de ${parsed.data.products.length} produits et ${parsed.data.invoices.length} factures`,
+        justification: `Restauration réussie de ${(data.products || []).length} produits et ${(data.invoices || []).length} factures`,
         ipAddress: '192.168.1.10',
       };
 
-      setAuditLogs(prev => [restoreLog, ...(parsed.data.auditLogs || prev)]);
+      setAuditLogs(prev => [restoreLog, ...(Array.isArray(data.auditLogs) ? data.auditLogs : prev)]);
 
       return { success: true, message: 'Base de données restaurée avec succès ! Les données sont rechargées.' };
     } catch (e: any) {
@@ -1997,24 +2171,122 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const resetToDefaultData = () => {
-    setUsers(INITIAL_USERS);
-    setCurrentUser(INITIAL_USERS[0]);
-    setSalesPoints(INITIAL_SALES_POINTS);
+    // 1. Keep solely Developer account for client hand-off
+    const devUser = users.find(u => u.role === 'developpeur') || INITIAL_USERS[0];
+    const blankUsers = [devUser];
+    setUsers(blankUsers);
+    setCurrentUser(devUser);
+
+    // 2. Main Sales Point (COOPS BIR SAA)
+    const mainSp: SalesPoint = {
+      id: 'pos-1',
+      code: 'DP-DLA-01',
+      name: 'Siège Principal & Usine (Douala Bassa)',
+      city: 'Douala',
+      address: 'Zone Industrielle Bassa, Douala, Cameroun',
+      phone: '+237 699 00 00 01',
+      managerName: 'Directeur Général',
+      isMain: true,
+      active: true,
+      createdAt: new Date().toISOString().slice(0, 10),
+    };
+    setSalesPoints([mainSp]);
     setCurrentSalesPointIdState('pos-1');
-    setProducts(INITIAL_PRODUCTS);
-    setSuppliers(INITIAL_SUPPLIERS);
-    setCustomers(INITIAL_CUSTOMERS);
-    setPurchases(INITIAL_PURCHASES);
-    setInvoices(INITIAL_INVOICES);
+
+    // 3. Transactions: completely deleted
+    setInvoices([]);
     setCreditNotes([]);
-    setStockMovements(INITIAL_STOCK_MOVEMENTS);
-    setInventories(INITIAL_INVENTORIES);
-    setAuditLogs(INITIAL_AUDIT_LOGS);
-    setNotifications(INITIAL_NOTIFICATIONS);
-    setSettings(INITIAL_COMPANY_SETTINGS);
-    setExpenses(INITIAL_EXPENSES);
+    setStockMovements([]);
+    setInventories([]);
+    setPurchases([]);
+    setExpenses([]);
+    setNotifications([]);
+
+    // 4. Default cash customer (0 debt)
+    const defaultCashCustomer: Customer = {
+      id: 'cst-0',
+      code: 'CST-000',
+      name: 'Client Comptant / Vente Directe',
+      phone: '+237 600 000 000',
+      email: 'comptant@coopsbir.com',
+      city: 'Douala',
+      address: 'Vente directe au comptoir',
+      category: 'particulier',
+      creditLimit: 0,
+      currentDebt: 0,
+      salesPointId: 'pos-1',
+      active: true,
+      createdAt: new Date().toISOString().slice(0, 10),
+    };
+    setCustomers([defaultCashCustomer]);
+    setSuppliers([]);
+
+    // 5. Products catalog: clean blank slate so client registers their own products
+    setProducts([]);
+
+    // 6. Settings: Clean COOPS BIR SAA defaults
+    const cleanSettings: CompanySettings = {
+      ...INITIAL_COMPANY_SETTINGS,
+      name: 'COOPS BIR SAA',
+      commercialName: 'COOPS BIR SAA - Provenderie & Nutrition Animale',
+      systemResetDate: new Date().toISOString(),
+    };
+    setSettings(cleanSettings);
+
+    // 7. Audit log initialization entry
+    const initLog: AuditLog = {
+      id: `aud-init-${Date.now()}`,
+      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
+      userId: devUser.id,
+      userName: devUser.name,
+      userRole: 'developpeur',
+      action: 'RESTAURATION_SYSTEME',
+      targetObject: 'Mise en production client',
+      objectId: 'SYSTEM-BLANK',
+      justification: 'Remise à zéro complète : tous les tickets de caisse, factures, réceptions, inventaires et mouvements ont été effacés pour démarrage réel.',
+      ipAddress: '127.0.0.1',
+    };
+    setAuditLogs([initLog]);
+
+    // 8. Wipe LocalStorage & IndexedDB
     localStorage.clear();
+    localStorage.setItem('provenda_auth', 'true');
+    localStorage.setItem('provenda_current_user_id', devUser.id);
+    localStorage.setItem('provenda_users', JSON.stringify(blankUsers));
+    localStorage.setItem('provenda_sales_points', JSON.stringify([mainSp]));
+    localStorage.setItem('provenda_settings', JSON.stringify(cleanSettings));
+    localStorage.setItem('provenda_customers', JSON.stringify([defaultCashCustomer]));
+    localStorage.setItem('provenda_products', JSON.stringify([]));
+    localStorage.setItem('provenda_invoices', JSON.stringify([]));
+    localStorage.setItem('provenda_credit_notes', JSON.stringify([]));
+    localStorage.setItem('provenda_stock_movements', JSON.stringify([]));
+    localStorage.setItem('provenda_inventories', JSON.stringify([]));
+    localStorage.setItem('provenda_purchases', JSON.stringify([]));
+    localStorage.setItem('provenda_expenses', JSON.stringify([]));
+    localStorage.setItem('provenda_suppliers', JSON.stringify([]));
+    localStorage.setItem('provenda_audit_logs', JSON.stringify([initLog]));
     clearAllIndexedDbStores();
+
+    // 9. Wipe Supabase transaction tables & push clean state if connected
+    const config = getSupabaseConfig();
+    if (config.isConfigured) {
+      clearAllSupabaseTransactions().then(() => {
+        pushAllLocalDataToSupabase({
+          products: [],
+          customers: [defaultCashCustomer],
+          suppliers: [],
+          purchases: [],
+          invoices: [],
+          creditNotes: [],
+          stockMovements: [],
+          inventories: [],
+          users: blankUsers,
+          salesPoints: [mainSp],
+          auditLogs: [initLog],
+          settings: cleanSettings,
+        }).catch(err => console.warn('[Supabase] Reset sync:', err));
+      });
+    }
   };
 
   const getLowStockProducts = () => {

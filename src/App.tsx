@@ -19,6 +19,7 @@ import { InvoiceModal } from './components/modals/InvoiceModal';
 import { GlobalSearchModal } from './components/modals/GlobalSearchModal';
 import { DocumentationManager } from './components/documentation/DocumentationManager';
 import { ExpensesManager } from './components/expenses/ExpensesManager';
+import { ProductsManager } from './components/products/ProductsManager';
 import { Invoice } from './types';
 
 function AppContent() {
@@ -104,9 +105,11 @@ function AppContent() {
             <PosTerminal onSaleCompleted={handleSaleCompleted} />
           )}
 
+          {currentTab === 'products' && <ProductsManager />}
+
           {currentTab === 'stock' && <StockManager />}
 
-          {currentTab === 'catalog' && <StockManager />}
+          {currentTab === 'catalog' && <ProductsManager />}
 
           {currentTab === 'purchases' && <PurchasesManager />}
 

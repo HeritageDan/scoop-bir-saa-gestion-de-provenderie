@@ -361,12 +361,17 @@ export const SettingsManager: React.FC = () => {
   };
 
   const handleResetData = () => {
-    if (
-      window.confirm(
-        'ATTENTION : Cette action va réinitialiser l\'application avec les données d\'exemple complètes de démarrage. Continuer ?'
-      )
-    ) {
+    const confirmMsg = language === 'fr'
+      ? 'ATTENTION ACTION IRRÉVERSIBLE :\n\nVoulez-vous réinitialiser l\'application à un état 100% VIERGE pour la mise en production client ?\n\n• Tous les tickets et factures seront supprimés\n• Tous les inventaires physiques seront supprimés\n• Tous les mouvements de stock et achats seront supprimés\n• Toutes les dépenses seront supprimées\n• Le catalogue de produits sera réinitialisé à blanc\n• Seul votre compte Développeur sera conservé pour créer l\'Administrateur.\n\nConfirmer la remise à blanc complète ?'
+      : 'WARNING IRREVERSIBLE ACTION:\n\nDo you want to reset the system to a 100% BLANK slate for client production launch?\n\n• All receipts and invoices will be deleted\n• All physical inventories will be deleted\n• All stock movements and purchases will be deleted\n• All expenses will be deleted\n• Product catalog will be reset blank\n• Only your Developer account will be preserved.\n\nConfirm complete blank reset?';
+
+    if (window.confirm(confirmMsg)) {
       resetToDefaultData();
+      alert(
+        language === 'fr'
+          ? 'Le système a été réinitialisé à blanc avec succès ! Tous les tickets, mouvements et inventaires de test ont été définitivement effacés. Vous pouvez maintenant créer le compte Administrateur de votre client.'
+          : 'System successfully reset to blank! All receipts, movements and inventories have been cleared.'
+      );
     }
   };
 

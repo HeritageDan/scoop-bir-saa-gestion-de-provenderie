@@ -2,9 +2,9 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { CompanySettings, Expense, Invoice, Product, Purchase, SalesPoint, User } from '../types';
 import { isDateInRange, formatHumanDateRange } from './dateFilterUtils';
-import { formatFCFA, formatDate, formatNumber } from './formatters';
+import { formatFCFA, formatDate, formatNumber, formatUnit } from './formatters';
 
-// Common Palette for Provenda Reports
+// Common Palette for COOPS BIR SAA Reports
 const PRIMARY_COLOR: [number, number, number] = [6, 95, 70]; // Emerald 800
 const SECONDARY_COLOR: [number, number, number] = [15, 23, 42]; // Slate 900
 const TEXT_MUTED: [number, number, number] = [100, 116, 139]; // Slate 500
@@ -20,7 +20,7 @@ function addReportHeaderToDoc(
   language: 'fr' | 'en' = 'fr'
 ) {
   const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 14;
+  const margin = 10;
 
   // Top banner line
   doc.setFillColor(...PRIMARY_COLOR);
@@ -30,16 +30,16 @@ function addReportHeaderToDoc(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
   doc.setTextColor(...PRIMARY_COLOR);
-  doc.text(settings.name || 'PROVENDA', margin, 22);
+  doc.text(settings.name || 'COOPS BIR SAA', margin, 22);
 
   // Legal & Address
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(...SECONDARY_COLOR);
-  const locationText = `${salesPoint?.name ? salesPoint.name + ' — ' : ''}${salesPoint?.address || settings.address || 'Douala'}`;
+  const locationText = `${salesPoint?.name ? salesPoint.name + ' — ' : ''}${salesPoint?.address || settings.address || 'Zone Industrielle Bassa, Douala'}`;
   doc.text(locationText, margin, 27);
 
-  const contactText = `Tél: ${salesPoint?.phone || settings.phone1 || '+237 699 00 11 22'}  |  Email: ${settings.email || 'contact@provenda.net'}  |  NIF: ${settings.taxId || 'M12000000000X'}`;
+  const contactText = `Tél: ${salesPoint?.phone || settings.phone1 || '+237 699 00 11 22'}  |  Email: ${settings.email || 'contact@coops-bir-saa.cm'}  |  NIF: ${settings.taxId || 'M082612345678P'}`;
   doc.text(contactText, margin, 31.5);
 
   // Metadata block (top right)
@@ -79,7 +79,7 @@ function addReportFooterToDoc(doc: jsPDF, language: 'fr' | 'en' = 'fr') {
   const pageCount = (doc as any).internal.getNumberOfPages();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 14;
+  const margin = 10;
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
@@ -89,7 +89,7 @@ function addReportFooterToDoc(doc: jsPDF, language: 'fr' | 'en' = 'fr') {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(...TEXT_MUTED);
-    doc.text('Provenda Management System • Logiciel Certifié de Gestion de Provenderie', margin, pageHeight - 9);
+    doc.text('COOPS BIR SAA • Système Intégré de Gestion de Provenderie', margin, pageHeight - 9);
     doc.text(`Page ${i} sur ${pageCount}`, pageWidth - margin, pageHeight - 9, { align: 'right' });
   }
 }
@@ -145,32 +145,33 @@ export function generateSalesReportPDF(
 
   autoTable(doc, {
     startY,
+    margin: { left: 10, right: 10 },
     head: [['Date', 'N° Facture', 'Client', 'Articles', 'Brut', 'Remise', 'Net (FCFA)', 'Paiement', 'Statut']],
     body: tableBody,
     theme: 'grid',
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: PRIMARY_COLOR, textColor: 255, fontStyle: 'bold', fontSize: 8 },
+    styles: { fontSize: 7.5, cellPadding: 1.8 },
+    headStyles: { fillColor: PRIMARY_COLOR, textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
     columnStyles: {
-      0: { cellWidth: 22 },
+      0: { cellWidth: 20 },
       1: { cellWidth: 24, fontStyle: 'bold' },
-      2: { cellWidth: 28 },
+      2: { cellWidth: 26 },
       3: { cellWidth: 42 },
-      4: { halign: 'right', cellWidth: 16 },
+      4: { halign: 'right', cellWidth: 17 },
       5: { halign: 'right', cellWidth: 15 },
-      6: { halign: 'right', cellWidth: 18, fontStyle: 'bold' },
-      7: { cellWidth: 18 },
-      8: { halign: 'center', cellWidth: 14 },
+      6: { halign: 'right', cellWidth: 20, fontStyle: 'bold' },
+      7: { cellWidth: 14 },
+      8: { halign: 'center', cellWidth: 12 },
     },
     foot: [
       [
-        { content: 'TOTAUX PÉRIODE :', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
-        { content: formatNumber(grossSales), styles: { halign: 'right', fontStyle: 'bold' } },
-        { content: `-${formatNumber(totalDiscounts)}`, styles: { halign: 'right', fontStyle: 'bold' } },
-        { content: formatFCFA(netSales), styles: { halign: 'right', fontStyle: 'bold', fillColor: [236, 253, 245] } },
-        { content: `${filtered.length} factures`, colSpan: 2, styles: { halign: 'center', fontSize: 7 } },
+        { content: 'TOTAUX PÉRIODE :', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] } },
+        { content: formatNumber(grossSales), styles: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] } },
+        { content: totalDiscounts > 0 ? `-${formatNumber(totalDiscounts)}` : '0', styles: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] } },
+        { content: formatFCFA(netSales), styles: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] } },
+        { content: `${filtered.length} factures`, colSpan: 2, styles: { halign: 'center', fontSize: 7, textColor: [71, 85, 105] } },
       ],
     ],
-    footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42] },
+    footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 7.5 },
   });
 
   addReportFooterToDoc(doc, language);
@@ -220,6 +221,7 @@ export function generateFinancialReportPDF(
   // Master Income Statement Table
   autoTable(doc, {
     startY,
+    margin: { left: 10, right: 10 },
     head: [['Poste Comptable & Analytique', 'Montant (FCFA)', 'Observations']],
     body: [
       ['Chiffre d\'Affaires Brut', formatFCFA(totalGross), `${validInvoices.length} factures émises`],
@@ -231,7 +233,7 @@ export function generateFinancialReportPDF(
       ['= RÉSULTAT NET D\'EXPLOITATION', `${netIncome >= 0 ? '+' : ''}${formatFCFA(netIncome)}`, netIncome >= 0 ? 'BÉNÉFICE D\'EXPLOITATION' : 'DÉFICIT D\'EXPLOITATION'],
     ],
     theme: 'striped',
-    styles: { fontSize: 9, cellPadding: 3 },
+    styles: { fontSize: 8.5, cellPadding: 2.5 },
     headStyles: { fillColor: PRIMARY_COLOR, textColor: 255, fontStyle: 'bold' },
     columnStyles: {
       0: { fontStyle: 'bold', cellWidth: 100 },
@@ -280,39 +282,41 @@ export function generateInventoryReportPDF(
     p.code,
     p.name,
     p.category,
-    `${formatNumber(p.stockCurrentBaseUnit)} ${p.baseUnit}`,
+    `${formatNumber(p.stockCurrentBaseUnit)} ${formatUnit(p.baseUnit)}`,
     formatNumber(p.cmp),
     formatNumber(p.salePrice),
     formatFCFA(p.stockCurrentBaseUnit * p.cmp),
-    `${p.minAlertThresholdBaseUnit} ${p.baseUnit}`,
+    `${formatNumber(p.minAlertThresholdBaseUnit)} ${formatUnit(p.baseUnit)}`,
     p.stockCurrentBaseUnit <= 0 ? 'RUPTURE' : p.stockCurrentBaseUnit <= p.minAlertThresholdBaseUnit ? 'ALERTE' : 'NORMAL',
   ]);
 
   autoTable(doc, {
     startY,
+    margin: { left: 10, right: 10 },
     head: [['Code', 'Article', 'Catégorie', 'Stock Dispo', 'CMP (U)', 'Prix Vente', 'Valeur Actif', 'Seuil', 'État']],
     body: tableBody,
     theme: 'grid',
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: PRIMARY_COLOR, textColor: 255, fontStyle: 'bold' },
+    styles: { fontSize: 7.5, cellPadding: 1.8 },
+    headStyles: { fillColor: PRIMARY_COLOR, textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
     columnStyles: {
-      0: { cellWidth: 20, fontStyle: 'bold' },
-      1: { cellWidth: 35 },
-      2: { cellWidth: 28 },
-      3: { halign: 'right', cellWidth: 22, fontStyle: 'bold' },
-      4: { halign: 'right', cellWidth: 16 },
-      5: { halign: 'right', cellWidth: 16 },
-      6: { halign: 'right', cellWidth: 25, fontStyle: 'bold' },
-      7: { halign: 'right', cellWidth: 14 },
-      8: { halign: 'center', cellWidth: 16 },
+      0: { cellWidth: 22, fontStyle: 'bold' },
+      1: { cellWidth: 38 },
+      2: { cellWidth: 25 },
+      3: { halign: 'right', cellWidth: 19, fontStyle: 'bold' },
+      4: { halign: 'right', cellWidth: 14 },
+      5: { halign: 'right', cellWidth: 15 },
+      6: { halign: 'right', cellWidth: 23, fontStyle: 'bold' },
+      7: { halign: 'right', cellWidth: 16 },
+      8: { halign: 'center', cellWidth: 18 },
     },
     foot: [
       [
-        { content: 'VALEUR TOTALE DU STOCK (CMP) :', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold' } },
-        { content: formatFCFA(totalValuation), styles: { halign: 'right', fontStyle: 'bold', fillColor: [236, 253, 245] } },
-        { content: `${filtered.length} articles`, colSpan: 2, styles: { halign: 'center', fontSize: 7 } },
+        { content: 'VALEUR TOTALE DU STOCK (CMP) :', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] } },
+        { content: formatFCFA(totalValuation), styles: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] } },
+        { content: `${filtered.length} articles`, colSpan: 2, styles: { halign: 'center', fontSize: 7, textColor: [71, 85, 105] } },
       ],
     ],
+    footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 7.5 },
   });
 
   addReportFooterToDoc(doc, language);
@@ -366,28 +370,30 @@ export function generatePurchaseReportPDF(
 
   autoTable(doc, {
     startY,
+    margin: { left: 10, right: 10 },
     head: [['Réf Bon', 'Date', 'Fournisseur & BL', 'Articles', 'Sous-total', 'Transport', 'Total TTC', 'Statut']],
     body: tableBody,
     theme: 'grid',
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: PRIMARY_COLOR, textColor: 255, fontStyle: 'bold' },
+    styles: { fontSize: 7.5, cellPadding: 1.8 },
+    headStyles: { fillColor: PRIMARY_COLOR, textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
     columnStyles: {
-      0: { cellWidth: 24, fontStyle: 'bold' },
-      1: { cellWidth: 20 },
-      2: { cellWidth: 35 },
+      0: { cellWidth: 22, fontStyle: 'bold' },
+      1: { cellWidth: 18 },
+      2: { cellWidth: 32 },
       3: { cellWidth: 42 },
       4: { halign: 'right', cellWidth: 20 },
       5: { halign: 'right', cellWidth: 16 },
-      6: { halign: 'right', cellWidth: 22, fontStyle: 'bold' },
-      7: { halign: 'center', cellWidth: 15 },
+      6: { halign: 'right', cellWidth: 24, fontStyle: 'bold' },
+      7: { halign: 'center', cellWidth: 16 },
     },
     foot: [
       [
-        { content: 'TOTAL ACHATS :', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold' } },
-        { content: formatFCFA(totalAmount), styles: { halign: 'right', fontStyle: 'bold' } },
-        { content: `${filtered.length} bons`, styles: { halign: 'center', fontSize: 7 } },
+        { content: 'TOTAL ACHATS :', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] } },
+        { content: formatFCFA(totalAmount), styles: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] } },
+        { content: `${filtered.length} bons`, styles: { halign: 'center', fontSize: 7, textColor: [71, 85, 105] } },
       ],
     ],
+    footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 7.5 },
   });
 
   addReportFooterToDoc(doc, language);
@@ -434,28 +440,30 @@ export function generateExpenseReportPDF(
 
   autoTable(doc, {
     startY,
+    margin: { left: 10, right: 10 },
     head: [['Réf', 'Date', 'Catégorie', 'Description', 'Montant', 'Règlement', 'Auteur', 'Pièce Justif']],
     body: tableBody,
     theme: 'grid',
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [159, 18, 57], textColor: 255, fontStyle: 'bold' }, // Rose 900
+    styles: { fontSize: 7.5, cellPadding: 1.8 },
+    headStyles: { fillColor: [159, 18, 57], textColor: 255, fontStyle: 'bold', fontSize: 7.5 }, // Rose 900
     columnStyles: {
-      0: { cellWidth: 24, fontStyle: 'bold' },
-      1: { cellWidth: 20 },
-      2: { cellWidth: 35 },
-      3: { cellWidth: 45 },
+      0: { cellWidth: 22, fontStyle: 'bold' },
+      1: { cellWidth: 18 },
+      2: { cellWidth: 26 },
+      3: { cellWidth: 44 },
       4: { halign: 'right', cellWidth: 22, fontStyle: 'bold' },
       5: { cellWidth: 18 },
       6: { cellWidth: 20 },
-      7: { cellWidth: 18 },
+      7: { cellWidth: 20 },
     },
     foot: [
       [
-        { content: 'TOTAL DÉPENSES :', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
-        { content: formatFCFA(totalAmount), styles: { halign: 'right', fontStyle: 'bold', fillColor: [255, 241, 242] } },
-        { content: `${filtered.length} écriture(s)`, colSpan: 3, styles: { halign: 'center', fontSize: 7 } },
+        { content: 'TOTAL DÉPENSES :', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] } },
+        { content: formatFCFA(totalAmount), styles: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] } },
+        { content: `${filtered.length} écriture(s)`, colSpan: 3, styles: { halign: 'center', fontSize: 7, textColor: [71, 85, 105] } },
       ],
     ],
+    footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 7.5 },
   });
 
   addReportFooterToDoc(doc, language);

@@ -20,18 +20,21 @@ export const LoginPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const result = login(email, password);
+    try {
+      const result = await login(email, password);
       if (!result.success) {
         setError(result.error || t('login.error_invalid'));
         setIsSubmitting(false);
       }
-    }, 250);
+    } catch {
+      setError(t('login.error_invalid'));
+      setIsSubmitting(false);
+    }
   };
 
   return (

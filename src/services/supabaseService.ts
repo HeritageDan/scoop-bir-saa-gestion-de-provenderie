@@ -724,3 +724,46 @@ export async function pullAllDataFromSupabase(): Promise<{
     };
   }
 }
+
+// Supprimer tous les enregistrements d'une table Supabase
+export async function clearSupabaseTable(tableName: string): Promise<boolean> {
+  const config = getSupabaseConfig();
+  if (!config.isConfigured) return false;
+
+  try {
+    const res = await fetch(`${config.url}/rest/v1/${tableName}?id=neq.placeholder_none`, {
+      method: 'DELETE',
+      headers: {
+        'apikey': config.anonKey,
+        'Authorization': `Bearer ${config.anonKey}`,
+      },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Nettoyer toutes les tables de transactions pour la mise en production client
+export async function clearAllSupabaseTransactions(): Promise<boolean> {
+  const config = getSupabaseConfig();
+  if (!config.isConfigured) return false;
+
+  try {
+    const transactionTables = [
+      'credit_notes',
+      'invoices',
+      'stock_movements',
+      'inventory_sessions',
+      'purchases',
+      'expenses',
+    ];
+    for (const tbl of transactionTables) {
+      await clearSupabaseTable(tbl);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+

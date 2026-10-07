@@ -67,6 +67,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       roles: ['administrateur', 'responsable', 'caissier'],
     },
     {
+      id: 'products',
+      label: t('nav.products') || (language === 'fr' ? 'Produits & Tarifs' : 'Products & Pricing'),
+      icon: Package,
+      badge: null,
+      roles: ['administrateur', 'responsable', 'magasinier', 'caissier'],
+    },
+    {
       id: 'stock',
       label: t('nav.stock'),
       icon: Boxes,
