@@ -172,15 +172,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return (localStorage.getItem('provenda_language') as Language) || 'fr';
   });
 
-  // Sales points (Multi-magasin)
+  // Sales point (Point de vente unique physique)
   const [salesPoints, setSalesPoints] = useState<SalesPoint[]>(() => {
     const saved = localStorage.getItem('provenda_sales_points');
-    return saved ? JSON.parse(saved) : INITIAL_SALES_POINTS;
+    if (saved) {
+      try {
+        const parsed: SalesPoint[] = JSON.parse(saved);
+        const mainOnly = parsed.filter(s => s.isMain || s.id === 'pos-1');
+        return mainOnly.length > 0 ? [mainOnly[0]] : INITIAL_SALES_POINTS;
+      } catch (e) {
+        return INITIAL_SALES_POINTS;
+      }
+    }
+    return INITIAL_SALES_POINTS;
   });
 
-  const [currentSalesPointId, setCurrentSalesPointIdState] = useState<string>(() => {
-    return localStorage.getItem('provenda_current_sales_point') || 'pos-1';
-  });
+  const [currentSalesPointId, setCurrentSalesPointIdState] = useState<string>('pos-1');
 
   // Load initial states from localStorage if available, otherwise use seed data
   const [users, setUsers] = useState<User[]>(() => {
@@ -624,16 +631,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addUser = (userData: Omit<User, 'id'>): { success: boolean; error?: string } => {
+    // 1. Developer role cannot be created - it is strictly unique
+    if (userData.role === 'developpeur') {
+      return {
+        success: false,
+        error: language === 'fr'
+          ? "Action interdite : Le rôle Développeur est unique et ne peut pas être créé."
+          : "Forbidden: Developer role is unique and cannot be created."
+      };
+    }
+
+    // 2. Only Developer and Administrator can create users
     if (currentUser.role !== 'administrateur' && currentUser.role !== 'developpeur') {
       return {
         success: false,
         error: language === 'fr'
-          ? "Action non autorisée : Seul le développeur ou l'administrateur a le privilège de créer des utilisateurs et de leur assigner des rôles."
-          : "Unauthorized: Only the Developer or Administrator has the privilege to create users and assign roles."
+          ? "Action non autorisée : Seul le Développeur ou l'Administrateur a le privilège de créer des collaborateurs."
+          : "Unauthorized: Only the Developer or Administrator can create staff."
       };
     }
+
+    // 3. Administrator role creation: ONLY by Developer, and ONLY ONE Administrator can exist
+    if (userData.role === 'administrateur') {
+      if (currentUser.role !== 'developpeur') {
+        return {
+          success: false,
+          error: language === 'fr'
+            ? "Action non autorisée : Seul le Développeur peut créer le compte Administrateur."
+            : "Unauthorized: Only the Developer can create the Administrator account."
+        };
+      }
+      const existingAdmin = users.find(u => u.role === 'administrateur' && u.active);
+      if (existingAdmin) {
+        return {
+          success: false,
+          error: language === 'fr'
+            ? `Un compte Administrateur actif existe déjà (${existingAdmin.name} - ${existingAdmin.email}). Le système est configuré avec un Administrateur unique.`
+            : "An Administrator already exists. Only one Administrator account is permitted."
+        };
+      }
+    }
+
+    // 4. Administrator cannot create another administrator or developer
+    if (currentUser.role === 'administrateur' && (userData.role === 'administrateur' || (userData.role as string) === 'developpeur')) {
+      return {
+        success: false,
+        error: language === 'fr'
+          ? "Action interdite : En tant qu'Administrateur, vous pouvez créer des Responsables, Caissiers et Magasiniers, mais pas d'autre Administrateur."
+          : "Forbidden: As Administrator, you cannot create another Administrator."
+      };
+    }
+
     const newUser: User = {
       ...userData,
+      assignedSalesPointId: 'pos-1',
       id: `usr-${Date.now()}`,
       active: true,
       password: userData.password || 'provenda123',
@@ -645,7 +696,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       newUser.id,
       undefined,
       `Rôle: ${newUser.role}, Email: ${newUser.email}, Remise: ${newUser.discountLimitPercent}%`,
-      'Création et attribution des rôles par l\'administrateur'
+      `Création par ${currentUser.name} (${currentUser.role})`
     );
     return { success: true };
   };

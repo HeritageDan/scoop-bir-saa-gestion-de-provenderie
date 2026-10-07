@@ -15,8 +15,6 @@ import {
   AlertTriangle,
   CreditCard,
   UserCheck,
-  Sun,
-  Moon,
   BookOpen,
   Wallet,
 } from 'lucide-react';
@@ -35,7 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen,
   onCloseMobile,
 }) => {
-  const { products, invoices, currentUser, theme, toggleTheme, language, setLanguage, t } = useApp();
+  const { products, invoices, currentUser, theme, language, t } = useApp();
 
   // Alert counters
   const lowStockCount = products.filter(
@@ -231,67 +229,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             );
           })}
-        </div>
-
-        {/* Theme & Display Mode Toggle (Ideal for Phone and Tablet View) */}
-        <div className={`p-3 border-t space-y-2 ${
-          theme === 'dark' ? 'border-slate-800 bg-slate-900/60' : 'border-slate-200 bg-slate-50/80'
-        }`}>
-          <div className="flex items-center justify-between text-[11px] font-semibold">
-            <span className={theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}>
-              {language === 'fr' ? 'Thème & Affichage' : 'Theme & Display'}
-            </span>
-            <div className={`flex items-center rounded-lg p-0.5 border text-[10px] ${
-              theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-2xs'
-            }`}>
-              <button
-                onClick={() => setLanguage('fr')}
-                className={`px-1.5 py-0.5 rounded font-bold transition cursor-pointer ${
-                  language === 'fr'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                FR
-              </button>
-              <button
-                onClick={() => setLanguage('en')}
-                className={`px-1.5 py-0.5 rounded font-bold transition cursor-pointer ${
-                  language === 'en'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                EN
-              </button>
-            </div>
-          </div>
-
-          <button
-            onClick={toggleTheme}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
-              theme === 'dark'
-                ? 'bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700'
-                : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-100 shadow-2xs'
-            }`}
-            title={theme === 'dark' ? (language === 'fr' ? 'Basculer vers le thème clair' : 'Switch to light theme') : (language === 'fr' ? 'Basculer vers le thème sombre' : 'Switch to dark theme')}
-          >
-            <div className="flex items-center gap-2">
-              {theme === 'dark' ? (
-                <Sun className="w-4 h-4 text-amber-400 shrink-0" />
-              ) : (
-                <Moon className="w-4 h-4 text-slate-700 shrink-0" />
-              )}
-              <span>{theme === 'dark' ? t('header.theme_dark') : t('header.theme_light')}</span>
-            </div>
-            <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${
-              theme === 'dark'
-                ? 'bg-amber-400/10 text-amber-400 border border-amber-400/20'
-                : 'bg-slate-100 text-slate-700 border border-slate-200'
-            }`}>
-              {theme === 'dark' ? '☀️' : '🌙'}
-            </span>
-          </button>
         </div>
 
         {/* Bottom session indicator */}

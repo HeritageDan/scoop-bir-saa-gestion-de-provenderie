@@ -215,6 +215,7 @@ export const SettingsManager: React.FC = () => {
   }, [activeTab, products, invoices, purchases, expenses, stockMovements]);
 
   // User creation modal state
+  const hasActiveAdmin = users.some(u => u.role === 'administrateur' && u.active);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [newUserForm, setNewUserForm] = useState({
     name: '',
@@ -223,10 +224,26 @@ export const SettingsManager: React.FC = () => {
     role: 'administrateur' as Role,
     phone: '',
     discountLimitPercent: 100,
-    assignedSalesPointId: salesPoints[0]?.id || 'pos-1',
+    assignedSalesPointId: 'pos-1',
   });
   const [userCreationError, setUserCreationError] = useState<string | null>(null);
   const [userCreationSuccess, setUserCreationSuccess] = useState<string | null>(null);
+
+  const handleOpenAddUserModal = () => {
+    const initialRole: Role = (currentUser.role === 'developpeur' && !hasActiveAdmin) ? 'administrateur' : 'caissier';
+    setNewUserForm({
+      name: '',
+      email: '',
+      password: '',
+      role: initialRole,
+      phone: '',
+      discountLimitPercent: initialRole === 'administrateur' ? 100 : 0,
+      assignedSalesPointId: 'pos-1',
+    });
+    setUserCreationError(null);
+    setUserCreationSuccess(null);
+    setShowAddUserModal(true);
+  };
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -243,7 +260,7 @@ export const SettingsManager: React.FC = () => {
       role: newUserForm.role,
       phone: newUserForm.phone.trim(),
       discountLimitPercent: Number(newUserForm.discountLimitPercent) || 0,
-      assignedSalesPointId: newUserForm.assignedSalesPointId,
+      assignedSalesPointId: 'pos-1',
       active: true,
       lastLogin: '',
     });
@@ -259,7 +276,7 @@ export const SettingsManager: React.FC = () => {
           role: 'caissier',
           phone: '',
           discountLimitPercent: 0,
-          assignedSalesPointId: salesPoints[0]?.id || 'pos-1',
+          assignedSalesPointId: 'pos-1',
         });
       }, 1000);
     } else {
@@ -481,15 +498,17 @@ export const SettingsManager: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className={`flex border-b overflow-x-auto ${theme === 'dark' ? 'border-slate-800' : 'border-slate-200'}`}>
+      <div className={`flex flex-wrap items-center gap-1.5 p-1.5 rounded-2xl border ${
+        theme === 'dark' ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-100/80 border-slate-200'
+      }`}>
         <button
           onClick={() => setActiveTab('company')}
-          className={`py-2 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
             activeTab === 'company'
-              ? 'border-emerald-500 text-emerald-500'
+              ? 'bg-emerald-600 text-white shadow-xs'
               : theme === 'dark'
-              ? 'border-transparent text-slate-400 hover:text-white'
-              : 'border-transparent text-slate-500 hover:text-slate-900'
+              ? 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
           }`}
         >
           <Building className="w-4 h-4" />
@@ -498,12 +517,12 @@ export const SettingsManager: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('users')}
-          className={`py-2 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
             activeTab === 'users'
-              ? 'border-emerald-500 text-emerald-500'
+              ? 'bg-emerald-600 text-white shadow-xs'
               : theme === 'dark'
-              ? 'border-transparent text-slate-400 hover:text-white'
-              : 'border-transparent text-slate-500 hover:text-slate-900'
+              ? 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
           }`}
         >
           <Users className="w-4 h-4" />
@@ -512,12 +531,12 @@ export const SettingsManager: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('security')}
-          className={`py-2 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
             activeTab === 'security'
-              ? 'border-emerald-500 text-emerald-500'
+              ? 'bg-emerald-600 text-white shadow-xs'
               : theme === 'dark'
-              ? 'border-transparent text-slate-400 hover:text-white'
-              : 'border-transparent text-slate-500 hover:text-slate-900'
+              ? 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
           }`}
         >
           <Percent className="w-4 h-4" />
@@ -527,27 +546,30 @@ export const SettingsManager: React.FC = () => {
         {currentUser.role === 'developpeur' && (
           <button
             onClick={() => setActiveTab('database')}
-            className={`py-2 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
               activeTab === 'database'
-                ? 'border-emerald-500 text-emerald-500'
+                ? 'bg-emerald-600 text-white shadow-xs'
                 : theme === 'dark'
-                ? 'border-transparent text-slate-400 hover:text-white'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
+                ? 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
             }`}
           >
             <Database className="w-4 h-4" />
-            <span>{language === 'fr' ? 'Base Locale & Sauvegardes' : 'Local DB & Backups'}</span>
+            <span className="flex items-center gap-1.5">
+              <span>{language === 'fr' ? 'Base Locale & Cloud Supabase' : 'Local DB & Cloud Supabase'}</span>
+              <span className={`w-2 h-2 rounded-full ${supabaseConfig.isConfigured ? 'bg-emerald-400 ring-2 ring-emerald-500/30' : 'bg-amber-400 ring-2 ring-amber-500/30'}`} />
+            </span>
           </button>
         )}
 
         <button
           onClick={() => setActiveTab('printer')}
-          className={`py-2 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
             activeTab === 'printer'
-              ? 'border-emerald-500 text-emerald-500'
+              ? 'bg-emerald-600 text-white shadow-xs'
               : theme === 'dark'
-              ? 'border-transparent text-slate-400 hover:text-white'
-              : 'border-transparent text-slate-500 hover:text-slate-900'
+              ? 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
           }`}
         >
           <Printer className="w-4 h-4" />
@@ -922,7 +944,7 @@ export const SettingsManager: React.FC = () => {
               {(currentUser.role === 'developpeur' || currentUser.role === 'administrateur') && (
                 <button
                   type="button"
-                  onClick={() => setShowAddUserModal(true)}
+                  onClick={handleOpenAddUserModal}
                   className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs shrink-0"
                 >
                   <Plus className="w-4 h-4" />
@@ -1131,9 +1153,11 @@ export const SettingsManager: React.FC = () => {
                           theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                         }`}
                       >
-                        <option value="administrateur">
-                          {language === 'fr' ? 'Administrateur (Gestion complète)' : 'Administrator (Full Business)'}
-                        </option>
+                        {currentUser.role === 'developpeur' && !hasActiveAdmin && (
+                          <option value="administrateur">
+                            {language === 'fr' ? '👑 Administrateur (Gestion complète - 1 seul autorisé)' : '👑 Administrator (Full Business - Single Allowed)'}
+                          </option>
+                        )}
                         <option value="responsable">
                           {language === 'fr' ? 'Responsable d\'exploitation' : 'Operations Manager'}
                         </option>
@@ -1144,6 +1168,13 @@ export const SettingsManager: React.FC = () => {
                           {language === 'fr' ? 'Magasinier (Stocks & Dépôt)' : 'Storekeeper (Inventory)'}
                         </option>
                       </select>
+                      {currentUser.role === 'developpeur' && hasActiveAdmin && (
+                        <p className="text-[10px] text-amber-500 mt-1">
+                          {language === 'fr'
+                            ? 'ℹ️ Un Administrateur actif existe déjà. Selon la hiérarchie COOPS BIR SAA, un seul Administrateur est autorisé.'
+                            : 'ℹ️ An active Administrator already exists. Only one is allowed.'}
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -1184,19 +1215,12 @@ export const SettingsManager: React.FC = () => {
                       <label className="block font-medium mb-1 opacity-80">
                         {language === 'fr' ? 'Point de Vente assigné' : 'Assigned Sales Point'}
                       </label>
-                      <select
-                        value={newUserForm.assignedSalesPointId}
-                        onChange={e => setNewUserForm({ ...newUserForm, assignedSalesPointId: e.target.value })}
-                        className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                        }`}
-                      >
-                        {salesPoints.map(sp => (
-                          <option key={sp.id} value={sp.id}>
-                            {sp.name} ({sp.code})
-                          </option>
-                        ))}
-                      </select>
+                      <div className={`w-full rounded-xl p-2.5 border text-xs font-semibold flex items-center gap-1.5 ${
+                        theme === 'dark' ? 'bg-slate-800/80 border-slate-700 text-emerald-400' : 'bg-slate-100 border-slate-200 text-emerald-700'
+                      }`}>
+                        <span>📍</span>
+                        <span className="truncate">Siège Principal & Usine (Douala Bassa) — Site Unique</span>
+                      </div>
                     </div>
                   </div>
 
@@ -1494,6 +1518,182 @@ export const SettingsManager: React.FC = () => {
             </div>
           </div>
 
+          {/* PROMINENT CLOUD SUPABASE CREDENTIALS & SYNC CARD */}
+          <div className={`border-2 rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs transition-all ${
+            supabaseConfig.isConfigured
+              ? theme === 'dark' ? 'bg-slate-900 border-emerald-500/40' : 'bg-white border-emerald-500/40 shadow-emerald-500/5'
+              : theme === 'dark' ? 'bg-slate-900 border-amber-500/40' : 'bg-white border-amber-500/40 shadow-amber-500/5'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-700/20">
+              <div className="flex items-center gap-3">
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                  supabaseConfig.isConfigured
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : 'bg-amber-500/20 text-amber-500'
+                }`}>
+                  <Cloud className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className={`text-base font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                      {language === 'fr' ? 'Connexion & Synchronisation Cloud Supabase' : 'Cloud Supabase Connection & Sync'}
+                    </h2>
+                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase flex items-center gap-1.5 ${
+                      supabaseConfig.isConfigured
+                        ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                        : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${supabaseConfig.isConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                      <span>{supabaseConfig.isConfigured ? (language === 'fr' ? 'Connecté au Cloud' : 'Cloud Connected') : (language === 'fr' ? 'En Attente de Clés' : 'Awaiting Keys')}</span>
+                    </span>
+                  </div>
+                  <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                    {language === 'fr'
+                      ? 'Entrez ici vos clés Supabase (les mêmes que dans Google AI Studio) pour lier et synchroniser votre application de bureau avec le cloud.'
+                      : 'Enter your Supabase project keys here (the same as in Google AI Studio) to link and sync your desktop app with the cloud.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveSupabaseConfig} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold flex items-center justify-between">
+                    <span>{t('settings.supabase_url_label')} *</span>
+                    <span className="text-[10px] font-mono opacity-60">https://xyz.supabase.co</span>
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://votre-projet.supabase.co"
+                    value={supabaseUrlInput}
+                    onChange={e => setSupabaseUrlInput(e.target.value)}
+                    className={`w-full rounded-xl p-2.5 font-mono text-xs border focus:ring-2 focus:ring-emerald-500 focus:outline-none ${
+                      theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold flex items-center justify-between">
+                    <span>{t('settings.supabase_key_label')} *</span>
+                    <span className="text-[10px] font-mono opacity-60">Clé `anon` / `public`</span>
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    value={supabaseKeyInput}
+                    onChange={e => setSupabaseKeyInput(e.target.value)}
+                    className={`w-full rounded-xl p-2.5 font-mono text-xs border focus:ring-2 focus:ring-emerald-500 focus:outline-none ${
+                      theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2 pt-2">
+                <button
+                  type="submit"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs cursor-pointer transition shadow-xs flex items-center gap-1.5"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{t('settings.supabase_save_btn')}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleTestSupabase}
+                  disabled={testStatus.loading || !supabaseUrlInput || !supabaseKeyInput}
+                  className="px-4 py-2.5 rounded-xl border font-bold text-xs cursor-pointer hover:bg-slate-500/10 disabled:opacity-40 transition flex items-center gap-1.5"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{testStatus.loading ? (language === 'fr' ? 'Test en cours...' : 'Testing...') : t('settings.supabase_test_btn')}</span>
+                </button>
+
+                {supabaseConfig.isConfigured && (
+                  <button
+                    type="button"
+                    onClick={handleDisconnectSupabase}
+                    className="px-3.5 py-2.5 rounded-xl border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 font-semibold text-xs cursor-pointer transition"
+                  >
+                    {t('settings.supabase_disconnect_btn')}
+                  </button>
+                )}
+
+                <div className="h-5 w-px bg-slate-700/30 mx-1 hidden sm:block" />
+
+                <button
+                  type="button"
+                  onClick={handlePushToSupabase}
+                  disabled={syncPushStatus.loading || !supabaseConfig.isConfigured}
+                  className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs cursor-pointer disabled:opacity-40 flex items-center gap-1.5 transition shadow-xs"
+                  title="Envoyer toutes les données locales vers le cloud Supabase"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{syncPushStatus.loading ? (language === 'fr' ? 'Envoi...' : 'Pushing...') : (language === 'fr' ? 'Pousser vers Cloud (Push)' : 'Push to Cloud')}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePullFromSupabase}
+                  disabled={syncPullStatus.loading || !supabaseConfig.isConfigured}
+                  className="px-4 py-2.5 rounded-xl border font-bold text-xs cursor-pointer disabled:opacity-40 flex items-center gap-1.5 hover:bg-slate-500/10 transition shadow-xs"
+                  title="Télécharger toutes les données du Cloud vers la base locale"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>{syncPullStatus.loading ? (language === 'fr' ? 'Récupération...' : 'Pulling...') : (language === 'fr' ? 'Récupérer du Cloud (Pull)' : 'Pull from Cloud')}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopySql}
+                  className="ml-auto px-3.5 py-2.5 rounded-xl border text-xs cursor-pointer hover:bg-slate-500/10 transition flex items-center gap-1.5 opacity-80 hover:opacity-100"
+                  title="Copier le script SQL DDL pour créer les tables dans Supabase"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>{copiedSql ? (language === 'fr' ? 'SQL Copié !' : 'SQL Copied!') : (language === 'fr' ? 'Copier Script SQL DDL' : 'Copy DDL SQL')}</span>
+                </button>
+              </div>
+
+              {/* Status feedback banners */}
+              {testStatus.message && (
+                <div className={`p-3 rounded-xl text-xs flex items-center gap-2.5 ${
+                  testStatus.success
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                }`}>
+                  {testStatus.success ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />}
+                  <span>{testStatus.message}</span>
+                </div>
+              )}
+
+              {syncPushStatus.message && (
+                <div className={`p-3 rounded-xl text-xs flex items-center gap-2.5 ${
+                  syncPushStatus.success
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                }`}>
+                  {syncPushStatus.success ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />}
+                  <span>{syncPushStatus.message}</span>
+                </div>
+              )}
+
+              {syncPullStatus.message && (
+                <div className={`p-3 rounded-xl text-xs flex items-center gap-2.5 ${
+                  syncPullStatus.success
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                }`}>
+                  {syncPullStatus.success ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />}
+                  <span>{syncPullStatus.message}</span>
+                </div>
+              )}
+            </form>
+          </div>
+
           {/* BACKUP & RESTORE ROW */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* EXPORT BACKUP CARD */}
@@ -1654,123 +1854,6 @@ export const SettingsManager: React.FC = () => {
               </button>
             </div>
           </div>
-
-          {/* OPTIONAL CLOUD MIRROR DETAILS (FOR DEVELOPERS) */}
-          <details className={`border rounded-2xl p-4 transition-colors ${
-            theme === 'dark' ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
-          }`}>
-            <summary className="font-bold cursor-pointer text-xs flex items-center gap-2 select-none py-1">
-              <Cloud className="w-4 h-4 text-slate-400" />
-              <span>{language === 'fr' ? 'Passerelle Optionnelle : Miroir Cloud Supabase (Avancé)' : 'Optional Gateway: Cloud Supabase Mirror (Advanced)'}</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-500/10 text-slate-400 ml-auto uppercase">
-                {language === 'fr' ? 'Facultatif' : 'Optional'}
-              </span>
-            </summary>
-
-            <div className="pt-4 space-y-4 border-t border-slate-700/20 mt-3 text-xs">
-              <p className={`text-[11px] leading-relaxed ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                {language === 'fr'
-                  ? 'Si vous souhaitez synchroniser un miroir central en temps réel en complément de la base locale, configurez ici vos identifiants Supabase.'
-                  : 'If you wish to synchronize a cloud mirror alongside the local database, configure your Supabase credentials here.'}
-              </p>
-
-              <form onSubmit={handleSaveSupabaseConfig} className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="block font-semibold">{t('settings.supabase_url_label')}</label>
-                    <input
-                      type="url"
-                      placeholder="https://xyz.supabase.co"
-                      value={supabaseUrlInput}
-                      onChange={e => setSupabaseUrlInput(e.target.value)}
-                      className={`w-full rounded-xl p-2 font-mono text-xs border ${
-                        theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                      }`}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block font-semibold">{t('settings.supabase_key_label')}</label>
-                    <input
-                      type="password"
-                      placeholder="eyJhbGci..."
-                      value={supabaseKeyInput}
-                      onChange={e => setSupabaseKeyInput(e.target.value)}
-                      className={`w-full rounded-xl p-2 font-mono text-xs border ${
-                        theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={handleTestSupabase}
-                    disabled={testStatus.loading}
-                    className="px-3 py-1.5 rounded-lg border font-semibold text-xs cursor-pointer hover:bg-slate-500/10"
-                  >
-                    {testStatus.loading ? 'Test...' : t('settings.supabase_test_btn')}
-                  </button>
-
-                  <button
-                    type="submit"
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs cursor-pointer"
-                  >
-                    {t('settings.supabase_save_btn')}
-                  </button>
-
-                  {supabaseConfig.isConfigured && (
-                    <button
-                      type="button"
-                      onClick={handleDisconnectSupabase}
-                      className="px-3 py-1.5 rounded-lg border border-rose-500/30 text-rose-500 font-semibold text-xs cursor-pointer"
-                    >
-                      {t('settings.supabase_disconnect_btn')}
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={handlePushToSupabase}
-                    disabled={syncPushStatus.loading || !supabaseConfig.isConfigured}
-                    className="bg-emerald-600/80 hover:bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-lg text-xs cursor-pointer disabled:opacity-50 flex items-center gap-1"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Push Supabase</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handlePullFromSupabase}
-                    disabled={syncPullStatus.loading || !supabaseConfig.isConfigured}
-                    className="px-3 py-1.5 rounded-lg border font-bold text-xs cursor-pointer disabled:opacity-50 flex items-center gap-1"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Pull Supabase</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleCopySql}
-                    className="ml-auto px-3 py-1.5 rounded-lg border text-xs cursor-pointer"
-                  >
-                    {copiedSql ? 'SQL Copié !' : 'Copier SQL'}
-                  </button>
-                </div>
-
-                {testStatus.message && (
-                  <div className={`p-2 rounded-lg text-xs ${testStatus.success ? 'text-emerald-500' : 'text-rose-500'}`}>
-                    {testStatus.message}
-                  </div>
-                )}
-                {syncPushStatus.message && (
-                  <div className={`p-2 rounded-lg text-xs ${syncPushStatus.success ? 'text-emerald-500' : 'text-rose-500'}`}>
-                    {syncPushStatus.message}
-                  </div>
-                )}
-              </form>
-            </div>
-          </details>
         </div>
       )}
 

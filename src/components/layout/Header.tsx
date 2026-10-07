@@ -48,9 +48,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
 
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
-  const [showSalesPointDropdown, setShowSalesPointDropdown] = useState(false);
 
-  const salesPointRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const roleRef = useRef<HTMLDivElement>(null);
 
@@ -68,9 +66,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
   useEffect(() => {
     const handleDocumentClick = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (salesPointRef.current && !salesPointRef.current.contains(target)) {
-        setShowSalesPointDropdown(false);
-      }
       if (notifRef.current && !notifRef.current.contains(target)) {
         setShowNotifDropdown(false);
       }
@@ -81,7 +76,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setShowSalesPointDropdown(false);
         setShowNotifDropdown(false);
         setShowRoleDropdown(false);
       }
@@ -154,12 +148,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
             <Warehouse className="w-5 h-5 text-emerald-100" />
           </div>
         )}
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <span className="font-bold tracking-tight text-base lg:text-lg uppercase">
+            <span className="font-bold tracking-tight text-sm sm:text-base uppercase whitespace-nowrap">
               {settings.name || 'COOPS BIR SAA'}
             </span>
-            <span className="text-[10px] uppercase font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded">
+            <span className="text-[10px] uppercase font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded shrink-0">
               POS
             </span>
             <span
@@ -182,148 +176,28 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
             </span>
           </div>
 
-          {/* Sales Point Selector Trigger */}
-          <div className="relative" ref={salesPointRef}>
-            {currentUser.role === 'administrateur' || currentUser.role === 'developpeur' ? (
-              <button
-                onClick={() => {
-                  setShowSalesPointDropdown(prev => !prev);
-                  setShowNotifDropdown(false);
-                  setShowRoleDropdown(false);
-                }}
-                className={`text-xs flex items-center gap-1 font-medium transition cursor-pointer text-left ${
-                  theme === 'dark' ? 'text-slate-300 hover:text-emerald-400' : 'text-slate-600 hover:text-emerald-600'
-                }`}
-                title="Changer de vue ou de point de vente"
-              >
-                <MapPin className="w-3 h-3 text-emerald-500 shrink-0" />
-                <span className={`truncate max-w-[85px] xs:max-w-[130px] sm:max-w-[200px] ${currentSalesPointId === 'all' ? 'text-emerald-500 font-semibold' : ''}`}>
-                  {currentSalesPointId === 'all' ? t('sales_point.global_view') : (currentSalesPoint?.name || 'Point de vente')}
-                </span>
-                <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
-              </button>
-            ) : (
-              <div className={`text-xs flex items-center gap-1.5 font-medium ${
-                theme === 'dark' ? 'text-slate-300' : 'text-slate-600'
-              }`} title={t('sales_point.locked_notice')}>
-                <MapPin className="w-3 h-3 text-emerald-500 shrink-0" />
-                <span className="truncate max-w-[80px] xs:max-w-[120px] sm:max-w-[180px] font-semibold">
-                  {currentSalesPoint?.name || 'Point de vente'}
-                </span>
-                <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-bold shrink-0 hidden xs:inline-block">
-                  {t('header.site_assigned')}
-                </span>
-              </div>
-            )}
-
-            {/* Sales Points Dropdown (Admin Only) */}
-            {currentUser.role === 'administrateur' && showSalesPointDropdown && (
-              <div className={`absolute left-0 mt-2 w-72 rounded-xl shadow-2xl p-2 z-50 border animate-in fade-in slide-in-from-top-2 duration-150 ${
-                theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
-              }`}>
-                <div className="px-3 py-2 border-b border-slate-700/50 mb-1">
-                  <div className="text-xs font-semibold">{t('sales_point.select')}</div>
-                  <div className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Vue globale consolidée ou par site spécifique
-                  </div>
-                </div>
-
-                {/* Global View Option for Admin */}
-                <div className="space-y-1">
-                  <button
-                    onClick={() => {
-                      setCurrentSalesPointId('all');
-                      setShowSalesPointDropdown(false);
-                    }}
-                    className={`w-full text-left p-2 rounded-lg text-xs transition flex items-center justify-between mb-1 ${
-                      currentSalesPointId === 'all'
-                        ? 'bg-emerald-600/15 text-emerald-500 border border-emerald-500/30 font-semibold'
-                        : theme === 'dark'
-                        ? 'hover:bg-slate-700/70 text-slate-200'
-                        : 'hover:bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <div className="w-6 h-6 rounded bg-emerald-500/20 text-emerald-500 flex items-center justify-center font-bold text-[10px] shrink-0">
-                        ALL
-                      </div>
-                      <div className="truncate">
-                        <div className="truncate font-semibold">{t('sales_point.global_view')}</div>
-                        <div className="text-[10px] opacity-70">
-                          {language === 'fr' ? 'Tous les sites consolidés' : 'All consolidated sites'}
-                        </div>
-                      </div>
-                    </div>
-                    {currentSalesPointId === 'all' && (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-1" />
-                    )}
-                  </button>
-
-                  <div className="border-t border-slate-700/30 my-1 pt-1 px-2 text-[10px] uppercase font-semibold tracking-wider text-slate-400">
-                    {language === 'fr' ? 'Sites individuels' : 'Individual branches'}
-                  </div>
-
-                  {salesPoints.map(sp => {
-                    const isSelected = sp.id === currentSalesPointId;
-                    return (
-                      <button
-                        key={sp.id}
-                        onClick={() => {
-                          setCurrentSalesPointId(sp.id);
-                          setShowSalesPointDropdown(false);
-                        }}
-                        className={`w-full text-left p-2 rounded-lg text-xs transition flex items-center justify-between ${
-                          isSelected
-                            ? 'bg-emerald-600/15 text-emerald-500 border border-emerald-500/30 font-semibold'
-                            : theme === 'dark'
-                            ? 'hover:bg-slate-700/70 text-slate-200'
-                            : 'hover:bg-slate-100 text-slate-700'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <Building2 className="w-3.5 h-3.5 shrink-0" />
-                          <div className="truncate">
-                            <div className="truncate">{sp.name}</div>
-                            <div className="text-[10px] opacity-70">{sp.city} &middot; {sp.code}</div>
-                          </div>
-                        </div>
-                        {isSelected && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-1" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-2 pt-2 border-t border-slate-700/50">
-                  <button
-                    onClick={() => {
-                      setShowSalesPointDropdown(false);
-                      onNavigateTab('admin_users');
-                    }}
-                    className="w-full text-center py-1.5 text-[11px] font-medium text-emerald-500 hover:underline"
-                  >
-                    {t('sales_point.manage_all')} &rarr;
-                  </button>
-                </div>
-              </div>
-            )}
+          {/* Single Sales Point Indicator */}
+          <div className="flex items-center gap-1 text-[11px] text-slate-400 font-medium mt-0.5">
+            <MapPin className="w-3 h-3 text-emerald-500 shrink-0" />
+            <span className="truncate max-w-[180px] sm:max-w-[260px] font-semibold text-slate-300">
+              {salesPoints[0]?.name || 'Siège Principal & Usine (Douala Bassa)'}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Center: Global Search Trigger */}
-      <div className="flex-1 max-w-md mx-3 lg:mx-6 hidden md:block">
+      <div className="flex-1 max-w-xs mx-2 lg:mx-4 hidden md:block">
         <button
           onClick={onOpenSearch}
-          className={`w-full rounded-lg py-1.5 px-3 text-left text-xs sm:text-sm flex items-center justify-between border transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+          className={`w-full rounded-xl py-1.5 px-3 text-left text-xs flex items-center justify-between border transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
             theme === 'dark'
               ? 'bg-slate-800/80 hover:bg-slate-800 border-slate-700/80 text-slate-400'
               : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-500'
           }`}
         >
           <div className="flex items-center gap-2 truncate">
-            <Search className="w-4 h-4 text-slate-400 shrink-0" />
+            <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <span className="truncate">{t('header.search_placeholder')}</span>
           </div>
           <kbd className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${
@@ -372,7 +246,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
           <button
             onClick={() => {
               setShowNotifDropdown(prev => !prev);
-              setShowSalesPointDropdown(false);
               setShowRoleDropdown(false);
             }}
             className={`relative p-1.5 sm:p-2 rounded-lg transition focus:outline-none ${
@@ -469,7 +342,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
           <button
             onClick={() => {
               setShowRoleDropdown(prev => !prev);
-              setShowSalesPointDropdown(false);
               setShowNotifDropdown(false);
             }}
             className={`flex items-center gap-2 p-1.5 rounded-lg border transition focus:outline-none ${
