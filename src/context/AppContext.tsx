@@ -1251,7 +1251,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const ref = `ACH-${new Date().getFullYear()}-${String(purchaseSeq).padStart(6, '0')}`;
     const id = `ach-${Date.now()}`;
 
-    const effectiveSpId = currentUser.role === 'administrateur'
+    const effectiveSpId = (currentUser.role === 'administrateur' || currentUser.role === 'developpeur')
       ? (targetSalesPointId || (effectiveSalesPointId !== 'all' ? effectiveSalesPointId : (salesPoints[0]?.id || 'pos-1')))
       : (currentUser.assignedSalesPointId || 'pos-1');
     const sp = salesPoints.find(s => s.id === effectiveSpId) || salesPoints[0];
@@ -1647,7 +1647,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'Client introuvable.' };
     }
 
-    const chosenSpId = currentUser.role === 'administrateur'
+    const chosenSpId = (currentUser.role === 'administrateur' || currentUser.role === 'developpeur')
       ? (targetSalesPointId || (effectiveSalesPointId !== 'all' ? effectiveSalesPointId : (salesPoints[0]?.id || 'pos-1')))
       : (currentUser.assignedSalesPointId || 'pos-1');
     const chosenSp = salesPoints.find(s => s.id === chosenSpId) || salesPoints[0];
@@ -1693,8 +1693,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         allowedLimit = settings.maxDiscountCaissier;
       } else if (currentUser.role === 'responsable') {
         allowedLimit = settings.maxDiscountResponsable;
-      } else if (currentUser.role === 'administrateur') {
-        allowedLimit = settings.maxDiscountAdmin;
+      } else if (currentUser.role === 'administrateur' || currentUser.role === 'developpeur') {
+        allowedLimit = 100;
       }
 
       if (requestedDiscountPercent > allowedLimit) {
@@ -1935,11 +1935,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'Cette facture est déjà annulée.' };
     }
 
-    // Security check: Only Responsable or Admin can cancel invoices (Section 10)
-    if (currentUser.role !== 'responsable' && currentUser.role !== 'administrateur') {
+    // Security check: Responsable, Admin or Developer can cancel invoices (Section 10)
+    if (currentUser.role !== 'responsable' && currentUser.role !== 'administrateur' && currentUser.role !== 'developpeur') {
       return {
         success: false,
-        error: 'Seul un Responsable ou un Administrateur est autorisé à annuler une facture.',
+        error: 'Seul un Responsable, un Administrateur ou le Développeur est autorisé à annuler une facture.',
       };
     }
 
@@ -2175,10 +2175,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       stockAfter,
       costUnitCMP: product.cmp,
       totalValue: Math.abs(quantityChangeBaseUnit) * product.cmp,
-      salesPointId: currentUser.role === 'administrateur'
+      salesPointId: (currentUser.role === 'administrateur' || currentUser.role === 'developpeur')
         ? (effectiveSalesPointId !== 'all' ? effectiveSalesPointId : (salesPoints[0]?.id || 'pos-1'))
         : (currentUser.assignedSalesPointId || 'pos-1'),
-      salesPointName: salesPoints.find(s => s.id === (currentUser.role === 'administrateur' ? (effectiveSalesPointId !== 'all' ? effectiveSalesPointId : 'pos-1') : (currentUser.assignedSalesPointId || 'pos-1')))?.name,
+      salesPointName: salesPoints.find(s => s.id === ((currentUser.role === 'administrateur' || currentUser.role === 'developpeur') ? (effectiveSalesPointId !== 'all' ? effectiveSalesPointId : 'pos-1') : (currentUser.assignedSalesPointId || 'pos-1')))?.name,
       referenceDocument: `ADJ-${Date.now().toString().slice(-6)}`,
       userId: currentUser.id,
       userName: currentUser.name,
@@ -2231,7 +2231,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const totalTheoValue = items.reduce((sum, item) => sum + item.theoreticalStock * item.cmp, 0);
 
-    const effectiveSpId = currentUser.role === 'administrateur'
+    const effectiveSpId = (currentUser.role === 'administrateur' || currentUser.role === 'developpeur')
       ? (effectiveSalesPointId !== 'all' ? effectiveSalesPointId : (salesPoints[0]?.id || 'pos-1'))
       : (currentUser.assignedSalesPointId || 'pos-1');
     const matchedSp = salesPoints.find(s => s.id === effectiveSpId) || salesPoints[0];
@@ -2260,9 +2260,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     countedItems: { productId: string; physicalStock: number; reason?: string }[],
     notes?: string
   ): { success: boolean; error?: string } => {
-    // Only Responsable or Admin can validate inventory adjustments (Section 12.1)
-    if (currentUser.role !== 'responsable' && currentUser.role !== 'administrateur') {
-      return { success: false, error: 'Seul un Responsable ou un Administrateur est habilité à valider les écarts d\'inventaire.' };
+    // Responsable, Admin or Developer can validate inventory adjustments (Section 12.1)
+    if (currentUser.role !== 'responsable' && currentUser.role !== 'administrateur' && currentUser.role !== 'developpeur') {
+      return { success: false, error: 'Seul un Responsable, un Administrateur ou le Développeur est habilité à valider les écarts d\'inventaire.' };
     }
 
     const session = inventories.find(s => s.id === sessionId);
@@ -2423,7 +2423,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const id = `exp-${Date.now()}`;
     const now = new Date().toISOString().replace('T', ' ').slice(0, 16);
 
-    const effectiveSpId = expenseData.salesPointId || (currentUser.role === 'administrateur'
+    const effectiveSpId = expenseData.salesPointId || ((currentUser.role === 'administrateur' || currentUser.role === 'developpeur')
       ? (effectiveSalesPointId !== 'all' ? effectiveSalesPointId : (salesPoints[0]?.id || 'pos-1'))
       : (currentUser.assignedSalesPointId || 'pos-1'));
     const sp = salesPoints.find(s => s.id === effectiveSpId) || salesPoints[0];

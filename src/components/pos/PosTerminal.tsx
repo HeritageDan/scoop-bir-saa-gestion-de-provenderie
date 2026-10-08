@@ -321,7 +321,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
       saleNotes,
       paymentMethod === 'crédit client',
       paymentMethod === 'crédit client' ? creditDueDate : undefined,
-      currentUser.role === 'administrateur' ? targetSalesPointId : undefined
+      (currentUser.role === 'administrateur' || currentUser.role === 'developpeur') ? targetSalesPointId : undefined
     );
 
     setIsSubmitting(false);
@@ -610,8 +610,8 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
         <div className={`p-3 border-b space-y-2 shrink-0 ${
           theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
         }`}>
-          {/* Admin Sales Point Selector if role is administrateur */}
-          {currentUser.role === 'administrateur' && (
+          {/* Admin / Dev Sales Point Selector */}
+          {(currentUser.role === 'administrateur' || currentUser.role === 'developpeur') && (
             <div className={`p-2 rounded-lg border flex items-center justify-between gap-2 text-xs ${
               theme === 'dark'
                 ? 'bg-emerald-950/30 border-emerald-800/60'
@@ -620,7 +620,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
               <div className="flex items-center gap-1.5 font-medium">
                 <Building2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                 <span className={theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}>
-                  {language === 'fr' ? 'Site Vente (Admin) :' : 'Sales Point (Admin):'}
+                  {language === 'fr' ? 'Site Vente (Admin / Dev) :' : 'Sales Point (Admin / Dev):'}
                 </span>
               </div>
               <select

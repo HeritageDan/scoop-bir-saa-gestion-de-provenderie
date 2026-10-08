@@ -173,7 +173,7 @@ export const PurchasesManager: React.FC = () => {
       userId: currentUser.id,
       userName: currentUser.name,
       notes: purchaseNotes,
-    }, currentUser.role === 'administrateur' ? adminSalesPointId : undefined);
+    }, (currentUser.role === 'administrateur' || currentUser.role === 'developpeur') ? adminSalesPointId : undefined);
 
     if (validateDirectly) {
       validatePurchaseReception(purchaseId);
@@ -350,7 +350,8 @@ export const PurchasesManager: React.FC = () => {
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {(currentUser.role === 'administrateur' ||
             currentUser.role === 'responsable' ||
-            currentUser.role === 'magasinier') && (
+            currentUser.role === 'magasinier' ||
+            currentUser.role === 'developpeur') && (
             <button
               onClick={() => setShowNewModal(true)}
               className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
@@ -521,7 +522,8 @@ export const PurchasesManager: React.FC = () => {
                       {pur.status === 'brouillon' &&
                         (currentUser.role === 'magasinier' ||
                           currentUser.role === 'responsable' ||
-                          currentUser.role === 'administrateur') && (
+                          currentUser.role === 'administrateur' ||
+                          currentUser.role === 'developpeur') && (
                           <button
                             onClick={() => validatePurchaseReception(pur.id)}
                             className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-2.5 py-1 rounded text-xs transition shadow-xs cursor-pointer"
@@ -532,7 +534,8 @@ export const PurchasesManager: React.FC = () => {
 
                       {pur.status === 'validé' &&
                         (currentUser.role === 'responsable' ||
-                          currentUser.role === 'administrateur') && (
+                          currentUser.role === 'administrateur' ||
+                          currentUser.role === 'developpeur') && (
                           <button
                             onClick={() => setCancelModalPurchase(pur)}
                             className={`p-1 rounded transition cursor-pointer ${
@@ -593,13 +596,13 @@ export const PurchasesManager: React.FC = () => {
               )}
 
               {/* Top supplier info */}
-              <div className={`grid grid-cols-1 ${currentUser.role === 'administrateur' ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-3 p-3 rounded-xl border ${
+              <div className={`grid grid-cols-1 ${(currentUser.role === 'administrateur' || currentUser.role === 'developpeur') ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-3 p-3 rounded-xl border ${
                 theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
               }`}>
-                {currentUser.role === 'administrateur' && (
+                {(currentUser.role === 'administrateur' || currentUser.role === 'developpeur') && (
                   <div>
                     <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                      {language === 'fr' ? 'Site Récepteur (Admin) :' : 'Receiving Site (Admin):'}
+                      {language === 'fr' ? 'Site Récepteur (Admin / Dev) :' : 'Receiving Site (Admin / Dev):'}
                     </label>
                     <select
                       value={adminSalesPointId}

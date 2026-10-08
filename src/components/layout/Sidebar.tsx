@@ -152,7 +152,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'admin_users',
           label: t('nav.users'),
           icon: UserCheck,
-          badge: currentUser.role === 'administrateur' ? 'Admin' : null,
+          badge: currentUser.role === 'administrateur' ? 'Admin' : currentUser.role === 'developpeur' ? 'Dev' : null,
           badgeType: 'admin',
           roles: ['administrateur', 'responsable', 'magasinier', 'caissier'],
         },

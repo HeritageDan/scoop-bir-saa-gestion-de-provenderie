@@ -63,7 +63,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   };
 
   const canCancel =
-    (currentUser.role === 'responsable' || currentUser.role === 'administrateur') &&
+    (currentUser.role === 'responsable' || currentUser.role === 'administrateur' || currentUser.role === 'developpeur') &&
     invoice.status !== 'annulée';
 
   return (

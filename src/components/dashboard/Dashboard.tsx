@@ -233,8 +233,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
               {t('dashboard.title')}
             </h1>
 
-            {/* Scope Badge / Selector for Admin */}
-            {currentUser.role === 'administrateur' ? (
+            {/* Scope Badge / Selector for Admin & Dev */}
+            {(currentUser.role === 'administrateur' || currentUser.role === 'developpeur') ? (
               <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-1 text-xs">
                 <Building2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-1" />
                 <button

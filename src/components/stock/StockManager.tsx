@@ -226,7 +226,8 @@ export const StockManager: React.FC = () => {
 
           {(currentUser.role === 'administrateur' ||
             currentUser.role === 'responsable' ||
-            currentUser.role === 'magasinier') && (
+            currentUser.role === 'magasinier' ||
+            currentUser.role === 'developpeur') && (
             <>
               <button
                 onClick={() => {
@@ -410,7 +411,8 @@ export const StockManager: React.FC = () => {
                     <th className="py-3 px-3 text-center">État Stock</th>
                     {(currentUser.role === 'administrateur' ||
                       currentUser.role === 'responsable' ||
-                      currentUser.role === 'magasinier') && (
+                      currentUser.role === 'magasinier' ||
+                      currentUser.role === 'developpeur') && (
                       <th className="py-3 px-3 text-center">Actions</th>
                     )}
                   </tr>
@@ -486,7 +488,8 @@ export const StockManager: React.FC = () => {
                         </td>
                         {(currentUser.role === 'administrateur' ||
                           currentUser.role === 'responsable' ||
-                          currentUser.role === 'magasinier') && (
+                          currentUser.role === 'magasinier' ||
+                          currentUser.role === 'developpeur') && (
                           <td className="py-3 px-3 text-center whitespace-nowrap">
                             <button
                               onClick={() => {

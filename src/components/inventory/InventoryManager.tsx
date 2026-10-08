@@ -95,11 +95,11 @@ export const InventoryManager: React.FC = () => {
     setErrorMsg('');
 
     // Check permission
-    if (currentUser.role !== 'responsable' && currentUser.role !== 'administrateur') {
+    if (currentUser.role !== 'responsable' && currentUser.role !== 'administrateur' && currentUser.role !== 'developpeur') {
       setErrorMsg(
         language === 'fr'
-          ? "Seul un Responsable ou un Administrateur peut valider les ajustements d'inventaire."
-          : 'Only a Manager or Administrator can validate inventory adjustments.'
+          ? "Seul un Responsable, un Administrateur ou le Développeur peut valider les ajustements d'inventaire."
+          : 'Only a Manager, Administrator or Developer can validate inventory adjustments.'
       );
       return;
     }
@@ -146,7 +146,8 @@ export const InventoryManager: React.FC = () => {
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {(currentUser.role === 'administrateur' ||
             currentUser.role === 'responsable' ||
-            currentUser.role === 'magasinier') && (
+            currentUser.role === 'magasinier' ||
+            currentUser.role === 'developpeur') && (
             <button
               onClick={() => setShowCreateModal(true)}
               className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
