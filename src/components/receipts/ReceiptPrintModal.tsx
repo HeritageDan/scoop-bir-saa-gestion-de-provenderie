@@ -19,6 +19,7 @@ import {
   savePrinterConfig,
   printReceipt,
 } from '../../services/receiptPrinterService';
+import { DEFAULT_APP_LOGO } from '../../config/defaultLogo';
 
 interface ReceiptPrintModalProps {
   invoice: Invoice | null;
@@ -194,11 +195,11 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
             <div className="absolute top-0 left-0 right-0 h-1 bg-[radial-gradient(circle,transparent_4px,#fff_4px)] bg-[length:10px_10px] -mt-1 opacity-80" />
 
             {/* Logo if configured */}
-            {config.showLogo && settings.logoUrl && (
+            {config.showLogo && (
               <div className="text-center mb-2">
                 <img
-                  src={settings.logoUrl}
-                  alt={settings.name}
+                  src={settings.logoUrl || DEFAULT_APP_LOGO}
+                  alt={settings.name || 'COOPS BIR SAA'}
                   className="max-h-12 max-w-[180px] mx-auto object-contain filter grayscale contrast-150"
                 />
               </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { CompanySettings, SalesPoint, User } from '../../../types';
 import { formatHumanDateRange } from '../../../utils/dateFilterUtils';
+import { DEFAULT_APP_LOGO } from '../../../config/defaultLogo';
 
 interface ReportHeaderProps {
   title: string;
@@ -37,13 +38,11 @@ export const ReportHeader: React.FC<ReportHeaderProps> = ({
       {/* Top Banner */}
       <div className="flex justify-between items-start gap-4">
         <div className="flex items-start gap-3">
-          {settings.logoUrl && (
-            <img
-              src={settings.logoUrl}
-              alt={settings.name || 'COOPS BIR SAA'}
-              className="w-16 h-16 object-contain rounded border border-slate-300 p-1 bg-white shrink-0"
-            />
-          )}
+          <img
+            src={settings.logoUrl || DEFAULT_APP_LOGO}
+            alt={settings.name || 'COOPS BIR SAA'}
+            className="w-16 h-16 object-contain rounded border border-slate-300 p-1 bg-white shrink-0"
+          />
           <div>
             <div className="flex items-center gap-2">
               <span className="text-2xl font-black tracking-tight text-emerald-800 uppercase">

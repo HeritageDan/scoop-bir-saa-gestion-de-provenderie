@@ -20,6 +20,7 @@ import {
   saveSupabaseConfig,
   testSupabaseConnection,
 } from '../../services/supabaseService';
+import { DEFAULT_APP_LOGO } from '../../config/defaultLogo';
 
 export const LoginPage: React.FC = () => {
   const { login, theme, language, t, settings, triggerManualSync, isSupabaseConfigured } = useApp();
@@ -103,17 +104,11 @@ export const LoginPage: React.FC = () => {
         theme === 'dark' ? 'border-slate-800 bg-slate-900/60' : 'border-slate-200 bg-white/80'
       } backdrop-blur-sm`}>
         <div className="flex items-center gap-3">
-          {settings.logoUrl ? (
-            <img
-              src={settings.logoUrl}
-              alt={settings.name || 'COOPS BIR SAA'}
-              className="w-9 h-9 rounded-lg object-contain bg-white p-0.5 border border-slate-200 dark:border-slate-700 shadow-sm"
-            />
-          ) : (
-            <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold shadow-sm">
-              <Warehouse className="w-5 h-5 text-emerald-100" />
-            </div>
-          )}
+          <img
+            src={settings.logoUrl || DEFAULT_APP_LOGO}
+            alt={settings.name || 'COOPS BIR SAA'}
+            className="w-10 h-10 rounded-lg object-contain bg-white p-0.5 border border-slate-200 dark:border-slate-700 shadow-sm"
+          />
           <div>
             <span className="font-bold tracking-tight text-base sm:text-lg uppercase">
               {settings.name || 'COOPS BIR SAA'}

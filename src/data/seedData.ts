@@ -14,6 +14,7 @@ import {
   SalesPoint,
   Expense,
 } from '../types';
+import { DEFAULT_APP_LOGO } from '../config/defaultLogo';
 
 export const INITIAL_SALES_POINTS: SalesPoint[] = [
   {
@@ -531,7 +532,7 @@ export const INITIAL_COMPANY_SETTINGS: CompanySettings = {
     'Les marchandises vendues ne sont ni reprises ni échangées après contrôle magasin. Merci de votre confiance.',
   ticketFooterNotice: 'COOPS BIR SAA — Merci pour votre fidélité ! Aliments de qualité supérieure.',
   transportFeesIntegratedInCMP: true,
-  logoUrl: '',
+  logoUrl: DEFAULT_APP_LOGO,
 };
 
 export const INITIAL_PURCHASES: Purchase[] = [

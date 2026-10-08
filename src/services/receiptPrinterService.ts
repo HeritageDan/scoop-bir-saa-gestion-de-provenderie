@@ -10,6 +10,7 @@
 
 import { Invoice, ReceiptPrinterConfig, ReceiptPaperWidth, CompanySettings } from '../types';
 import { formatFCFA, formatDate, formatDateTime } from '../utils/formatters';
+import { DEFAULT_APP_LOGO } from '../config/defaultLogo';
 
 export const DEFAULT_PRINTER_CONFIG: ReceiptPrinterConfig = {
   autoPrintOnSale: true,
@@ -116,10 +117,11 @@ export const buildThermalReceiptHtml = (
   const doubleSepLine = is58mm ? '='.repeat(32) : '='.repeat(42);
 
   // Logo rendering
+  const effectiveReceiptLogo = settings.logoUrl || DEFAULT_APP_LOGO;
   const logoHtml =
-    config.showLogo && settings.logoUrl
+    config.showLogo && effectiveReceiptLogo
       ? `<div style="text-align: center; margin-bottom: 4px;">
-          <img src="${settings.logoUrl}" alt="${settings.name}" style="max-height: 42px; max-width: ${is58mm ? '44mm' : '65mm'}; object-fit: contain; filter: grayscale(100%) contrast(150%);" />
+          <img src="${effectiveReceiptLogo}" alt="${settings.name || 'COOPS BIR SAA'}" style="max-height: 42px; max-width: ${is58mm ? '44mm' : '65mm'}; object-fit: contain; filter: grayscale(100%) contrast(150%);" />
         </div>`
       : '';
 

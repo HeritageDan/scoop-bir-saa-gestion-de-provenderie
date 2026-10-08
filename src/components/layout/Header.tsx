@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Role } from '../../types';
+import { DEFAULT_APP_LOGO } from '../../config/defaultLogo';
 
 interface HeaderProps {
   onOpenSearch: () => void;
@@ -140,19 +141,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
             <Menu className="w-5 h-5" />
           </button>
         )}
-        {settings.logoUrl ? (
-          <img
-            src={settings.logoUrl}
-            alt={settings.name || 'COOPS BIR SAA'}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg object-contain bg-white p-0.5 border border-slate-200 dark:border-slate-700 shadow-xs shrink-0 cursor-pointer"
-            onClick={() => onNavigateTab('settings')}
-            title="Cliquez pour configurer le logo ou l'entreprise"
-          />
-        ) : (
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-emerald-600 flex items-center justify-center font-bold text-white shadow-sm shrink-0">
-            <Warehouse className="w-5 h-5 text-emerald-100" />
-          </div>
-        )}
+        <img
+          src={settings.logoUrl || DEFAULT_APP_LOGO}
+          alt={settings.name || 'COOPS BIR SAA'}
+          className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg object-contain bg-white p-0.5 border border-slate-200 dark:border-slate-700 shadow-xs shrink-0 cursor-pointer"
+          onClick={() => onNavigateTab('settings')}
+          title="Cliquez pour configurer le logo ou l'entreprise"
+        />
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 sm:gap-2">
             <span className="font-bold tracking-tight text-sm sm:text-base uppercase whitespace-nowrap">

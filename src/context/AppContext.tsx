@@ -36,6 +36,7 @@ import {
   INITIAL_SALES_POINTS,
   INITIAL_EXPENSES,
 } from '../data/seedData';
+import { DEFAULT_APP_LOGO } from '../config/defaultLogo';
 import { getTranslation } from '../utils/i18n';
 import {
   openDatabase,
@@ -327,7 +328,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [settings, setSettings] = useState<CompanySettings>(() => {
     const saved = localStorage.getItem('provenda_settings');
-    return saved ? JSON.parse(saved) : INITIAL_COMPANY_SETTINGS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (!parsed.logoUrl || typeof parsed.logoUrl !== 'string' || parsed.logoUrl.trim() === '') {
+          parsed.logoUrl = DEFAULT_APP_LOGO;
+        }
+        return parsed;
+      } catch {
+        return { ...INITIAL_COMPANY_SETTINGS, logoUrl: DEFAULT_APP_LOGO };
+      }
+    }
+    return { ...INITIAL_COMPANY_SETTINGS, logoUrl: DEFAULT_APP_LOGO };
   });
 
   const [expenses, setExpenses] = useState<Expense[]>(() => {
@@ -574,6 +586,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (d.settings && typeof d.settings === 'object' && d.settings.name) {
           setSettings(prev => {
             const merged = { ...prev, ...d.settings };
+            if (!merged.logoUrl || typeof merged.logoUrl !== 'string' || merged.logoUrl.trim() === '') {
+              merged.logoUrl = prev.logoUrl || DEFAULT_APP_LOGO;
+            }
             localStorage.setItem('provenda_settings', JSON.stringify(merged));
             return merged;
           });
@@ -2417,8 +2432,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       if (Array.isArray(data.inventories)) setInventories(data.inventories);
       if (data.settings && typeof data.settings === 'object') {
-        setSettings(data.settings);
-        localStorage.setItem('provenda_settings', JSON.stringify(data.settings));
+        const restoredSettings = {
+          ...data.settings,
+          logoUrl: data.settings.logoUrl || DEFAULT_APP_LOGO,
+        };
+        setSettings(restoredSettings);
+        localStorage.setItem('provenda_settings', JSON.stringify(restoredSettings));
       }
       if (Array.isArray(data.expenses) && data.expenses.length > 0) {
         setExpenses(data.expenses);
@@ -2502,6 +2521,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const cleanSettings: CompanySettings = {
       ...INITIAL_COMPANY_SETTINGS,
       name: 'COOPS BIR SAA',
+      logoUrl: DEFAULT_APP_LOGO,
     };
     setSettings(cleanSettings);
 

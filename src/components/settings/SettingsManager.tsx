@@ -48,6 +48,7 @@ import {
   getVercelEnvConfig,
 } from '../../services/supabaseService';
 import { SUPABASE_SCHEMA_SQL } from '../../services/supabaseSchema';
+import { DEFAULT_APP_LOGO } from '../../config/defaultLogo';
 import { getDatabaseStats } from '../../services/indexedDbStorage';
 
 export const SettingsManager: React.FC = () => {
@@ -84,7 +85,17 @@ export const SettingsManager: React.FC = () => {
   const visibleUsers = users.filter(u => currentUser.role === 'developpeur' || u.role !== 'developpeur');
 
   // Local state for company settings
-  const [companyForm, setCompanyForm] = useState<CompanySettings>(settings);
+  const [companyForm, setCompanyForm] = useState<CompanySettings>(() => ({
+    ...settings,
+    logoUrl: settings.logoUrl || DEFAULT_APP_LOGO,
+  }));
+
+  useEffect(() => {
+    setCompanyForm({
+      ...settings,
+      logoUrl: settings.logoUrl || DEFAULT_APP_LOGO,
+    });
+  }, [settings]);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [backupJson, setBackupJson] = useState('');
   const [restoreError, setRestoreError] = useState('');
@@ -158,7 +169,7 @@ export const SettingsManager: React.FC = () => {
   };
 
   const handleRemoveLogo = () => {
-    setCompanyForm(prev => ({ ...prev, logoUrl: '' }));
+    setCompanyForm(prev => ({ ...prev, logoUrl: DEFAULT_APP_LOGO }));
   };
 
   // Thermal Printer config state
@@ -289,7 +300,10 @@ export const SettingsManager: React.FC = () => {
 
   const handleSaveCompany = (e: React.FormEvent) => {
     e.preventDefault();
-    updateSettings(companyForm);
+    updateSettings({
+      ...companyForm,
+      logoUrl: companyForm.logoUrl || DEFAULT_APP_LOGO,
+    });
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);
   };
@@ -609,32 +623,23 @@ export const SettingsManager: React.FC = () => {
             theme === 'dark' ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'
           }`}>
             <div className="relative group shrink-0">
-              {companyForm.logoUrl ? (
-                <div className="relative">
-                  <img
-                    src={companyForm.logoUrl}
-                    alt="Logo Entreprise"
-                    className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-xl border border-slate-300 dark:border-slate-600 bg-white p-1.5 shadow-sm"
-                  />
+              <div className="relative">
+                <img
+                  src={companyForm.logoUrl || DEFAULT_APP_LOGO}
+                  alt="Logo Entreprise"
+                  className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-xl border border-slate-300 dark:border-slate-600 bg-white p-1.5 shadow-sm"
+                />
+                {companyForm.logoUrl && companyForm.logoUrl !== DEFAULT_APP_LOGO && (
                   <button
                     type="button"
                     onClick={handleRemoveLogo}
                     className="absolute -top-2 -right-2 p-1 bg-rose-600 hover:bg-rose-500 text-white rounded-full shadow cursor-pointer transition"
-                    title={language === 'fr' ? 'Supprimer le logo' : 'Remove logo'}
+                    title={language === 'fr' ? 'Rétablir le logo officiel par défaut' : 'Reset to default official logo'}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
-                </div>
-              ) : (
-                <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-xl border-2 border-dashed flex flex-col items-center justify-center p-2 text-center transition ${
-                  theme === 'dark' ? 'border-slate-700 text-slate-500 bg-slate-800/30' : 'border-slate-300 text-slate-400 bg-white'
-                }`}>
-                  <ImageIcon className="w-6 h-6 mb-1 opacity-60" />
-                  <span className="text-[10px] leading-tight font-medium">
-                    {language === 'fr' ? 'Aucun logo' : 'No logo'}
-                  </span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             <div className="flex-1 space-y-1.5 text-center sm:text-left">
@@ -642,11 +647,11 @@ export const SettingsManager: React.FC = () => {
                 <span className={`font-bold text-xs ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                   {language === 'fr' ? 'Logo Officiel de l\'Application & des Documents' : 'Official Application & Document Logo'}
                 </span>
-                {companyForm.logoUrl && (
-                  <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-                    {language === 'fr' ? 'Actif' : 'Active'}
-                  </span>
-                )}
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                  {companyForm.logoUrl && companyForm.logoUrl !== DEFAULT_APP_LOGO
+                    ? (language === 'fr' ? 'Personnalisé' : 'Custom')
+                    : (language === 'fr' ? 'Officiel (Par défaut)' : 'Official (Default)')}
+                </span>
               </div>
               <p className={`text-[11px] max-w-xl ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                 {language === 'fr'
@@ -675,23 +680,22 @@ export const SettingsManager: React.FC = () => {
                 >
                   <Upload className="w-3.5 h-3.5" />
                   <span>
-                    {companyForm.logoUrl
-                      ? (language === 'fr' ? 'Changer de logo' : 'Change logo')
-                      : (language === 'fr' ? 'Importer un logo depuis mon PC' : 'Upload logo from PC')}
+                    {language === 'fr' ? 'Changer de logo' : 'Change logo'}
                   </span>
                 </button>
 
-                {companyForm.logoUrl && (
+                {companyForm.logoUrl && companyForm.logoUrl !== DEFAULT_APP_LOGO && (
                   <button
                     type="button"
                     onClick={handleRemoveLogo}
-                    className={`px-3 py-1.5 border rounded-lg text-xs font-medium transition cursor-pointer ${
+                    className={`px-3 py-1.5 border rounded-lg text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
                       theme === 'dark'
                         ? 'border-slate-700 text-slate-300 hover:bg-slate-800'
                         : 'border-slate-300 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    {language === 'fr' ? 'Supprimer' : 'Remove'}
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>{language === 'fr' ? 'Rétablir le logo officiel' : 'Reset to official logo'}</span>
                   </button>
                 )}
               </div>

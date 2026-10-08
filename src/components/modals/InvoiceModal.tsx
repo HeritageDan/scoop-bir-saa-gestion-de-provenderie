@@ -19,6 +19,7 @@ import { Invoice } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { formatFCFA, formatDate, formatDateTime } from '../../utils/formatters';
 import { ReceiptPrintModal } from '../receipts/ReceiptPrintModal';
+import { DEFAULT_APP_LOGO } from '../../config/defaultLogo';
 
 interface InvoiceModalProps {
   invoice: Invoice | null;
@@ -270,13 +271,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               {/* Company Header */}
               <div className="flex justify-between items-start border-b border-slate-300 pb-5 mb-5">
                 <div className="flex items-start gap-3">
-                  {settings.logoUrl && (
-                    <img
-                      src={settings.logoUrl}
-                      alt={settings.name}
-                      className="w-16 h-16 object-contain rounded border border-slate-300 p-1 bg-white shrink-0"
-                    />
-                  )}
+                  <img
+                    src={settings.logoUrl || DEFAULT_APP_LOGO}
+                    alt={settings.name}
+                    className="w-16 h-16 object-contain rounded border border-slate-300 p-1 bg-white shrink-0"
+                  />
                   <div>
                     <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight">
                       {settings.name}
