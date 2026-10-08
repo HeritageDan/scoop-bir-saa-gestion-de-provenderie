@@ -97,6 +97,7 @@ interface AppContextType {
   purchases: Purchase[];
   allPurchases: Purchase[];
   createPurchaseDraft: (purchase: Omit<Purchase, 'id' | 'referenceNumber' | 'status'>, targetSalesPointId?: string) => string;
+  updatePurchase: (purchaseId: string, updatedData: Partial<Purchase>) => { success: boolean; error?: string };
   validatePurchaseReception: (purchaseId: string) => void;
   cancelPurchase: (purchaseId: string, reason: string) => void;
 
@@ -123,7 +124,7 @@ interface AppContextType {
   // Stock & Movements
   stockMovements: StockMovement[];
   allStockMovements: StockMovement[];
-  recordStockAdjustment: (productId: string, quantityChangeBaseUnit: number, type: 'perte' | 'produit endommagé' | 'consommation interne' | 'correction d\'inventaire', justification: string) => { success: boolean; error?: string };
+  recordStockAdjustment: (productId: string, quantityChangeBaseUnit: number, type: 'perte' | 'produit endommagé' | 'consommation interne' | 'correction d\'inventaire' | 'entrée fournisseur', justification: string) => { success: boolean; error?: string };
 
   // Inventories
   inventories: InventorySession[];
@@ -1372,6 +1373,176 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const updatePurchase = (
+    purchaseId: string,
+    updatedData: Partial<Purchase>
+  ): { success: boolean; error?: string } => {
+    const purchase = purchases.find(p => p.id === purchaseId);
+    if (!purchase) return { success: false, error: 'Approvisionnement introuvable.' };
+
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 16);
+
+    // If purchase is draft, simply update its fields and recalculate totals
+    if (purchase.status === 'brouillon') {
+      const newItems = updatedData.items || purchase.items;
+      const newSubtotal = updatedData.subtotal !== undefined
+        ? updatedData.subtotal
+        : newItems.reduce((s, it) => s + (it.totalPrice || it.quantityReceived * it.unitPrice), 0);
+      const newTransport = updatedData.transportFees !== undefined ? Number(updatedData.transportFees) : purchase.transportFees;
+      const newOther = updatedData.otherFees !== undefined ? Number(updatedData.otherFees) : purchase.otherFees;
+      const newTotal = newSubtotal + newTransport + newOther;
+
+      const updatedPurchase: Purchase = {
+        ...purchase,
+        ...updatedData,
+        items: newItems,
+        subtotal: newSubtotal,
+        transportFees: newTransport,
+        otherFees: newOther,
+        totalAmount: newTotal,
+        updatedAt: now,
+      };
+
+      setPurchases(prev => prev.map(p => (p.id === purchaseId ? updatedPurchase : p)));
+      upsertRecordToSupabase('purchases', updatedPurchase).catch(() => {});
+      addAuditLog(
+        'MODIFICATION_ACHAT',
+        `Mise à jour Réception (Brouillon): ${purchase.referenceNumber}`,
+        purchase.id,
+        `BL: ${purchase.supplierDocumentRef}, Total: ${purchase.totalAmount}`,
+        `BL: ${updatedPurchase.supplierDocumentRef}, Total: ${updatedPurchase.totalAmount}`,
+        `Mise à jour des informations de stock entrant`
+      );
+      return { success: true };
+    }
+
+    // If purchase is already validated, adjust stock differences if quantities or items changed
+    if (purchase.status === 'validé') {
+      const newItems = updatedData.items || purchase.items;
+      const itemsChanged = updatedData.items && JSON.stringify(updatedData.items) !== JSON.stringify(purchase.items);
+
+      if (itemsChanged) {
+        const updatedProducts = [...products];
+
+        // 1. Verify stock availability if any item quantity was reduced
+        for (const oldItem of purchase.items) {
+          const prod = updatedProducts.find(p => p.id === oldItem.productId);
+          if (prod) {
+            const oldQtyBase = oldItem.quantityReceived * prod.conversionFactor;
+            const newItem = newItems.find(it => it.productId === oldItem.productId);
+            const newQtyBase = newItem ? newItem.quantityReceived * prod.conversionFactor : 0;
+            const diff = newQtyBase - oldQtyBase;
+            if (diff < 0 && prod.stockCurrentBaseUnit + diff < 0) {
+              return {
+                success: false,
+                error: `Impossible de réduire la quantité de ${prod.name} : le stock actuel (${prod.stockCurrentBaseUnit} ${prod.baseUnit}) est inférieur à la réduction demandée (${Math.abs(diff)} ${prod.baseUnit}). Des ventes ont déjà consommé ce stock.`,
+              };
+            }
+          }
+        }
+
+        // 2. Apply differences to stock and create adjustment movements
+        const newMovements: StockMovement[] = [];
+        const totalLinesValue = updatedData.subtotal !== undefined
+          ? updatedData.subtotal
+          : newItems.reduce((s, it) => s + (it.totalPrice || it.quantityReceived * it.unitPrice), 0);
+        const transportFees = settings.transportFeesIntegratedInCMP
+          ? (updatedData.transportFees !== undefined ? Number(updatedData.transportFees) : purchase.transportFees)
+          : 0;
+
+        for (const newItem of newItems) {
+          const pIndex = updatedProducts.findIndex(p => p.id === newItem.productId);
+          if (pIndex !== -1) {
+            const prod = updatedProducts[pIndex];
+            const oldItem = purchase.items.find(it => it.productId === newItem.productId);
+            const oldQtyBase = oldItem ? oldItem.quantityReceived * prod.conversionFactor : 0;
+            const newQtyBase = newItem.quantityReceived * prod.conversionFactor;
+            const diffBase = newQtyBase - oldQtyBase;
+
+            if (diffBase !== 0) {
+              const stockBefore = prod.stockCurrentBaseUnit;
+              const stockAfter = stockBefore + diffBase;
+
+              let newCMP = prod.cmp;
+              if (diffBase > 0) {
+                const lineProportion = totalLinesValue > 0 ? (newItem.totalPrice / totalLinesValue) : 0;
+                const lineTransport = transportFees * lineProportion;
+                const entryValue = (newItem.quantityReceived * newItem.unitPrice) + lineTransport;
+                const valueBefore = stockBefore * prod.cmp;
+                newCMP = stockAfter > 0 ? Math.round(((valueBefore + entryValue) / stockAfter) * 100) / 100 : prod.cmp;
+              }
+
+              updatedProducts[pIndex] = {
+                ...prod,
+                stockCurrentBaseUnit: stockAfter,
+                cmp: newCMP,
+                updatedAt: now,
+              };
+
+              newMovements.push({
+                id: `mov-upd-${Date.now()}-${prod.id}`,
+                productId: prod.id,
+                productCode: prod.code,
+                productName: prod.name,
+                type: diffBase > 0 ? 'entrée fournisseur' : 'correction d\'inventaire',
+                quantityBaseUnit: diffBase,
+                unit: prod.baseUnit,
+                stockBefore,
+                stockAfter,
+                costUnitCMP: newCMP,
+                totalValue: Math.abs(diffBase * newCMP),
+                salesPointId: purchase.salesPointId,
+                salesPointName: purchase.salesPointName,
+                referenceDocument: purchase.referenceNumber,
+                userId: currentUser.id,
+                userName: currentUser.name,
+                justification: `Ajustement de réception suite à modification (${purchase.referenceNumber})`,
+                timestamp: now,
+              });
+            }
+          }
+        }
+
+        setProducts(updatedProducts);
+        if (newMovements.length > 0) {
+          setStockMovements(prev => [...newMovements, ...prev]);
+        }
+      }
+
+      const newSubtotal = updatedData.subtotal !== undefined
+        ? updatedData.subtotal
+        : newItems.reduce((s, it) => s + (it.totalPrice || it.quantityReceived * it.unitPrice), 0);
+      const newTransport = updatedData.transportFees !== undefined ? Number(updatedData.transportFees) : purchase.transportFees;
+      const newOther = updatedData.otherFees !== undefined ? Number(updatedData.otherFees) : purchase.otherFees;
+      const newTotal = newSubtotal + newTransport + newOther;
+
+      const updatedPurchase: Purchase = {
+        ...purchase,
+        ...updatedData,
+        items: newItems,
+        subtotal: newSubtotal,
+        transportFees: newTransport,
+        otherFees: newOther,
+        totalAmount: newTotal,
+        updatedAt: now,
+      };
+
+      setPurchases(prev => prev.map(p => (p.id === purchaseId ? updatedPurchase : p)));
+      upsertRecordToSupabase('purchases', updatedPurchase).catch(() => {});
+      addAuditLog(
+        'MODIFICATION_ACHAT',
+        `Mise à jour Réception (Validée): ${purchase.referenceNumber}`,
+        purchase.id,
+        `BL: ${purchase.supplierDocumentRef}, Total: ${purchase.totalAmount}`,
+        `BL: ${updatedPurchase.supplierDocumentRef}, Total: ${updatedPurchase.totalAmount}`,
+        `Modification des informations de réception validée`
+      );
+      return { success: true };
+    }
+
+    return { success: false, error: 'Impossible de modifier un approvisionnement annulé.' };
+  };
+
   const cancelPurchase = (purchaseId: string, reason: string) => {
     const purchase = purchases.find(p => p.id === purchaseId);
     if (!purchase) return;
@@ -1963,11 +2134,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true };
   };
 
-  // Stock Adjustments (Losses, Damages, Internal Consumption)
+  // Stock Adjustments (Losses, Damages, Internal Consumption, Direct Inward)
   const recordStockAdjustment = (
     productId: string,
     quantityChangeBaseUnit: number,
-    type: 'perte' | 'produit endommagé' | 'consommation interne' | 'correction d\'inventaire',
+    type: 'perte' | 'produit endommagé' | 'consommation interne' | 'correction d\'inventaire' | 'entrée fournisseur',
     justification: string
   ): { success: boolean; error?: string } => {
     if (!justification || justification.trim().length < 5) {
@@ -2666,6 +2837,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         purchases: scopedPurchases,
         allPurchases: purchases,
         createPurchaseDraft,
+        updatePurchase,
         validatePurchaseReception,
         cancelPurchase,
         invoices: scopedInvoices,

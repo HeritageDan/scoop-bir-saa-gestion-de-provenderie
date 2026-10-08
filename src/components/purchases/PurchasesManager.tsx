@@ -15,6 +15,7 @@ import {
   Trash2,
   DollarSign,
   ArrowRight,
+  Pencil,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Purchase, PurchaseItem } from '../../types';
@@ -33,6 +34,7 @@ export const PurchasesManager: React.FC = () => {
     language,
     t,
     createPurchaseDraft,
+    updatePurchase,
     validatePurchaseReception,
     cancelPurchase,
   } = useApp();
@@ -200,6 +202,129 @@ export const PurchasesManager: React.FC = () => {
     cancelPurchase(cancelModalPurchase.id, cancelReason);
     setCancelModalPurchase(null);
     setCancelReason('');
+  };
+
+  // Edit Purchase / Incoming Stock Modal State
+  const [editModalPurchase, setEditModalPurchase] = useState<Purchase | null>(null);
+  const [editSupplierId, setEditSupplierId] = useState('');
+  const [editDocRef, setEditDocRef] = useState('');
+  const [editTransportFees, setEditTransportFees] = useState<number>(0);
+  const [editPurchaseNotes, setEditPurchaseNotes] = useState('');
+  const [editOrderDate, setEditOrderDate] = useState('');
+  const [editFormItems, setEditFormItems] = useState<FormItem[]>([]);
+  const [editErrorMsg, setEditErrorMsg] = useState('');
+  const [editSuccessMsg, setEditSuccessMsg] = useState('');
+
+  const handleOpenEditModal = (pur: Purchase) => {
+    setEditModalPurchase(pur);
+    setEditSupplierId(pur.supplierId);
+    setEditDocRef(pur.supplierDocumentRef);
+    setEditTransportFees(pur.transportFees || 0);
+    setEditPurchaseNotes(pur.notes || '');
+    setEditOrderDate(pur.orderDate || '');
+    setEditFormItems(
+      pur.items.map(item => ({
+        productId: item.productId,
+        quantity: item.quantityReceived || item.quantityOrdered,
+        unitPrice: item.unitPrice,
+      }))
+    );
+    setEditErrorMsg('');
+    setEditSuccessMsg('');
+  };
+
+  const handleAddItemRowEdit = () => {
+    setEditFormItems(prev => [
+      ...prev,
+      {
+        productId: products[0]?.id || '',
+        quantity: 10,
+        unitPrice: products[0]?.purchasePrice || 15000,
+      },
+    ]);
+  };
+
+  const handleRemoveItemRowEdit = (idx: number) => {
+    if (editFormItems.length <= 1) return;
+    setEditFormItems(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleItemChangeEdit = (idx: number, field: keyof FormItem, val: any) => {
+    setEditFormItems(prev =>
+      prev.map((item, i) => {
+        if (i !== idx) return item;
+        if (field === 'productId') {
+          const prd = products.find(p => p.id === val);
+          return {
+            ...item,
+            productId: val,
+            unitPrice: prd ? prd.purchasePrice : item.unitPrice,
+          };
+        }
+        return { ...item, [field]: val };
+      })
+    );
+  };
+
+  const editSubtotal = editFormItems.reduce((s, it) => s + it.quantity * it.unitPrice, 0);
+  const editTotalAmount = editSubtotal + Number(editTransportFees || 0);
+
+  const handleSaveEdit = (andValidate = false) => {
+    if (!editModalPurchase) return;
+    setEditErrorMsg('');
+    setEditSuccessMsg('');
+
+    if (!editDocRef.trim()) {
+      setEditErrorMsg(language === 'fr' ? 'La référence du document fournisseur (N° BL) est obligatoire.' : 'Supplier document reference is required.');
+      return;
+    }
+
+    if (editFormItems.length === 0) {
+      setEditErrorMsg(language === 'fr' ? 'Veuillez ajouter au moins une ligne de produit.' : 'Please add at least one product row.');
+      return;
+    }
+
+    const supplier = suppliers.find(s => s.id === editSupplierId);
+    const purchaseItems: PurchaseItem[] = editFormItems.map(item => {
+      const prod = products.find(p => p.id === item.productId);
+      return {
+        productId: item.productId,
+        productCode: prod?.code || '',
+        productName: prod?.name || '',
+        unit: prod?.saleUnit || 'sac',
+        quantityOrdered: item.quantity,
+        quantityReceived: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.quantity * item.unitPrice,
+      };
+    });
+
+    const res = updatePurchase(editModalPurchase.id, {
+      supplierId: supplier?.id || editModalPurchase.supplierId,
+      supplierName: supplier?.name || editModalPurchase.supplierName,
+      supplierDocumentRef: editDocRef.trim(),
+      orderDate: editOrderDate || editModalPurchase.orderDate,
+      transportFees: Number(editTransportFees || 0),
+      notes: editPurchaseNotes.trim(),
+      items: purchaseItems,
+      subtotal: editSubtotal,
+      totalAmount: editTotalAmount,
+    });
+
+    if (!res.success) {
+      setEditErrorMsg(res.error || (language === 'fr' ? 'Erreur lors de la mise à jour.' : 'Error updating reception.'));
+      return;
+    }
+
+    if (andValidate && editModalPurchase.status === 'brouillon') {
+      validatePurchaseReception(editModalPurchase.id);
+    }
+
+    setEditSuccessMsg(language === 'fr' ? 'Réception d\'approvisionnement mise à jour avec succès !' : 'Incoming stock updated successfully!');
+    setTimeout(() => {
+      setEditModalPurchase(null);
+      setEditSuccessMsg('');
+    }, 1200);
   };
 
   return (
@@ -377,6 +502,21 @@ export const PurchasesManager: React.FC = () => {
                       >
                         {language === 'fr' ? 'Détails' : 'Details'}
                       </button>
+
+                      {pur.status !== 'annulé' &&
+                        (currentUser.role === 'magasinier' ||
+                          currentUser.role === 'responsable' ||
+                          currentUser.role === 'administrateur' ||
+                          currentUser.role === 'developpeur') && (
+                          <button
+                            onClick={() => handleOpenEditModal(pur)}
+                            className="bg-amber-600 hover:bg-amber-500 text-white font-semibold px-2 py-1 rounded text-xs transition shadow-xs cursor-pointer inline-flex items-center gap-1"
+                            title={language === 'fr' ? 'Modifier / Mettre à jour la réception de stock' : 'Edit / Update incoming stock'}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span>{language === 'fr' ? 'Modifier' : 'Edit'}</span>
+                          </button>
+                        )}
 
                       {pur.status === 'brouillon' &&
                         (currentUser.role === 'magasinier' ||
@@ -977,6 +1117,380 @@ export const PurchasesManager: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT INCOMING STOCK / RECEPTION MODAL */}
+      {editModalPurchase && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto cursor-pointer"
+          onClick={() => setEditModalPurchase(null)}
+        >
+          <div
+            className={`border w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150 cursor-default ${
+              theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
+            }`}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className={`p-4 border-b flex items-center justify-between ${
+              theme === 'dark' ? 'bg-slate-850 border-slate-700' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
+                  <Pencil className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className={`font-bold text-base flex items-center gap-2 ${
+                    theme === 'dark' ? 'text-white' : 'text-slate-900'
+                  }`}>
+                    <span>
+                      {language === 'fr'
+                        ? `Modifier Réception : ${editModalPurchase.referenceNumber}`
+                        : `Edit Goods Inward: ${editModalPurchase.referenceNumber}`}
+                    </span>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                        editModalPurchase.status === 'validé'
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                      }`}
+                    >
+                      {editModalPurchase.status === 'validé'
+                        ? (language === 'fr' ? 'Réception Validée' : 'Validated Inward')
+                        : (language === 'fr' ? 'Brouillon' : 'Draft')}
+                    </span>
+                  </h3>
+                  <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {language === 'fr'
+                      ? 'Mettre à jour les quantités reçues, les prix d\'achat ou les frais de transport.'
+                      : 'Update received quantities, unit purchase prices or transport costs.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditModalPurchase(null)}
+                className={`p-1.5 rounded-lg transition cursor-pointer ${
+                  theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-4 overflow-y-auto space-y-4 text-xs">
+              {editErrorMsg && (
+                <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 text-rose-500 rounded-lg flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{editErrorMsg}</span>
+                </div>
+              )}
+
+              {editSuccessMsg && (
+                <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 rounded-lg flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{editSuccessMsg}</span>
+                </div>
+              )}
+
+              {editModalPurchase.status === 'validé' && (
+                <div className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 ${
+                  theme === 'dark' ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'
+                }`}>
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+                  <div>
+                    <span className="font-bold">
+                      {language === 'fr' ? 'Ajustement d\'un arrivage déjà réceptionné en magasin :' : 'Modifying an already validated inward batch:'}
+                    </span>
+                    <span className="block mt-0.5">
+                      {language === 'fr'
+                        ? 'Toute modification de quantité ajustera le stock physique du magasin et mettra à jour automatiquement le Coût Moyen Pondéré (CMP).'
+                        : 'Any change in quantities will automatically adjust on-hand warehouse inventory and update Weighted Average Cost (CMP).'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Form Metadata */}
+              <div className={`grid grid-cols-1 sm:grid-cols-4 gap-3 p-3 rounded-xl border ${
+                theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div>
+                  <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                    {language === 'fr' ? 'Fournisseur :' : 'Supplier:'}
+                  </label>
+                  <select
+                    value={editSupplierId}
+                    onChange={e => setEditSupplierId(e.target.value)}
+                    className={`w-full rounded-lg px-2.5 py-1.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  >
+                    {suppliers
+                      .filter(s => s.active || s.id === editSupplierId)
+                      .map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                    {language === 'fr' ? 'N° BL Fournisseur :' : 'Supplier BL # / Ref:'}
+                  </label>
+                  <input
+                    type="text"
+                    value={editDocRef}
+                    onChange={e => setEditDocRef(e.target.value)}
+                    placeholder="ex: BL-FOURN-2026-981"
+                    className={`w-full rounded-lg px-2.5 py-1.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
+                        : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                    }`}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                    {language === 'fr' ? 'Date de Réception :' : 'Reception Date:'}
+                  </label>
+                  <input
+                    type="date"
+                    value={editOrderDate ? editOrderDate.slice(0, 10) : ''}
+                    onChange={e => setEditOrderDate(e.target.value)}
+                    className={`w-full rounded-lg px-2.5 py-1.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                    {language === 'fr' ? 'Frais Transport (FCFA) :' : 'Transport Cost (FCFA):'}
+                  </label>
+                  <input
+                    type="number"
+                    value={editTransportFees || ''}
+                    onChange={e => setEditTransportFees(Number(e.target.value))}
+                    placeholder="0"
+                    className={`w-full rounded-lg px-2.5 py-1.5 font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark'
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {/* Items Rows */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`font-bold uppercase text-[11px] tracking-wider ${
+                    theme === 'dark' ? 'text-white' : 'text-slate-900'
+                  }`}>
+                    {language === 'fr' ? 'Lignes de Produits Arrivés' : 'Incoming Product Lines'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleAddItemRowEdit}
+                    className="text-emerald-500 hover:text-emerald-600 font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{language === 'fr' ? 'Ajouter une ligne' : 'Add product line'}</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {editFormItems.map((row, idx) => {
+                    const prod = products.find(p => p.id === row.productId);
+                    const rowSubtotal = row.quantity * row.unitPrice;
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`rounded-xl p-3 border ${
+                          theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                          <div className="sm:col-span-5">
+                            <label className={`text-[10px] block mb-0.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                              {language === 'fr' ? 'Produit' : 'Product'}
+                            </label>
+                            <select
+                              value={row.productId}
+                              onChange={e => handleItemChangeEdit(idx, 'productId', e.target.value)}
+                              className={`w-full rounded px-2 py-1 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                                theme === 'dark'
+                                  ? 'bg-slate-800 border-slate-700 text-white'
+                                  : 'bg-white border-slate-300 text-slate-900'
+                              }`}
+                            >
+                              {products
+                                .filter(p => p.status === 'actif' || p.id === row.productId)
+                                .map(p => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name} ({p.code}) — {p.saleUnit}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <label className={`text-[10px] block mb-0.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                              {language === 'fr' ? `Qté (${prod?.saleUnit || 'u'})` : `Qty (${prod?.saleUnit || 'u'})`}
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={row.quantity}
+                              onChange={e =>
+                                handleItemChangeEdit(idx, 'quantity', Number(e.target.value))
+                              }
+                              className={`w-full rounded px-2 py-1 text-xs text-right font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                                theme === 'dark'
+                                  ? 'bg-slate-800 border-slate-700 text-white'
+                                  : 'bg-white border-slate-300 text-slate-900'
+                              }`}
+                            />
+                          </div>
+
+                          <div className="sm:col-span-3">
+                            <label className={`text-[10px] block mb-0.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                              {language === 'fr' ? 'Prix Achat Unitaire (FCFA)' : 'Unit Purchase Price (FCFA)'}
+                            </label>
+                            <input
+                              type="number"
+                              value={row.unitPrice}
+                              onChange={e =>
+                                handleItemChangeEdit(idx, 'unitPrice', Number(e.target.value))
+                              }
+                              className={`w-full rounded px-2 py-1 text-xs text-right font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                                theme === 'dark'
+                                  ? 'bg-slate-800 border-slate-700 text-white'
+                                  : 'bg-white border-slate-300 text-slate-900'
+                              }`}
+                            />
+                          </div>
+
+                          <div className="sm:col-span-2 flex items-center justify-between pt-4 sm:pt-0">
+                            <div className="text-right flex-1 sm:mr-2">
+                              <span className={`text-[10px] block ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                {language === 'fr' ? 'Total ligne' : 'Line total'}
+                              </span>
+                              <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                                {formatFCFA(rowSubtotal)}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItemRowEdit(idx)}
+                              disabled={editFormItems.length === 1}
+                              className="text-slate-400 hover:text-rose-500 disabled:opacity-30 p-1 cursor-pointer transition"
+                              title={language === 'fr' ? 'Supprimer la ligne' : 'Delete line'}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className={`block mb-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                  {language === 'fr' ? 'Observations & Justificatif de modification :' : 'Notes & Modification Reason:'}
+                </label>
+                <textarea
+                  rows={2}
+                  value={editPurchaseNotes}
+                  onChange={e => setEditPurchaseNotes(e.target.value)}
+                  placeholder={language === 'fr' ? 'ex: Correction quantité selon pesée contradictoire...' : 'e.g.: Corrected quantity per scale check...'}
+                  className={`w-full rounded-lg p-2 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                    theme === 'dark'
+                      ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
+                      : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                  }`}
+                />
+              </div>
+
+              {/* Financial Totals */}
+              <div className={`p-3 rounded-xl border flex justify-between items-center text-xs ${
+                theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div>
+                  <span className={theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}>
+                    {language === 'fr' ? 'Total lignes : ' : 'Lines total: '}
+                  </span>
+                  <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                    {formatFCFA(editSubtotal)}
+                  </span>
+                  {editTransportFees > 0 && (
+                    <span className={`ml-3 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                      + {language === 'fr' ? 'Transport' : 'Freight'} : {formatFCFA(editTransportFees)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-right">
+                  <span className={`text-xs mr-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                    {language === 'fr' ? 'NOUVEAU TOTAL APPROVISIONNEMENT :' : 'NEW TOTAL COST:'}
+                  </span>
+                  <span className="text-base font-black text-emerald-500">
+                    {formatFCFA(editTotalAmount)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className={`p-4 border-t flex justify-between items-center ${
+              theme === 'dark' ? 'bg-slate-850 border-slate-700' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <button
+                type="button"
+                onClick={() => setEditModalPurchase(null)}
+                className={`px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition ${
+                  theme === 'dark' ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                }`}
+              >
+                {language === 'fr' ? 'Annuler' : 'Cancel'}
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSaveEdit(false)}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{language === 'fr' ? 'Enregistrer les Modifications' : 'Save Changes'}</span>
+                </button>
+                {editModalPurchase.status === 'brouillon' && (
+                  <button
+                    type="button"
+                    onClick={() => handleSaveEdit(true)}
+                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-lg text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Truck className="w-4 h-4" />
+                    <span>{language === 'fr' ? 'Enregistrer & Valider Entrée' : 'Save & Validate Inward'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

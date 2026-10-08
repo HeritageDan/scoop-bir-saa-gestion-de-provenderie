@@ -58,7 +58,7 @@ export const StockManager: React.FC = () => {
   // Manual Adjustment Modal State
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string>(products[0]?.id || '');
-  const [adjustType, setAdjustType] = useState<'perte' | 'produit endommagé' | 'consommation interne' | 'correction d\'inventaire'>('produit endommagé');
+  const [adjustType, setAdjustType] = useState<'perte' | 'produit endommagé' | 'consommation interne' | 'correction d\'inventaire' | 'entrée fournisseur'>('produit endommagé');
   const [adjustQtyCommercial, setAdjustQtyCommercial] = useState<number>(1);
   const [isNegativeChange, setIsNegativeChange] = useState<boolean>(true); // default reduction for loss/damage
   const [justification, setJustification] = useState('');
@@ -241,6 +241,21 @@ export const StockManager: React.FC = () => {
               </button>
 
               <button
+                onClick={() => {
+                  setSelectedProductId(products[0]?.id || '');
+                  setAdjustType('entrée fournisseur');
+                  setIsNegativeChange(false);
+                  setJustification(language === 'fr' ? 'Arrivage fournisseur direct' : 'Direct supplier inward delivery');
+                  setShowAdjustmentModal(true);
+                }}
+                className="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                title={language === 'fr' ? 'Enregistrer une entrée de stock / approvisionnement' : 'Record incoming stock delivery'}
+              >
+                <ArrowDownLeft className="w-4 h-4" />
+                <span>{language === 'fr' ? 'Entrée Stock / Arrivage' : 'Stock Inward / Delivery'}</span>
+              </button>
+
+              <button
                 onClick={() => setShowAdjustmentModal(true)}
                 className={`border px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
                   theme === 'dark'
@@ -393,6 +408,11 @@ export const StockManager: React.FC = () => {
                     <th className="py-3 px-3 text-right">CMP Unitaire</th>
                     <th className="py-3 px-3 text-right">Valeur Stock</th>
                     <th className="py-3 px-3 text-center">État Stock</th>
+                    {(currentUser.role === 'administrateur' ||
+                      currentUser.role === 'responsable' ||
+                      currentUser.role === 'magasinier') && (
+                      <th className="py-3 px-3 text-center">Actions</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${theme === 'dark' ? 'divide-slate-800' : 'divide-slate-100'}`}>
@@ -464,6 +484,30 @@ export const StockManager: React.FC = () => {
                             </span>
                           )}
                         </td>
+                        {(currentUser.role === 'administrateur' ||
+                          currentUser.role === 'responsable' ||
+                          currentUser.role === 'magasinier') && (
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                            <button
+                              onClick={() => {
+                                setSelectedProductId(prod.id);
+                                setAdjustType('entrée fournisseur');
+                                setIsNegativeChange(false);
+                                setJustification(language === 'fr' ? `Entrée de stock : ${prod.name}` : `Stock inward: ${prod.name}`);
+                                setShowAdjustmentModal(true);
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 mx-auto transition cursor-pointer ${
+                                theme === 'dark'
+                                  ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30'
+                                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                              }`}
+                              title={language === 'fr' ? `Ajouter ou mettre à jour le stock entrant pour ${prod.name}` : `Add or update incoming stock for ${prod.name}`}
+                            >
+                              <ArrowDownLeft className="w-3.5 h-3.5" />
+                              <span>{language === 'fr' ? 'Entrée Stock' : 'Add Stock'}</span>
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -677,13 +721,25 @@ export const StockManager: React.FC = () => {
                   </label>
                   <select
                     value={adjustType}
-                    onChange={e => setAdjustType(e.target.value as any)}
+                    onChange={e => {
+                      const val = e.target.value as any;
+                      setAdjustType(val);
+                      if (val === 'entrée fournisseur') {
+                        setIsNegativeChange(false);
+                        if (!justification) {
+                          setJustification(language === 'fr' ? `Arrivage fournisseur : ${selectedProduct.name}` : `Supplier delivery: ${selectedProduct.name}`);
+                        }
+                      } else if (val === 'produit endommagé' || val === 'perte' || val === 'consommation interne') {
+                        setIsNegativeChange(true);
+                      }
+                    }}
                     className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                       theme === 'dark'
                         ? 'bg-slate-950 border-slate-700 text-white'
                         : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   >
+                    <option value="entrée fournisseur">{language === 'fr' ? 'Entrée de Stock / Arrivage (+)' : 'Incoming stock / Delivery (+)'}</option>
                     <option value="produit endommagé">{language === 'fr' ? 'Produit endommagé' : 'Damaged goods'}</option>
                     <option value="perte">{language === 'fr' ? 'Perte / Vol' : 'Loss / Theft'}</option>
                     <option value="consommation interne">{language === 'fr' ? 'Consommation interne' : 'Internal use'}</option>
@@ -697,15 +753,18 @@ export const StockManager: React.FC = () => {
                   </label>
                   <select
                     value={isNegativeChange ? 'sortie' : 'entrée'}
+                    disabled={adjustType === 'entrée fournisseur'}
                     onChange={e => setIsNegativeChange(e.target.value === 'sortie')}
                     className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      adjustType === 'entrée fournisseur' ? 'opacity-80' : ''
+                    } ${
                       theme === 'dark'
                         ? 'bg-slate-950 border-slate-700 text-white'
                         : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   >
-                    <option value="sortie">{language === 'fr' ? 'Sortie / Diminution (-)' : 'Outflow / Decrease (-)'}</option>
                     <option value="entrée">{language === 'fr' ? 'Entrée / Augmentation (+)' : 'Inflow / Increase (+)'}</option>
+                    <option value="sortie">{language === 'fr' ? 'Sortie / Diminution (-)' : 'Outflow / Decrease (-)'}</option>
                   </select>
                 </div>
               </div>
