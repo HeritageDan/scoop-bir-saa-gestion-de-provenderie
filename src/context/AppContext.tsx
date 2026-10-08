@@ -187,27 +187,64 @@ function getEntityTimestamp(item: any): number {
   return isNaN(time) ? 0 : time;
 }
 
-// Helper utilitaire pour fusionner deux listes d'entités par leur ID avec arbitrage Last-Write-Wins (local prioritaire si plus récent ou égal)
-function mergeEntityLists<T extends { id?: string }>(localList: T[], remoteList: T[]): T[] {
+// Suivi persistant des identifiants supprimés pour éviter la résurrection lors des synchronisations
+function getDeletedIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem('provenda_deleted_ids');
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function trackDeletedId(id: string) {
+  try {
+    const current = getDeletedIds();
+    current.add(id);
+    localStorage.setItem('provenda_deleted_ids', JSON.stringify(Array.from(current)));
+  } catch {}
+}
+
+// Helper utilitaire pour fusionner deux listes d'entités par leur ID avec arbitrage Last-Write-Wins
+function mergeEntityLists<T extends { id?: string }>(
+  localList: T[],
+  remoteList: T[],
+  isFreshClient = false,
+  lastSyncTime?: Date | null
+): T[] {
+  const deletedIds = getDeletedIds();
+
+  // Sur un nouveau navigateur sans synchronisation antérieure, la base distante est 100% prioritaire
+  if (isFreshClient && remoteList.length > 0) {
+    return remoteList.filter(item => item && item.id && !deletedIds.has(item.id));
+  }
+
   const map = new Map<string, T>();
-  // 1. Ajouter d'abord les éléments distants
+
+  // 1. Ajouter d'abord les éléments distants (sauf si supprimés localement)
   for (const item of remoteList) {
-    if (item && item.id) {
+    if (item && item.id && !deletedIds.has(item.id)) {
       map.set(item.id, item);
     }
   }
-  // 2. Fusionner avec les éléments locaux : si le local est présent, il est prioritaire
-  // sauf si l'élément distant possède un timestamp strictement supérieur (modifié plus récemment ailleurs).
+
+  // 2. Fusionner avec les éléments locaux
+  const lastSyncMs = lastSyncTime ? lastSyncTime.getTime() : 0;
   for (const localItem of localList) {
-    if (localItem && localItem.id) {
+    if (localItem && localItem.id && !deletedIds.has(localItem.id)) {
       const remoteItem = map.get(localItem.id);
       if (!remoteItem) {
-        map.set(localItem.id, localItem);
+        const localTime = getEntityTimestamp(localItem);
+        // Si l'élément local a été créé après la dernière synchronisation, on le conserve pour le pousser
+        // Sinon, s'il a déjà été synchronisé et n'apparaît plus sur le distant, il a été supprimé sur un autre terminal
+        if (!lastSyncMs || localTime > lastSyncMs) {
+          map.set(localItem.id, localItem);
+        }
       } else {
         const localTime = getEntityTimestamp(localItem);
         const remoteTime = getEntityTimestamp(remoteItem);
-        // Si le local est plus récent ou égal (ou si pas de timestamp), l'action locale prévaut
-        if (localTime >= remoteTime) {
+        // Le local l'emporte uniquement s'il est strictement plus récent
+        if (localTime > remoteTime) {
           map.set(localItem.id, localItem);
         }
       }
@@ -227,14 +264,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return (localStorage.getItem('provenda_language') as Language) || 'fr';
   });
 
-  // Sales point (Point de vente unique physique)
+  // Sales point (Points de vente et dépôts)
   const [salesPoints, setSalesPoints] = useState<SalesPoint[]>(() => {
     const saved = localStorage.getItem('provenda_sales_points');
     if (saved) {
       try {
         const parsed: SalesPoint[] = JSON.parse(saved);
-        const mainOnly = parsed.filter(s => s.isMain || s.id === 'pos-1');
-        return mainOnly.length > 0 ? [mainOnly[0]] : INITIAL_SALES_POINTS;
+        return parsed.length > 0 ? parsed : INITIAL_SALES_POINTS;
       } catch (e) {
         return INITIAL_SALES_POINTS;
       }
@@ -410,6 +446,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const hasLocalChangesRef = useRef(false);
   const isSyncingRemoteRef = useRef(false);
   const isInitialMount = useRef(true);
+  const hasCompletedInitialPullRef = useRef(false);
   const pushTimerRef = useRef<any>(null);
   const purchasesRef = useRef<Purchase[]>(purchases);
   purchasesRef.current = purchases;
@@ -427,6 +464,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const pushCurrentStateToSupabase = useCallback(async () => {
     const config = getSupabaseConfig();
     if (!config.isConfigured || !navigator.onLine) return;
+    // Ne jamais écraser le cloud si ce terminal n'a pas encore téléchargé la base existante
+    if (!hasCompletedInitialPullRef.current && localStorage.getItem('provenda_last_sync_time')) return;
 
     try {
       const currentUsers = JSON.parse(localStorage.getItem('provenda_users') || '[]');
@@ -494,10 +533,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const pullRes = await pullAllDataFromSupabase();
       if (pullRes.success && pullRes.data) {
         const d = pullRes.data;
+        const isFresh = !localStorage.getItem('provenda_last_sync_time');
 
         if (Array.isArray(d.users) && d.users.length > 0) {
           setUsers(prev => {
-            const merged = mergeEntityLists(prev, d.users!);
+            const merged = mergeEntityLists(prev, d.users!, isFresh, lastSyncTime);
             if (!merged.some(u => u.role === 'developpeur')) {
               const dev = prev.find(u => u.role === 'developpeur') || INITIAL_USERS[0];
               merged.unshift(dev);
@@ -509,7 +549,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (Array.isArray(d.products) && d.products.length > 0) {
           setProducts(prev => {
-            const merged = mergeEntityLists(prev, d.products!);
+            const merged = isFresh ? d.products! : mergeEntityLists(prev, d.products!, false, lastSyncTime);
             localStorage.setItem('provenda_products', JSON.stringify(merged));
             return merged;
           });
@@ -517,7 +557,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (Array.isArray(d.suppliers) && d.suppliers.length > 0) {
           setSuppliers(prev => {
-            const merged = mergeEntityLists(prev, d.suppliers!);
+            const merged = isFresh ? d.suppliers! : mergeEntityLists(prev, d.suppliers!, false, lastSyncTime);
             localStorage.setItem('provenda_suppliers', JSON.stringify(merged));
             return merged;
           });
@@ -525,7 +565,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (Array.isArray(d.customers) && d.customers.length > 0) {
           setCustomers(prev => {
-            const merged = mergeEntityLists(prev, d.customers!);
+            const merged = isFresh ? d.customers! : mergeEntityLists(prev, d.customers!, false, lastSyncTime);
             localStorage.setItem('provenda_customers', JSON.stringify(merged));
             return merged;
           });
@@ -533,7 +573,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (Array.isArray(d.purchases) && d.purchases.length > 0) {
           setPurchases(prev => {
-            const merged = mergeEntityLists(prev, d.purchases!);
+            const merged = isFresh ? d.purchases! : mergeEntityLists(prev, d.purchases!, false, lastSyncTime);
             merged.sort((a, b) => new Date(b.receptionDate || b.orderDate || 0).getTime() - new Date(a.receptionDate || a.orderDate || 0).getTime());
             localStorage.setItem('provenda_purchases', JSON.stringify(merged));
             return merged;
@@ -542,7 +582,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (Array.isArray(d.invoices) && d.invoices.length > 0) {
           setInvoices(prev => {
-            const merged = mergeEntityLists(prev, d.invoices!);
+            const merged = isFresh ? d.invoices! : mergeEntityLists(prev, d.invoices!, false, lastSyncTime);
             merged.sort((a, b) => {
               const timeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
               const timeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
@@ -555,7 +595,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (Array.isArray(d.creditNotes) && d.creditNotes.length > 0) {
           setCreditNotes(prev => {
-            const merged = mergeEntityLists(prev, d.creditNotes!);
+            const merged = isFresh ? d.creditNotes! : mergeEntityLists(prev, d.creditNotes!, false, lastSyncTime);
             merged.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
             localStorage.setItem('provenda_credit_notes', JSON.stringify(merged));
             return merged;
@@ -564,7 +604,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (Array.isArray(d.stockMovements) && d.stockMovements.length > 0) {
           setStockMovements(prev => {
-            const merged = mergeEntityLists(prev, d.stockMovements!);
+            const merged = isFresh ? d.stockMovements! : mergeEntityLists(prev, d.stockMovements!, false, lastSyncTime);
             merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
             localStorage.setItem('provenda_stock_movements', JSON.stringify(merged));
             return merged;
@@ -573,7 +613,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (Array.isArray(d.inventories) && d.inventories.length > 0) {
           setInventories(prev => {
-            const merged = mergeEntityLists(prev, d.inventories!);
+            const merged = isFresh ? d.inventories! : mergeEntityLists(prev, d.inventories!, false, lastSyncTime);
             merged.sort((a, b) => new Date(b.startDate || 0).getTime() - new Date(a.startDate || 0).getTime());
             localStorage.setItem('provenda_inventories', JSON.stringify(merged));
             return merged;
@@ -582,7 +622,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (Array.isArray(d.expenses) && d.expenses.length > 0) {
           setExpenses(prev => {
-            const merged = mergeEntityLists(prev, d.expenses!);
+            const merged = isFresh ? d.expenses! : mergeEntityLists(prev, d.expenses!, false, lastSyncTime);
             merged.sort((a, b) => {
               const timeA = new Date(a.createdAt || `${a.date}T${a.time || '00:00'}`).getTime();
               const timeB = new Date(b.createdAt || `${b.date}T${b.time || '00:00'}`).getTime();
@@ -595,7 +635,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (Array.isArray(d.salesPoints) && d.salesPoints.length > 0) {
           setSalesPoints(prev => {
-            const merged = mergeEntityLists(prev, d.salesPoints!);
+            const merged = isFresh ? d.salesPoints! : mergeEntityLists(prev, d.salesPoints!, false, lastSyncTime);
             localStorage.setItem('provenda_sales_points', JSON.stringify(merged));
             return merged;
           });
@@ -603,7 +643,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (Array.isArray(d.auditLogs) && d.auditLogs.length > 0) {
           setAuditLogs(prev => {
-            const merged = mergeEntityLists(prev, d.auditLogs!);
+            const merged = isFresh ? d.auditLogs! : mergeEntityLists(prev, d.auditLogs!, false, lastSyncTime);
             merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
             localStorage.setItem('provenda_audit_logs', JSON.stringify(merged));
             return merged;
@@ -620,6 +660,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return merged;
           });
         }
+
+        hasCompletedInitialPullRef.current = true;
 
         // Si des modifications locales étaient en attente, pousser vers Supabase
         if (hasLocalChangesRef.current) {
@@ -768,7 +810,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('provenda_sales_points', JSON.stringify(salesPoints));
     saveStoreItems('salesPoints', salesPoints);
-  }, [salesPoints]);
+    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
+  }, [salesPoints, scheduleBackgroundPush]);
 
   // Theme handling
   const toggleTheme = () => {
@@ -835,7 +878,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `pos-${Date.now()}`,
       createdAt: new Date().toISOString().slice(0, 10),
     };
-    setSalesPoints(prev => [...prev, newSp]);
+    setSalesPoints(prev => {
+      const next = [...prev, newSp];
+      localStorage.setItem('provenda_sales_points', JSON.stringify(next));
+      return next;
+    });
+    upsertRecordToSupabase('sales_points', newSp).catch(() => {});
+    upsertRecordToSupabase('salespoint', newSp).catch(() => {});
+    scheduleBackgroundPush();
     addAuditLog(
       'MODIFICATION_PARAMETRES',
       `Point de Vente: ${newSp.name}`,
@@ -847,7 +897,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateSalesPoint = (sp: SalesPoint) => {
-    setSalesPoints(prev => prev.map(s => (s.id === sp.id ? sp : s)));
+    setSalesPoints(prev => {
+      const next = prev.map(s => (s.id === sp.id ? sp : s));
+      localStorage.setItem('provenda_sales_points', JSON.stringify(next));
+      return next;
+    });
+    upsertRecordToSupabase('sales_points', sp).catch(() => {});
+    upsertRecordToSupabase('salespoint', sp).catch(() => {});
+    scheduleBackgroundPush();
     addAuditLog(
       'MODIFICATION_PARAMETRES',
       `Point de Vente: ${sp.name}`,
@@ -861,7 +918,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteSalesPoint = (id: string) => {
     const target = salesPoints.find(s => s.id === id);
     if (!target) return;
-    setSalesPoints(prev => prev.filter(s => s.id !== id));
+    setSalesPoints(prev => {
+      const next = prev.filter(s => s.id !== id);
+      localStorage.setItem('provenda_sales_points', JSON.stringify(next));
+      return next;
+    });
+    deleteRecordFromSupabase('sales_points', id).catch(() => {});
+    deleteRecordFromSupabase('salespoint', id).catch(() => {});
+    trackDeletedId(id);
+    scheduleBackgroundPush();
     addAuditLog(
       'MODIFICATION_PARAMETRES',
       `Point de Vente supprimé: ${target.name}`,
@@ -879,15 +944,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       (u.email && u.email.trim().toLowerCase() === cleanEmail) ||
       (u.name && u.name.trim().toLowerCase() === cleanEmail) ||
       (u.id && u.id.toLowerCase() === cleanEmail) ||
+      (u.phone && u.phone.trim().replace(/\s+/g, '') === cleanEmail.replace(/\s+/g, '')) ||
       (u.role === 'developpeur' && (cleanEmail === 'dev' || cleanEmail === 'dev@coopsbir.com' || cleanEmail === 'dev@provenda.net'))
     );
 
-    // If not found locally, query Supabase directly
+    // If not found locally, query Supabase for all users to ensure complete sync
     if (!target) {
       const config = getSupabaseConfig();
       if (config.isConfigured) {
         try {
-          const res = await fetch(`${config.url}/rest/v1/users?or=(email.ilike.${encodeURIComponent(cleanEmail)},name.ilike.${encodeURIComponent(cleanEmail)})&select=*`, {
+          const res = await fetch(`${config.url}/rest/v1/users?select=*`, {
             method: 'GET',
             headers: {
               'apikey': config.anonKey,
@@ -896,14 +962,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
           if (res.ok) {
             const remoteUsers: User[] = await res.json();
-            if (remoteUsers && remoteUsers.length > 0) {
-              const remoteUser = remoteUsers[0];
-              target = remoteUser;
+            if (Array.isArray(remoteUsers) && remoteUsers.length > 0) {
               setUsers(prev => {
-                const copy = [...prev.filter(u => u.id !== remoteUser.id), remoteUser];
-                localStorage.setItem('provenda_users', JSON.stringify(copy));
-                return copy;
+                const merged = mergeEntityLists(prev, remoteUsers, false, lastSyncTime);
+                if (!merged.some(u => u.role === 'developpeur')) {
+                  const dev = prev.find(u => u.role === 'developpeur') || INITIAL_USERS[0];
+                  merged.unshift(dev);
+                }
+                localStorage.setItem('provenda_users', JSON.stringify(merged));
+                return merged;
               });
+              target = remoteUsers.find(u =>
+                (u.email && u.email.trim().toLowerCase() === cleanEmail) ||
+                (u.name && u.name.trim().toLowerCase() === cleanEmail) ||
+                (u.id && u.id.toLowerCase() === cleanEmail) ||
+                (u.phone && u.phone.trim().replace(/\s+/g, '') === cleanEmail.replace(/\s+/g, '')) ||
+                (u.role === 'developpeur' && (cleanEmail === 'dev' || cleanEmail === 'dev@coopsbir.com' || cleanEmail === 'dev@provenda.net'))
+              );
             }
           }
         } catch (err) {
@@ -1033,11 +1108,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateUser = (updatedUser: User) => {
     const old = users.find(u => u.id === updatedUser.id);
-    setUsers(prev => prev.map(u => (u.id === updatedUser.id ? updatedUser : u)));
+    setUsers(prev => {
+      const next = prev.map(u => (u.id === updatedUser.id ? updatedUser : u));
+      localStorage.setItem('provenda_users', JSON.stringify(next));
+      return next;
+    });
     if (currentUser.id === updatedUser.id) {
       setCurrentUser(updatedUser);
     }
     upsertRecordToSupabase('users', updatedUser).catch(() => {});
+    scheduleBackgroundPush();
     addAuditLog(
       'MODIFICATION_UTILISATEUR',
       `Utilisateur: ${updatedUser.name}`,
@@ -1107,8 +1187,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       active: true,
       password: userData.password || 'provenda123',
     };
-    setUsers(prev => [...prev, newUser]);
+    setUsers(prev => {
+      const next = [...prev, newUser];
+      localStorage.setItem('provenda_users', JSON.stringify(next));
+      return next;
+    });
     upsertRecordToSupabase('users', newUser).catch(() => {});
+    scheduleBackgroundPush();
     addAuditLog(
       'MODIFICATION_UTILISATEUR',
       `Nouvel utilisateur: ${newUser.name}`,
@@ -1124,8 +1209,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const target = users.find(u => u.id === userId);
     if (!target) return;
     const updated = { ...target, active: false };
-    setUsers(prev => prev.map(u => (u.id === userId ? updated : u)));
+    setUsers(prev => {
+      const next = prev.map(u => (u.id === userId ? updated : u));
+      localStorage.setItem('provenda_users', JSON.stringify(next));
+      return next;
+    });
     upsertRecordToSupabase('users', updated).catch(() => {});
+    scheduleBackgroundPush();
     addAuditLog('MODIFICATION_UTILISATEUR', `Désactivation utilisateur: ${target.name}`, target.id, 'Actif', 'Inactif', 'Désactivation du compte utilisateur');
   };
 
@@ -1577,9 +1667,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               if (diffBase > 0) {
                 const lineProportion = totalLinesValue > 0 ? (newItem.totalPrice / totalLinesValue) : 0;
                 const lineTransport = transportFees * lineProportion;
-                const entryValue = (newItem.quantityReceived * newItem.unitPrice) + lineTransport;
-                const valueBefore = stockBefore * prod.cmp;
-                newCMP = stockAfter > 0 ? Math.round(((valueBefore + entryValue) / stockAfter) * 100) / 100 : prod.cmp;
+                const unitItemCost = (newItem.unitPrice / prod.conversionFactor) + (newItem.quantityReceived > 0 ? lineTransport / (newItem.quantityReceived * prod.conversionFactor) : 0);
+                const additionalEntryValue = diffBase * unitItemCost;
+                const valueBefore = Math.max(0, stockBefore) * prod.cmp;
+                newCMP = stockAfter > 0 ? Math.round(((valueBefore + additionalEntryValue) / stockAfter) * 100) / 100 : prod.cmp;
               }
 
               const updProd = {
@@ -2134,13 +2225,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 2. Adjust customer debt if there was remaining balance
     if (invoice.remainingBalance > 0 && invoice.customerId !== 'cst-0') {
-      setCustomers(prev =>
-        prev.map(c =>
-          c.id === invoice.customerId
-            ? { ...c, currentDebt: Math.max(0, c.currentDebt - invoice.remainingBalance) }
-            : c
-        )
-      );
+      let updatedCustomer: Customer | undefined;
+      setCustomers(prev => {
+        const next = prev.map(c => {
+          if (c.id === invoice.customerId) {
+            const upd = { ...c, currentDebt: Math.max(0, c.currentDebt - invoice.remainingBalance) };
+            updatedCustomer = upd;
+            return upd;
+          }
+          return c;
+        });
+        localStorage.setItem('provenda_customers', JSON.stringify(next));
+        return next;
+      });
+      if (updatedCustomer) {
+        upsertRecordToSupabase('customers', updatedCustomer).catch(() => {});
+      }
     }
 
     // 3. Create credit note
@@ -2564,20 +2664,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `sup-${Date.now()}`,
       createdAt: new Date().toISOString().slice(0, 10),
     };
-    setSuppliers(prev => [...prev, newSupplier]);
+    setSuppliers(prev => {
+      const next = [...prev, newSupplier];
+      localStorage.setItem('provenda_suppliers', JSON.stringify(next));
+      return next;
+    });
     upsertRecordToSupabase('suppliers', newSupplier).catch(() => {});
+    scheduleBackgroundPush();
   };
 
   const updateSupplier = (supplier: Supplier) => {
-    setSuppliers(prev => prev.map(s => (s.id === supplier.id ? supplier : s)));
+    setSuppliers(prev => {
+      const next = prev.map(s => (s.id === supplier.id ? supplier : s));
+      localStorage.setItem('provenda_suppliers', JSON.stringify(next));
+      return next;
+    });
     upsertRecordToSupabase('suppliers', supplier).catch(() => {});
+    scheduleBackgroundPush();
   };
 
   const deleteSupplier = (supplierId: string) => {
     const s = suppliers.find(sup => sup.id === supplierId);
     if (!s) return;
-    setSuppliers(prev => prev.filter(sup => sup.id !== supplierId));
+    setSuppliers(prev => {
+      const next = prev.filter(sup => sup.id !== supplierId);
+      localStorage.setItem('provenda_suppliers', JSON.stringify(next));
+      return next;
+    });
     deleteRecordFromSupabase('suppliers', supplierId).catch(() => {});
+    trackDeletedId(supplierId);
+    scheduleBackgroundPush();
     addAuditLog(
       'MODIFICATION_PARAMETRES',
       `Fournisseur supprimé: ${s.name}`,
@@ -2597,13 +2713,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       currentDebt: 0,
       createdAt: new Date().toISOString().slice(0, 10),
     };
-    setCustomers(prev => [...prev, newCustomer]);
+    setCustomers(prev => {
+      const next = [...prev, newCustomer];
+      localStorage.setItem('provenda_customers', JSON.stringify(next));
+      return next;
+    });
     upsertRecordToSupabase('customers', newCustomer).catch(() => {});
+    scheduleBackgroundPush();
   };
 
   const updateCustomer = (customer: Customer) => {
-    setCustomers(prev => prev.map(c => (c.id === customer.id ? customer : c)));
+    setCustomers(prev => {
+      const next = prev.map(c => (c.id === customer.id ? customer : c));
+      localStorage.setItem('provenda_customers', JSON.stringify(next));
+      return next;
+    });
     upsertRecordToSupabase('customers', customer).catch(() => {});
+    scheduleBackgroundPush();
   };
 
   // Expenses Management
@@ -2630,8 +2756,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: now,
     };
 
-    setExpenses(prev => [newExpense, ...prev]);
+    setExpenses(prev => {
+      const next = [newExpense, ...prev];
+      localStorage.setItem('provenda_expenses', JSON.stringify(next));
+      return next;
+    });
     upsertRecordToSupabase('expenses', newExpense).catch(() => {});
+    scheduleBackgroundPush();
 
     addAuditLog(
       'ENREGISTREMENT_DEPENSE',
@@ -2650,8 +2781,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const now = new Date().toISOString().replace('T', ' ').slice(0, 16);
     const finalized = { ...updatedExpense, updatedAt: now };
 
-    setExpenses(prev => prev.map(e => (e.id === updatedExpense.id ? finalized : e)));
+    setExpenses(prev => {
+      const next = prev.map(e => (e.id === updatedExpense.id ? finalized : e));
+      localStorage.setItem('provenda_expenses', JSON.stringify(next));
+      return next;
+    });
     upsertRecordToSupabase('expenses', finalized).catch(() => {});
+    scheduleBackgroundPush();
 
     addAuditLog(
       'ENREGISTREMENT_DEPENSE',
@@ -2667,8 +2803,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const target = expenses.find(e => e.id === id);
     if (!target) return;
 
-    setExpenses(prev => prev.filter(e => e.id !== id));
+    setExpenses(prev => {
+      const next = prev.filter(e => e.id !== id);
+      localStorage.setItem('provenda_expenses', JSON.stringify(next));
+      return next;
+    });
     deleteRecordFromSupabase('expenses', id).catch(() => {});
+    trackDeletedId(id);
+    scheduleBackgroundPush();
 
     addAuditLog(
       'SUPPRESSION_DEPENSE',
@@ -2765,7 +2907,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return merged;
         });
       }
-      if (Array.isArray(data.salesPoints) && data.salesPoints.length > 0) setSalesPoints(data.salesPoints);
+      if (Array.isArray(data.salesPoints) && data.salesPoints.length > 0) {
+        setSalesPoints(data.salesPoints);
+        localStorage.setItem('provenda_sales_points', JSON.stringify(data.salesPoints));
+      }
       if (Array.isArray(data.products) && data.products.length > 0) {
         setProducts(data.products);
         localStorage.setItem('provenda_products', JSON.stringify(data.products));
@@ -2794,7 +2939,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setStockMovements(data.stockMovements);
         localStorage.setItem('provenda_stock_movements', JSON.stringify(data.stockMovements));
       }
-      if (Array.isArray(data.inventories)) setInventories(data.inventories);
+      if (Array.isArray(data.inventories)) {
+        setInventories(data.inventories);
+        localStorage.setItem('provenda_inventories', JSON.stringify(data.inventories));
+      }
       if (data.settings && typeof data.settings === 'object') {
         const restoredSettings = {
           ...data.settings,
@@ -2945,6 +3093,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           salesPoints: [mainSp],
           auditLogs: [initLog],
           settings: cleanSettings,
+          expenses: [],
         }).catch(err => console.warn('[Supabase] Reset sync:', err));
       });
     }

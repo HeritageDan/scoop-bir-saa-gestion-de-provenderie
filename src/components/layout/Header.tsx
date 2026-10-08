@@ -176,12 +176,27 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
             </span>
           </div>
 
-          {/* Single Sales Point Indicator */}
+          {/* Sales Point Indicator */}
           <div className="flex items-center gap-1 text-[11px] text-slate-400 font-medium mt-0.5">
             <MapPin className="w-3 h-3 text-emerald-500 shrink-0" />
-            <span className="truncate max-w-[180px] sm:max-w-[260px] font-semibold text-slate-300">
-              {salesPoints[0]?.name || 'Siège Principal & Usine (Douala Bassa)'}
-            </span>
+            {salesPoints.length > 1 ? (
+              <select
+                value={currentSalesPointId}
+                onChange={(e) => setCurrentSalesPointId(e.target.value)}
+                className="bg-transparent text-xs font-semibold text-slate-300 border-b border-slate-600 focus:outline-none focus:border-emerald-500 cursor-pointer max-w-[180px] sm:max-w-[260px] truncate py-0.5"
+                title="Changer de Point de Vente / Dépôt"
+              >
+                {salesPoints.map((sp) => (
+                  <option key={sp.id} value={sp.id} className="bg-slate-800 text-white">
+                    {sp.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="truncate max-w-[180px] sm:max-w-[260px] font-semibold text-slate-300">
+                {currentSalesPoint?.name || salesPoints[0]?.name || 'Siège Principal & Usine (Douala Bassa)'}
+              </span>
+            )}
           </div>
         </div>
       </div>

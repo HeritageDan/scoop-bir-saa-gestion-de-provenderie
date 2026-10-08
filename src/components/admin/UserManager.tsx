@@ -1015,9 +1015,11 @@ export const UserManager: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition"
+                  className="px-5 py-2 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition cursor-pointer"
                 >
-                  {editingSp ? t('action.save') : t('action.create')}
+                  {editingSp
+                    ? (language === 'fr' ? 'Enregistrer les modifications' : 'Save Changes')
+                    : (language === 'fr' ? 'Créer le Point de Vente / Dépôt' : 'Create Sales Point')}
                 </button>
               </div>
             </form>
