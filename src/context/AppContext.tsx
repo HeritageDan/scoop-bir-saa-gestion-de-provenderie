@@ -528,6 +528,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
 
+        if (Array.isArray(d.salesPoints) && d.salesPoints.length > 0) {
+          setSalesPoints(prev => {
+            const merged = mergeEntityLists(prev, d.salesPoints!);
+            localStorage.setItem('provenda_sales_points', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (Array.isArray(d.auditLogs) && d.auditLogs.length > 0) {
+          setAuditLogs(prev => {
+            const merged = mergeEntityLists(prev, d.auditLogs!);
+            merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            localStorage.setItem('provenda_audit_logs', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
         if (d.settings && typeof d.settings === 'object' && d.settings.name) {
           setSettings(prev => {
             const merged = { ...prev, ...d.settings };
@@ -536,8 +553,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
 
-        // Si des modifications locales étaient en attente ou si synchro manuelle forcée, pousser
-        if (hasLocalChangesRef.current || !silent) {
+        // Si des modifications locales étaient en attente, pousser vers Supabase
+        if (hasLocalChangesRef.current) {
+          hasLocalChangesRef.current = false;
           await pushCurrentStateToSupabase();
         }
 
@@ -790,7 +808,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
     let target = users.find(u =>
-      u.email.trim().toLowerCase() === cleanEmail ||
+      (u.email && u.email.trim().toLowerCase() === cleanEmail) ||
+      (u.name && u.name.trim().toLowerCase() === cleanEmail) ||
+      (u.id && u.id.toLowerCase() === cleanEmail) ||
       (u.role === 'developpeur' && (cleanEmail === 'dev' || cleanEmail === 'dev@coopsbir.com' || cleanEmail === 'dev@provenda.net'))
     );
 
@@ -799,7 +819,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const config = getSupabaseConfig();
       if (config.isConfigured) {
         try {
-          const res = await fetch(`${config.url}/rest/v1/users?email=ilike.${encodeURIComponent(cleanEmail)}&select=*`, {
+          const res = await fetch(`${config.url}/rest/v1/users?or=(email.ilike.${encodeURIComponent(cleanEmail)},name.ilike.${encodeURIComponent(cleanEmail)})&select=*`, {
             method: 'GET',
             headers: {
               'apikey': config.anonKey,
@@ -812,7 +832,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const remoteUser = remoteUsers[0];
               target = remoteUser;
               setUsers(prev => {
-                const copy = [...prev.filter(u => u.id !== remoteUser.id && u.email.toLowerCase() !== cleanEmail), remoteUser];
+                const copy = [...prev.filter(u => u.id !== remoteUser.id), remoteUser];
                 localStorage.setItem('provenda_users', JSON.stringify(copy));
                 return copy;
               });
@@ -831,7 +851,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: t('login.error_inactive') };
     }
     const validPassword = target.password || (target.role === 'developpeur' ? 'devpassword2026' : target.role === 'administrateur' ? 'admin123' : '123456');
-    if (password !== validPassword) {
+    if (password.trim() !== validPassword.trim()) {
       return { success: false, error: t('login.error_invalid') };
     }
     setCurrentUser(target);
@@ -2439,12 +2459,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       name: 'Client Comptant / Vente Directe',
       phone: '+237 600 000 000',
       email: 'comptant@coopsbir.com',
-      city: 'Douala',
-      address: 'Vente directe au comptoir',
-      category: 'particulier',
+      address: 'Vente directe au comptoir, Douala',
+      type: 'particulier',
       creditLimit: 0,
       currentDebt: 0,
-      salesPointId: 'pos-1',
       active: true,
       createdAt: new Date().toISOString().slice(0, 10),
     };
@@ -2458,8 +2476,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const cleanSettings: CompanySettings = {
       ...INITIAL_COMPANY_SETTINGS,
       name: 'COOPS BIR SAA',
-      commercialName: 'COOPS BIR SAA - Provenderie & Nutrition Animale',
-      systemResetDate: new Date().toISOString(),
     };
     setSettings(cleanSettings);
 
@@ -2478,8 +2494,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setAuditLogs([initLog]);
 
-    // 8. Wipe LocalStorage & IndexedDB
+    // 8. Wipe LocalStorage & IndexedDB (tout en préservant impérativement la configuration Supabase)
+    const cfg = getSupabaseConfig();
+    const savedUrl = localStorage.getItem('provenda_supabase_url') || cfg.url;
+    const savedKey = localStorage.getItem('provenda_supabase_key') || cfg.anonKey;
     localStorage.clear();
+    if (savedUrl) localStorage.setItem('provenda_supabase_url', savedUrl);
+    if (savedKey) localStorage.setItem('provenda_supabase_key', savedKey);
     localStorage.setItem('provenda_auth', 'true');
     localStorage.setItem('provenda_current_user_id', devUser.id);
     localStorage.setItem('provenda_users', JSON.stringify(blankUsers));

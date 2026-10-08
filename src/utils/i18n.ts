@@ -109,6 +109,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'sales_point.target_pos': 'Point de Vente / Dépôt Destinataire',
     'sales_point.destination_depot': 'Dépôt récepteur',
     'sales_point.locked_notice': 'Votre compte est restreint à votre site assigné',
+    'sales_point.add_button': 'Nouveau Point de Vente',
 
     // Dashboard
     'dashboard.title': 'Tableau de Bord Provenderie',
@@ -538,6 +539,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'sales_point.target_pos': 'Sales Point / Branch Depot',
     'sales_point.destination_depot': 'Receiving branch depot',
     'sales_point.locked_notice': 'Your account is restricted to this assigned site',
+    'sales_point.add_button': 'New Sales Point',
 
     // Dashboard
     'dashboard.title': 'Feed Mill Dashboard',

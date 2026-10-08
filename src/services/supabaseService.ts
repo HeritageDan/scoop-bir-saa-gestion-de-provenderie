@@ -213,6 +213,16 @@ export function getSupabaseConfig(): SupabaseConfig {
 
   const env = getVercelEnvConfig();
   if (env.isAvailable) {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        if (!localStorage.getItem('provenda_supabase_url')) {
+          localStorage.setItem('provenda_supabase_url', env.url);
+        }
+        if (!localStorage.getItem('provenda_supabase_key')) {
+          localStorage.setItem('provenda_supabase_key', env.anonKey);
+        }
+      }
+    } catch {}
     return {
       url: env.url,
       anonKey: env.anonKey,
@@ -224,6 +234,16 @@ export function getSupabaseConfig(): SupabaseConfig {
   const defUrl = normalizeSupabaseUrl(defaultSupabaseConfig.url || '');
   const defKey = normalizeSupabaseKey(defaultSupabaseConfig.anonKey || '');
   if (defUrl && defKey) {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        if (!localStorage.getItem('provenda_supabase_url')) {
+          localStorage.setItem('provenda_supabase_url', defUrl);
+        }
+        if (!localStorage.getItem('provenda_supabase_key')) {
+          localStorage.setItem('provenda_supabase_key', defKey);
+        }
+      }
+    } catch {}
     return {
       url: defUrl,
       anonKey: defKey,
@@ -643,10 +663,14 @@ export async function pushAllLocalDataToSupabase(data: {
             if (errJson.details) parsedMsg += ` [Détails : ${errJson.details}]`;
           } catch {}
 
-          let userAdvice = '';
           if (res.status === 404) {
-            userAdvice = ' La table n\'existe pas dans Supabase. Veuillez copier et ré-exécuter le script SQL dans le "SQL Editor" de Supabase en cliquant sur "Run".';
-          } else if (res.status === 401 || res.status === 403) {
+            console.warn(`[Supabase Push] Table "${table.name}" non trouvée (Code HTTP 404) dans le schéma Supabase. Ignorée temporairement sans bloquer les autres tables.`);
+            details[table.name] = 0;
+            continue;
+          }
+
+          let userAdvice = '';
+          if (res.status === 401 || res.status === 403) {
             userAdvice = ' Accès refusé (RLS ou Permissions). Assurez-vous d\'avoir exécuté la partie GRANT et les politiques RLS du script SQL.';
           } else if (res.status === 400) {
             userAdvice = ' Mismatch de colonnes ou contrainte de schéma PostgREST.';

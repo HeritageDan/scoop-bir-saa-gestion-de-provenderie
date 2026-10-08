@@ -309,7 +309,7 @@ export const UserManager: React.FC = () => {
                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl font-semibold text-sm shadow-md transition cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>{t('sales_point.add_button')}</span>
+                <span>{t('action.new_sales_point')}</span>
               </button>
             )}
           </div>
@@ -863,7 +863,7 @@ export const UserManager: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Store className="w-5 h-5 text-emerald-500" />
                 <h3 className="font-bold text-base">
-                  {editingSp ? 'Modifier Point de Vente' : t('sales_point.add_button')}
+                  {editingSp ? (language === 'fr' ? 'Modifier Point de Vente' : 'Edit Sales Point') : t('action.new_sales_point')}
                 </h3>
               </div>
               <button
