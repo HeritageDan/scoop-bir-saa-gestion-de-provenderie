@@ -80,22 +80,38 @@ export const ReportsManager: React.FC = () => {
 
   const { startDate, endDate } = resolvedDateRange;
 
-  // Filtered dataset for active date range
+  // Filtered dataset for active date range (sorted descending by creation / transaction date)
   const filteredInvoices = useMemo(() => {
-    return invoices.filter(
-      inv => inv.status !== 'annulée' && isDateInRange(inv.date, startDate, endDate)
-    );
+    return invoices
+      .filter(inv => inv.status !== 'annulée' && isDateInRange(inv.date, startDate, endDate))
+      .sort((a, b) => {
+        const timeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+        const timeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+        return timeB - timeA;
+      });
   }, [invoices, startDate, endDate]);
 
   const filteredPurchases = useMemo(() => {
-    return purchases.filter(p => {
-      const d = p.receptionDate || p.orderDate;
-      return isDateInRange(d, startDate, endDate);
-    });
+    return purchases
+      .filter(p => {
+        const d = p.receptionDate || p.orderDate;
+        return isDateInRange(d, startDate, endDate);
+      })
+      .sort((a, b) => {
+        const timeA = new Date(a.receptionDate || a.orderDate).getTime();
+        const timeB = new Date(b.receptionDate || b.orderDate).getTime();
+        return timeB - timeA;
+      });
   }, [purchases, startDate, endDate]);
 
   const filteredExpenses = useMemo(() => {
-    return expenses.filter(e => isDateInRange(e.date, startDate, endDate));
+    return expenses
+      .filter(e => isDateInRange(e.date, startDate, endDate))
+      .sort((a, b) => {
+        const timeA = new Date(a.createdAt || a.date).getTime();
+        const timeB = new Date(b.createdAt || b.date).getTime();
+        return timeB - timeA;
+      });
   }, [expenses, startDate, endDate]);
 
   // Aggregate Key Figures

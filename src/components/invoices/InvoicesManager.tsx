@@ -35,33 +35,45 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
   const [statusFilter, setStatusFilter] = useState<'all' | 'payée' | 'partielle' | 'crédit' | 'annulée'>('all');
   const [receiptModalInvoice, setReceiptModalInvoice] = useState<Invoice | null>(null);
 
-  const filteredInvoices = invoices.filter(inv => {
-    const matchesPoint =
-      currentSalesPointId === 'all' ||
-      !inv.salesPointId ||
-      inv.salesPointId === currentSalesPointId;
-    const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
-    const matchesSearch =
-      inv.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (inv.salesPointName && inv.salesPointName.toLowerCase().includes(searchTerm.toLowerCase()));
-    return matchesPoint && matchesStatus && matchesSearch;
-  });
+  const filteredInvoices = invoices
+    .filter(inv => {
+      const matchesPoint =
+        currentSalesPointId === 'all' ||
+        !inv.salesPointId ||
+        inv.salesPointId === currentSalesPointId;
+      const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
+      const matchesSearch =
+        inv.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        inv.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        inv.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (inv.salesPointName && inv.salesPointName.toLowerCase().includes(searchTerm.toLowerCase()));
+      return matchesPoint && matchesStatus && matchesSearch;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+      const timeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+      return timeB - timeA;
+    });
 
-  const filteredCreditNotes = creditNotes.filter(cn => {
-    // If scoped, match original invoice salesPointId
-    const originalInv = invoices.find(i => i.number === cn.originalInvoiceNumber || i.id === cn.originalInvoiceId);
-    if (currentSalesPointId !== 'all' && originalInv && (originalInv.salesPointId || 'pos-1') !== currentSalesPointId) {
-      return false;
-    }
-    return (
-      cn.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cn.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cn.originalInvoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cn.authorizedBy.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
+  const filteredCreditNotes = creditNotes
+    .filter(cn => {
+      // If scoped, match original invoice salesPointId
+      const originalInv = invoices.find(i => i.number === cn.originalInvoiceNumber || i.id === cn.originalInvoiceId);
+      if (currentSalesPointId !== 'all' && originalInv && (originalInv.salesPointId || 'pos-1') !== currentSalesPointId) {
+        return false;
+      }
+      return (
+        cn.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        cn.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        cn.originalInvoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        cn.authorizedBy.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.date).getTime();
+      const timeB = new Date(b.date).getTime();
+      return timeB - timeA;
+    });
 
   const exportInvoicesCSV = () => {
     const headers = [

@@ -282,32 +282,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [purchases, setPurchases] = useState<Purchase[]>(() => {
     const saved = localStorage.getItem('provenda_purchases');
-    return saved ? JSON.parse(saved) : INITIAL_PURCHASES;
+    const list: Purchase[] = saved ? JSON.parse(saved) : INITIAL_PURCHASES;
+    return list.sort((a, b) => new Date(b.receptionDate || b.orderDate || 0).getTime() - new Date(a.receptionDate || a.orderDate || 0).getTime());
   });
 
   const [invoices, setInvoices] = useState<Invoice[]>(() => {
     const saved = localStorage.getItem('provenda_invoices');
-    return saved ? JSON.parse(saved) : INITIAL_INVOICES;
+    const list: Invoice[] = saved ? JSON.parse(saved) : INITIAL_INVOICES;
+    return list.sort((a, b) => {
+      const timeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+      const timeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+      return timeB - timeA;
+    });
   });
 
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>(() => {
     const saved = localStorage.getItem('provenda_credit_notes');
-    return saved ? JSON.parse(saved) : [];
+    const list: CreditNote[] = saved ? JSON.parse(saved) : [];
+    return list.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
   });
 
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(() => {
     const saved = localStorage.getItem('provenda_stock_movements');
-    return saved ? JSON.parse(saved) : INITIAL_STOCK_MOVEMENTS;
+    const list: StockMovement[] = saved ? JSON.parse(saved) : INITIAL_STOCK_MOVEMENTS;
+    return list.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
   });
 
   const [inventories, setInventories] = useState<InventorySession[]>(() => {
     const saved = localStorage.getItem('provenda_inventories');
-    return saved ? JSON.parse(saved) : INITIAL_INVENTORIES;
+    const list: InventorySession[] = saved ? JSON.parse(saved) : INITIAL_INVENTORIES;
+    return list.sort((a, b) => new Date(b.startDate || 0).getTime() - new Date(a.startDate || 0).getTime());
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
     const saved = localStorage.getItem('provenda_audit_logs');
-    return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
+    const list: AuditLog[] = saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
+    return list.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
   });
 
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
@@ -322,7 +332,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [expenses, setExpenses] = useState<Expense[]>(() => {
     const saved = localStorage.getItem('provenda_expenses');
-    return saved ? JSON.parse(saved) : INITIAL_EXPENSES;
+    const list: Expense[] = saved ? JSON.parse(saved) : INITIAL_EXPENSES;
+    return list.sort((a, b) => {
+      const timeA = new Date(a.createdAt || `${a.date}T${a.time || '00:00'}`).getTime();
+      const timeB = new Date(b.createdAt || `${b.date}T${b.time || '00:00'}`).getTime();
+      return timeB - timeA;
+    });
   });
 
   // Collect all payments from invoices
@@ -480,6 +495,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (Array.isArray(d.purchases) && d.purchases.length > 0) {
           setPurchases(prev => {
             const merged = mergeEntityLists(prev, d.purchases!);
+            merged.sort((a, b) => new Date(b.receptionDate || b.orderDate || 0).getTime() - new Date(a.receptionDate || a.orderDate || 0).getTime());
             localStorage.setItem('provenda_purchases', JSON.stringify(merged));
             return merged;
           });
@@ -488,7 +504,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (Array.isArray(d.invoices) && d.invoices.length > 0) {
           setInvoices(prev => {
             const merged = mergeEntityLists(prev, d.invoices!);
-            merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            merged.sort((a, b) => {
+              const timeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+              const timeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+              return timeB - timeA;
+            });
             localStorage.setItem('provenda_invoices', JSON.stringify(merged));
             return merged;
           });
@@ -497,6 +517,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (Array.isArray(d.creditNotes) && d.creditNotes.length > 0) {
           setCreditNotes(prev => {
             const merged = mergeEntityLists(prev, d.creditNotes!);
+            merged.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
             localStorage.setItem('provenda_credit_notes', JSON.stringify(merged));
             return merged;
           });
@@ -514,6 +535,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (Array.isArray(d.inventories) && d.inventories.length > 0) {
           setInventories(prev => {
             const merged = mergeEntityLists(prev, d.inventories!);
+            merged.sort((a, b) => new Date(b.startDate || 0).getTime() - new Date(a.startDate || 0).getTime());
             localStorage.setItem('provenda_inventories', JSON.stringify(merged));
             return merged;
           });
@@ -522,7 +544,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (Array.isArray(d.expenses) && d.expenses.length > 0) {
           setExpenses(prev => {
             const merged = mergeEntityLists(prev, d.expenses!);
-            merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            merged.sort((a, b) => {
+              const timeA = new Date(a.createdAt || `${a.date}T${a.time || '00:00'}`).getTime();
+              const timeB = new Date(b.createdAt || `${b.date}T${b.time || '00:00'}`).getTime();
+              return timeB - timeA;
+            });
             localStorage.setItem('provenda_expenses', JSON.stringify(merged));
             return merged;
           });
@@ -2550,26 +2576,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return products.filter(p => p.status === 'actif' && p.stockCurrentBaseUnit <= 0);
   };
 
-  // Filtered collections according to active role and sales point selection
-  const scopedInvoices = currentUser.role === 'administrateur'
+  // Filtered collections according to active role and sales point selection, sorted chronologically descending (most recent first)
+  const isSuperAdmin = currentUser.role === 'administrateur' || currentUser.role === 'developpeur';
+
+  const scopedInvoices = (isSuperAdmin
     ? (effectiveSalesPointId === 'all' ? invoices : invoices.filter(i => (i.salesPointId || 'pos-1') === effectiveSalesPointId))
-    : invoices.filter(i => (i.salesPointId || 'pos-1') === (currentUser.assignedSalesPointId || 'pos-1'));
+    : invoices.filter(i => (i.salesPointId || 'pos-1') === (currentUser.assignedSalesPointId || 'pos-1'))
+  ).sort((a, b) => {
+    const timeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+    const timeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+    return timeB - timeA;
+  });
 
-  const scopedPurchases = currentUser.role === 'administrateur'
+  const scopedPurchases = (isSuperAdmin
     ? (effectiveSalesPointId === 'all' ? purchases : purchases.filter(p => (p.salesPointId || 'pos-1') === effectiveSalesPointId))
-    : purchases.filter(p => (p.salesPointId || 'pos-1') === (currentUser.assignedSalesPointId || 'pos-1'));
+    : purchases.filter(p => (p.salesPointId || 'pos-1') === (currentUser.assignedSalesPointId || 'pos-1'))
+  ).sort((a, b) => new Date(b.receptionDate || b.orderDate || 0).getTime() - new Date(a.receptionDate || a.orderDate || 0).getTime());
 
-  const scopedStockMovements = currentUser.role === 'administrateur'
+  const scopedStockMovements = (isSuperAdmin
     ? (effectiveSalesPointId === 'all' ? stockMovements : stockMovements.filter(m => (m.salesPointId || 'pos-1') === effectiveSalesPointId))
-    : stockMovements.filter(m => (m.salesPointId || 'pos-1') === (currentUser.assignedSalesPointId || 'pos-1'));
+    : stockMovements.filter(m => (m.salesPointId || 'pos-1') === (currentUser.assignedSalesPointId || 'pos-1'))
+  ).sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
 
-  const scopedInventories = currentUser.role === 'administrateur'
+  const scopedInventories = (isSuperAdmin
     ? (effectiveSalesPointId === 'all' ? inventories : inventories.filter(inv => (inv.salesPointId || 'pos-1') === effectiveSalesPointId))
-    : inventories.filter(inv => (inv.salesPointId || 'pos-1') === (currentUser.assignedSalesPointId || 'pos-1'));
+    : inventories.filter(inv => (inv.salesPointId || 'pos-1') === (currentUser.assignedSalesPointId || 'pos-1'))
+  ).sort((a, b) => new Date(b.startDate || 0).getTime() - new Date(a.startDate || 0).getTime());
 
-  const scopedExpenses = currentUser.role === 'administrateur'
+  const scopedExpenses = (isSuperAdmin
     ? (effectiveSalesPointId === 'all' ? expenses : expenses.filter(e => (e.salesPointId || 'pos-1') === effectiveSalesPointId))
-    : expenses.filter(e => (e.salesPointId || 'pos-1') === (currentUser.assignedSalesPointId || 'pos-1'));
+    : expenses.filter(e => (e.salesPointId || 'pos-1') === (currentUser.assignedSalesPointId || 'pos-1'))
+  ).sort((a, b) => {
+    const timeA = new Date(a.createdAt || `${a.date}T${a.time || '00:00'}`).getTime();
+    const timeB = new Date(b.createdAt || `${b.date}T${b.time || '00:00'}`).getTime();
+    return timeB - timeA;
+  });
 
   return (
     <AppContext.Provider

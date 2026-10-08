@@ -27,10 +27,16 @@ export const PurchaseReportDocument: React.FC<PurchaseReportDocumentProps> = ({
   const isEn = language === 'en';
 
   // Filter purchases strictly by receptionDate or orderDate in range
-  const filteredPurchases = purchases.filter(p => {
-    const d = p.receptionDate || p.orderDate;
-    return isDateInRange(d, startDate, endDate);
-  });
+  const filteredPurchases = purchases
+    .filter(p => {
+      const d = p.receptionDate || p.orderDate;
+      return isDateInRange(d, startDate, endDate);
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.receptionDate || a.orderDate).getTime();
+      const timeB = new Date(b.receptionDate || b.orderDate).getTime();
+      return timeB - timeA;
+    });
 
   const totalLinesValue = filteredPurchases.reduce((sum, p) => sum + p.subtotal, 0);
   const totalTransportFees = filteredPurchases.reduce((sum, p) => sum + (p.transportFees || 0), 0);

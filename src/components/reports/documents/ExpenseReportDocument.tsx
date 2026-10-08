@@ -26,7 +26,13 @@ export const ExpenseReportDocument: React.FC<ExpenseReportDocumentProps> = ({
 }) => {
   const isEn = language === 'en';
 
-  const filteredExpenses = expenses.filter(e => isDateInRange(e.date, startDate, endDate));
+  const filteredExpenses = expenses
+    .filter(e => isDateInRange(e.date, startDate, endDate))
+    .sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.date).getTime();
+      const timeB = new Date(b.createdAt || b.date).getTime();
+      return timeB - timeA;
+    });
 
   const totalAmount = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
 

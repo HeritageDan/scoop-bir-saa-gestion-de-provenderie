@@ -21,16 +21,22 @@ export const AuditLogsView: React.FC = () => {
   const [actionFilter, setActionFilter] = useState('all');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
-  const filteredLogs = auditLogs.filter(log => {
-    const matchesSearch =
-      log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.targetObject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (log.justification || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === 'all' || log.userRole === roleFilter;
-    const matchesAction = actionFilter === 'all' || log.action === actionFilter;
-    return matchesSearch && matchesRole && matchesAction;
-  });
+  const filteredLogs = auditLogs
+    .filter(log => {
+      const matchesSearch =
+        log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.targetObject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (log.justification || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesRole = roleFilter === 'all' || log.userRole === roleFilter;
+      const matchesAction = actionFilter === 'all' || log.action === actionFilter;
+      return matchesSearch && matchesRole && matchesAction;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      return timeB - timeA;
+    });
 
   const exportAuditCSV = () => {
     const headers = [

@@ -73,23 +73,29 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ onOpenReport }
   const currentMonthStr = todayStr.slice(0, 7);
 
   // Filtered expenses
-  const filteredExpenses = expenses.filter(exp => {
-    const matchesCategory = selectedCategory === 'all' || exp.category === selectedCategory;
-    const matchesSearch =
-      exp.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      exp.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (exp.receiptReference && exp.receiptReference.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      exp.recordedBy.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredExpenses = expenses
+    .filter(exp => {
+      const matchesCategory = selectedCategory === 'all' || exp.category === selectedCategory;
+      const matchesSearch =
+        exp.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        exp.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (exp.receiptReference && exp.receiptReference.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        exp.recordedBy.toLowerCase().includes(searchTerm.toLowerCase());
 
-    let matchesDate = true;
-    if (dateFilter === 'today') {
-      matchesDate = exp.date === todayStr;
-    } else if (dateFilter === 'month') {
-      matchesDate = exp.date.startsWith(currentMonthStr);
-    }
+      let matchesDate = true;
+      if (dateFilter === 'today') {
+        matchesDate = exp.date === todayStr;
+      } else if (dateFilter === 'month') {
+        matchesDate = exp.date.startsWith(currentMonthStr);
+      }
 
-    return matchesCategory && matchesSearch && matchesDate;
-  });
+      return matchesCategory && matchesSearch && matchesDate;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.date).getTime();
+      const timeB = new Date(b.createdAt || b.date).getTime();
+      return timeB - timeA;
+    });
 
   const totalFilteredAmount = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
 

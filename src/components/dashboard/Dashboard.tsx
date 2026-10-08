@@ -74,8 +74,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
     return products.find(p => p.id === selectedProductId);
   }, [products, selectedProductId]);
 
-  // Filter valid invoices (exclude cancelled)
-  const validInvoices = invoices.filter(inv => inv.status !== 'annulée');
+  // Filter valid invoices (exclude cancelled) and ensure descending sort
+  const validInvoices = useMemo(() => {
+    return invoices
+      .filter(inv => inv.status !== 'annulée')
+      .sort((a, b) => {
+        const timeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+        const timeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+        return timeB - timeA;
+      });
+  }, [invoices]);
 
   const periodInvoices = useMemo(() => {
     return validInvoices.filter(inv => {

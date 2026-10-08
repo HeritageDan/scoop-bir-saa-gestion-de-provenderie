@@ -74,16 +74,22 @@ export const PurchasesManager: React.FC = () => {
   const [cancelReason, setCancelReason] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const filteredPurchases = purchases.filter(p => {
-    const matchesSalesPoint =
-      currentSalesPointId === 'all' || !p.salesPointId || p.salesPointId === currentSalesPointId;
-    const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
-    const matchesSearch =
-      p.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.supplierName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.supplierDocumentRef.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSalesPoint && matchesStatus && matchesSearch;
-  });
+  const filteredPurchases = purchases
+    .filter(p => {
+      const matchesSalesPoint =
+        currentSalesPointId === 'all' || !p.salesPointId || p.salesPointId === currentSalesPointId;
+      const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
+      const matchesSearch =
+        p.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.supplierName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.supplierDocumentRef.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesSalesPoint && matchesStatus && matchesSearch;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.receptionDate || a.orderDate).getTime();
+      const timeB = new Date(b.receptionDate || b.orderDate).getTime();
+      return timeB - timeA;
+    });
 
   const handleAddItemRow = () => {
     setFormItems(prev => [

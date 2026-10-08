@@ -118,9 +118,13 @@ export function generateSalesReportPDF(
     language
   );
 
-  const filtered = invoices.filter(
-    inv => inv.status !== 'annulée' && isDateInRange(inv.date, startDate, endDate)
-  );
+  const filtered = invoices
+    .filter(inv => inv.status !== 'annulée' && isDateInRange(inv.date, startDate, endDate))
+    .sort((a, b) => {
+      const timeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+      const timeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+      return timeB - timeA;
+    });
 
   const grossSales = filtered.reduce((s, i) => s + i.subtotalGross, 0);
   const totalDiscounts = filtered.reduce((s, i) => s + i.totalDiscount, 0);
@@ -347,10 +351,16 @@ export function generatePurchaseReportPDF(
     language
   );
 
-  const filtered = purchases.filter(p => {
-    const d = p.receptionDate || p.orderDate;
-    return isDateInRange(d, startDate, endDate);
-  });
+  const filtered = purchases
+    .filter(p => {
+      const d = p.receptionDate || p.orderDate;
+      return isDateInRange(d, startDate, endDate);
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.receptionDate || a.orderDate).getTime();
+      const timeB = new Date(b.receptionDate || b.orderDate).getTime();
+      return timeB - timeA;
+    });
 
   const totalAmount = filtered.reduce((s, p) => s + p.totalAmount, 0);
 
@@ -424,7 +434,13 @@ export function generateExpenseReportPDF(
     language
   );
 
-  const filtered = expenses.filter(e => isDateInRange(e.date, startDate, endDate));
+  const filtered = expenses
+    .filter(e => isDateInRange(e.date, startDate, endDate))
+    .sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.date).getTime();
+      const timeB = new Date(b.createdAt || b.date).getTime();
+      return timeB - timeA;
+    });
   const totalAmount = filtered.reduce((s, e) => s + e.amount, 0);
 
   const tableBody = filtered.map(e => [

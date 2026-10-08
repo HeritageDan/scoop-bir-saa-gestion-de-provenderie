@@ -74,6 +74,9 @@ export const UserManager: React.FC = () => {
 
   const isAdmin = currentUser.role === 'administrateur' || currentUser.role === 'developpeur';
 
+  // Le compte Développeur Système est strictement réservé et visible uniquement au Développeur lui-même
+  const visibleUsers = users.filter(u => currentUser.role === 'developpeur' || u.role !== 'developpeur');
+
   // Role preset discount limits helper
   const handleRoleChange = (selectedRole: Role) => {
     let limit = 0;
@@ -146,8 +149,16 @@ export const UserManager: React.FC = () => {
     if (userFormData.role === 'developpeur' && currentUser.role !== 'developpeur') {
       setUserFormError(
         language === 'fr'
-          ? "Seul un Développeur peut assigner le rôle Développeur Système."
-          : "Only a Developer can assign the System Developer role."
+          ? "Seul le Développeur Système peut assigner le rôle Développeur."
+          : "Only the Developer can assign the Developer role."
+      );
+      return;
+    }
+    if (userFormData.role === 'administrateur' && currentUser.role !== 'developpeur') {
+      setUserFormError(
+        language === 'fr'
+          ? "Seul le Développeur Système peut créer ou nommer un Administrateur."
+          : "Only the Developer can create or assign an Administrator."
       );
       return;
     }
@@ -355,7 +366,7 @@ export const UserManager: React.FC = () => {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>{language === 'fr' ? 'Comptes Utilisateurs & Rôles' : 'User Accounts & Roles'} ({users.length})</span>
+          <span>{language === 'fr' ? 'Comptes Utilisateurs & Rôles' : 'User Accounts & Roles'} ({visibleUsers.length})</span>
         </button>
         <button
           onClick={() => setActiveSubTab('sales_points')}
@@ -376,7 +387,7 @@ export const UserManager: React.FC = () => {
       {activeSubTab === 'users' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {users.map(u => {
+            {visibleUsers.map(u => {
               const assignedPoint = salesPoints.find(sp => sp.id === u.assignedSalesPointId);
               const isSelf = currentUser.id === u.id;
 
@@ -529,7 +540,7 @@ export const UserManager: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {salesPoints.map(sp => {
               const isCurrent = sp.id === currentSalesPointId;
-              const userCount = users.filter(u => u.assignedSalesPointId === sp.id).length;
+              const userCount = visibleUsers.filter(u => u.assignedSalesPointId === sp.id).length;
 
               return (
                 <div
@@ -758,9 +769,11 @@ export const UserManager: React.FC = () => {
                   <option value="responsable">
                     {t('role.responsable')} ({language === 'fr' ? 'Supervision, remises ≤ 15%, écarts' : 'Supervision, discounts ≤ 15%, variance'})
                   </option>
-                  <option value="administrateur">
-                    {t('role.administrateur')} ({language === 'fr' ? 'Contrôle total, création comptes' : 'Full business control, user management'})
-                  </option>
+                  {currentUser.role === 'developpeur' && (
+                    <option value="administrateur">
+                      {t('role.administrateur')} ({language === 'fr' ? 'Contrôle total, création comptes' : 'Full business control, user management'})
+                    </option>
+                  )}
                   {currentUser.role === 'developpeur' && (
                     <option value="developpeur">
                       {t('role.developpeur')} ({language === 'fr' ? 'Superadmin système, Sauvegardes & Restauration, Audit' : 'System Superadmin, Backups & Restoration, Audit'})

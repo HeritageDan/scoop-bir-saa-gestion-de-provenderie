@@ -77,12 +77,18 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
   const matchedInvoices =
     q && currentUser.role !== 'magasinier'
-      ? invoices.filter(
-          i =>
-            i.number.toLowerCase().includes(q) ||
-            i.customerName.toLowerCase().includes(q) ||
-            i.userName.toLowerCase().includes(q)
-        )
+      ? invoices
+          .filter(
+            i =>
+              i.number.toLowerCase().includes(q) ||
+              i.customerName.toLowerCase().includes(q) ||
+              i.userName.toLowerCase().includes(q)
+          )
+          .sort((a, b) => {
+            const timeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+            const timeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+            return timeB - timeA;
+          })
       : [];
 
   const matchedCustomers =
@@ -106,23 +112,35 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       : [];
 
   const matchedMovements = q
-    ? stockMovements.filter(
-        m =>
-          m.productName.toLowerCase().includes(q) ||
-          m.productCode.toLowerCase().includes(q) ||
-          m.referenceDocument.toLowerCase().includes(q) ||
-          m.justification.toLowerCase().includes(q)
-      )
+    ? stockMovements
+        .filter(
+          m =>
+            m.productName.toLowerCase().includes(q) ||
+            m.productCode.toLowerCase().includes(q) ||
+            m.referenceDocument.toLowerCase().includes(q) ||
+            m.justification.toLowerCase().includes(q)
+        )
+        .sort((a, b) => {
+          const timeA = new Date(a.timestamp).getTime();
+          const timeB = new Date(b.timestamp).getTime();
+          return timeB - timeA;
+        })
     : [];
 
   const matchedAudits =
-    q && (currentUser.role === 'administrateur' || currentUser.role === 'responsable')
-      ? auditLogs.filter(
-          a =>
-            a.targetObject.toLowerCase().includes(q) ||
-            a.action.toLowerCase().includes(q) ||
-            a.userName.toLowerCase().includes(q)
-        )
+    q && (currentUser.role === 'administrateur' || currentUser.role === 'responsable' || currentUser.role === 'developpeur')
+      ? auditLogs
+          .filter(
+            a =>
+              a.targetObject.toLowerCase().includes(q) ||
+              a.action.toLowerCase().includes(q) ||
+              a.userName.toLowerCase().includes(q)
+          )
+          .sort((a, b) => {
+            const timeA = new Date(a.timestamp).getTime();
+            const timeB = new Date(b.timestamp).getTime();
+            return timeB - timeA;
+          })
       : [];
 
   const totalResults =

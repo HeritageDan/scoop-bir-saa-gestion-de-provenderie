@@ -27,10 +27,16 @@ export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
   const isEn = language === 'en';
 
   // Filter invoices strictly within selected date range
-  const filteredInvoices = invoices.filter(inv => {
-    if (inv.status === 'annulée') return false;
-    return isDateInRange(inv.date, startDate, endDate);
-  });
+  const filteredInvoices = invoices
+    .filter(inv => {
+      if (inv.status === 'annulée') return false;
+      return isDateInRange(inv.date, startDate, endDate);
+    })
+    .sort((a, b) => {
+      const timeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+      const timeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+      return timeB - timeA;
+    });
 
   // Calculate aggregates
   const transactionCount = filteredInvoices.length;

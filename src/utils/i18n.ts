@@ -82,7 +82,7 @@ export const translations: Record<Language, Record<string, string>> = {
     // Login Page
     'login.title': 'Connexion à Provenda',
     'login.subtitle': 'Gestion opérationnelle de provenderie, stocks au CMP et facturation multi-sites',
-    'login.email': 'Adresse Email',
+    'login.email': 'Email ou Identifiant',
     'login.password': 'Mot de Passe',
     'login.submit': 'Se Connecter',
     'login.error_invalid': 'Identifiants invalides. Veuillez vérifier votre email et mot de passe.',
@@ -512,7 +512,7 @@ export const translations: Record<Language, Record<string, string>> = {
     // Login Page
     'login.title': 'Sign in to Provenda',
     'login.subtitle': 'Feed mill operations, WAC stock accounting & multi-branch invoicing',
-    'login.email': 'Email Address',
+    'login.email': 'Email or Username',
     'login.password': 'Password',
     'login.submit': 'Sign In',
     'login.error_invalid': 'Invalid credentials. Please verify your email and password.',

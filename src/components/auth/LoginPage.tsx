@@ -183,11 +183,11 @@ export const LoginPage: React.FC = () => {
                     theme === 'dark' ? 'text-slate-500' : 'text-slate-400'
                   }`} />
                   <input
-                    type="email"
+                    type="text"
                     required
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="dev@coopsbir.com"
+                    placeholder={language === 'fr' ? 'admin@coopsbir.com ou identifiant' : 'admin@coopsbir.com or username'}
                     className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
                       theme === 'dark'
                         ? 'bg-slate-800/80 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500'

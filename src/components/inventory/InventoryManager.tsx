@@ -38,6 +38,12 @@ export const InventoryManager: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  const sortedInventories = [...inventories].sort((a, b) => {
+    const timeA = new Date(a.startDate).getTime();
+    const timeB = new Date(b.startDate).getTime();
+    return timeB - timeA;
+  });
+
   const activeSession = inventories.find(s => s.id === activeSessionId) || null;
 
   const handleOpenSession = (session: InventorySession) => {
@@ -189,7 +195,7 @@ export const InventoryManager: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${theme === 'dark' ? 'divide-slate-800' : 'divide-slate-100'}`}>
-                  {inventories.map(inv => (
+                  {sortedInventories.map(inv => (
                     <tr
                       key={inv.id}
                       className={`transition ${

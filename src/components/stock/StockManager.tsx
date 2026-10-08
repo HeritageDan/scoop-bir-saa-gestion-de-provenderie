@@ -82,14 +82,20 @@ export const StockManager: React.FC = () => {
     return matchesCat && matchesSearch;
   });
 
-  const filteredMovements = stockMovements.filter(m => {
-    const matchesType = movementFilter === 'all' || m.type === movementFilter;
-    const matchesSearch =
-      m.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.referenceDocument.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.userName.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesType && matchesSearch;
-  });
+  const filteredMovements = stockMovements
+    .filter(m => {
+      const matchesType = movementFilter === 'all' || m.type === movementFilter;
+      const matchesSearch =
+        m.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.referenceDocument.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.userName.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesType && matchesSearch;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      return timeB - timeA;
+    });
 
   const selectedProduct = products.find(p => p.id === selectedProductId) || products[0];
 

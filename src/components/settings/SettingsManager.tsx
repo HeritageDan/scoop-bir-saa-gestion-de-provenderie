@@ -80,6 +80,9 @@ export const SettingsManager: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'company' | 'users' | 'security' | 'database' | 'printer'>('company');
 
+  // Filter out the developer system account for non-developers
+  const visibleUsers = users.filter(u => currentUser.role === 'developpeur' || u.role !== 'developpeur');
+
   // Local state for company settings
   const [companyForm, setCompanyForm] = useState<CompanySettings>(settings);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -531,7 +534,7 @@ export const SettingsManager: React.FC = () => {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>{t('settings.tab_users')} ({users.length})</span>
+          <span>{t('settings.tab_users')} ({visibleUsers.length})</span>
         </button>
 
         <button
@@ -961,7 +964,7 @@ export const SettingsManager: React.FC = () => {
             <div className={`divide-y text-xs ${
               theme === 'dark' ? 'divide-slate-800' : 'divide-slate-100'
             }`}>
-              {users.map(u => {
+              {visibleUsers.map(u => {
                 const isCurrent = u.id === currentUser.id;
                 return (
                   <div
@@ -1514,7 +1517,7 @@ export const SettingsManager: React.FC = () => {
                 </div>
 
                 <div className={`p-3 rounded-xl border text-center ${theme === 'dark' ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
-                  <div className="text-lg font-bold text-slate-400">{users.length}</div>
+                  <div className="text-lg font-bold text-slate-400">{visibleUsers.length}</div>
                   <div className={`text-[10px] uppercase font-semibold ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
                     {language === 'fr' ? 'Comptes Utilisateurs' : 'User Accounts'}
                   </div>
