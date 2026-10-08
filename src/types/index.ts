@@ -164,6 +164,7 @@ export interface Purchase {
   syncStatus?: SyncStatus;
   deviceId?: string;
   updatedAt?: string;
+  createdAt?: string;
 }
 
 export interface Customer {

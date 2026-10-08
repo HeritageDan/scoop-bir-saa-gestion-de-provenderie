@@ -132,19 +132,20 @@ export const PurchasesManager: React.FC = () => {
 
   const handleSavePurchase = (validateDirectly = false) => {
     setErrorMsg('');
-    if (!supplierDocRef.trim()) {
-      setErrorMsg('La référence de document fournisseur (ex: N° de Bon de Livraison) est obligatoire.');
-      return;
-    }
     if (formItems.length === 0) {
-      setErrorMsg('Veuillez ajouter au moins une ligne de produit.');
+      setErrorMsg(language === 'fr' ? 'Veuillez ajouter au moins une ligne de produit.' : 'Please add at least one product line.');
       return;
     }
 
-    const supplier = suppliers.find(s => s.id === selectedSupplierId);
-    if (!supplier) return;
+    const supplier = suppliers.find(s => s.id === selectedSupplierId) || suppliers[0];
+    if (!supplier) {
+      setErrorMsg(language === 'fr' ? 'Veuillez sélectionner un fournisseur.' : 'Please select a supplier.');
+      return;
+    }
 
     const now = new Date().toISOString().replace('T', ' ').slice(0, 16);
+    const dateCode = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const finalDocRef = supplierDocRef.trim() || `ENTREE-${dateCode}-${Date.now().toString().slice(-4)}`;
 
     const purchaseItems: PurchaseItem[] = formItems.map(item => {
       const prod = products.find(p => p.id === item.productId)!;
@@ -160,23 +161,23 @@ export const PurchasesManager: React.FC = () => {
       };
     });
 
-    const purchaseId = createPurchaseDraft({
-      supplierDocumentRef: supplierDocRef,
+    const newPurchase = createPurchaseDraft({
+      supplierDocumentRef: finalDocRef,
       supplierId: supplier.id,
       supplierName: supplier.name,
       orderDate: now,
       items: purchaseItems,
       subtotal,
-      transportFees: Number(transportFees || 0),
+      transportFees: 0,
       otherFees: 0,
-      totalAmount,
+      totalAmount: subtotal,
       userId: currentUser.id,
       userName: currentUser.name,
       notes: purchaseNotes,
     }, (currentUser.role === 'administrateur' || currentUser.role === 'developpeur') ? adminSalesPointId : undefined);
 
     if (validateDirectly) {
-      validatePurchaseReception(purchaseId);
+      validatePurchaseReception(newPurchase);
     }
 
     setShowNewModal(false);
@@ -596,7 +597,7 @@ export const PurchasesManager: React.FC = () => {
               )}
 
               {/* Top supplier info */}
-              <div className={`grid grid-cols-1 ${(currentUser.role === 'administrateur' || currentUser.role === 'developpeur') ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-3 p-3 rounded-xl border ${
+              <div className={`grid grid-cols-1 ${(currentUser.role === 'administrateur' || currentUser.role === 'developpeur') ? 'sm:grid-cols-2' : 'sm:grid-cols-1'} gap-3 p-3 rounded-xl border ${
                 theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
               }`}>
                 {(currentUser.role === 'administrateur' || currentUser.role === 'developpeur') && (
@@ -643,44 +644,6 @@ export const PurchasesManager: React.FC = () => {
                         </option>
                       ))}
                   </select>
-                </div>
-
-                <div>
-                  <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                    {language === 'fr' ? 'N° BL Fournisseur (Document réf) :' : 'Supplier Doc Ref / BL #:'}
-                  </label>
-                  <input
-                    type="text"
-                    value={supplierDocRef}
-                    onChange={e => setSupplierDocRef(e.target.value)}
-                    placeholder={language === 'fr' ? 'ex: BL-FOURN-2026-981' : 'e.g.: BL-SUPPLIER-2026-981'}
-                    className={`w-full rounded-lg px-2.5 py-1.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                      theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
-                        : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
-                    }`}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                    {language === 'fr' ? 'Frais de Transport (FCFA) :' : 'Attributable Transport (FCFA):'}
-                  </label>
-                  <input
-                    type="number"
-                    value={transportFees || ''}
-                    onChange={e => setTransportFees(Number(e.target.value))}
-                    placeholder="0"
-                    className={`w-full rounded-lg px-2.5 py-1.5 font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                      theme === 'dark'
-                        ? 'bg-slate-800 border-slate-700 text-white'
-                        : 'bg-white border-slate-300 text-slate-900'
-                    }`}
-                  />
-                  <div className={`text-[10px] mt-0.5 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-                    {language === 'fr' ? 'Intégrés dans la formule du CMP' : 'Integrated into WAC (CMP) formula'}
-                  </div>
                 </div>
               </div>
 
@@ -877,19 +840,14 @@ export const PurchasesManager: React.FC = () => {
                   <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                     {formatFCFA(subtotal)}
                   </span>
-                  {transportFees > 0 && (
-                    <span className={`ml-3 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                      + {language === 'fr' ? 'Transport' : 'Freight'} : {formatFCFA(transportFees)}
-                    </span>
-                  )}
                 </div>
 
                 <div className="text-right">
                   <span className={`text-xs mr-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                    {language === 'fr' ? 'TOTAL APPROVISIONNEMENT :' : 'TOTAL INWARD COST:'}
+                    {language === 'fr' ? 'TOTAL ENTRÉE STOCK :' : 'TOTAL STOCK INWARD:'}
                   </span>
                   <span className="text-base font-black text-emerald-500">
-                    {formatFCFA(totalAmount)}
+                    {formatFCFA(subtotal)}
                   </span>
                 </div>
               </div>

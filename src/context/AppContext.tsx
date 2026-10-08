@@ -96,9 +96,9 @@ interface AppContextType {
   // Purchases & Receipts
   purchases: Purchase[];
   allPurchases: Purchase[];
-  createPurchaseDraft: (purchase: Omit<Purchase, 'id' | 'referenceNumber' | 'status'>, targetSalesPointId?: string) => string;
+  createPurchaseDraft: (purchase: Omit<Purchase, 'id' | 'referenceNumber' | 'status'>, targetSalesPointId?: string) => Purchase;
   updatePurchase: (purchaseId: string, updatedData: Partial<Purchase>) => { success: boolean; error?: string };
-  validatePurchaseReception: (purchaseId: string) => void;
+  validatePurchaseReception: (purchaseIdOrObj: string | Purchase) => void;
   cancelPurchase: (purchaseId: string, reason: string) => void;
 
   // Sales & Invoicing
@@ -178,17 +178,39 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Helper utilitaire pour fusionner deux listes d'entités par leur ID sans écraser les modifications locales non poussées
+// Extraction du timestamp d'une entité pour arbitrage temporel
+function getEntityTimestamp(item: any): number {
+  if (!item || typeof item !== 'object') return 0;
+  const val = item.updatedAt || item.validatedAt || item.timestamp || item.createdAt || item.receptionDate || item.orderDate || item.date || item.endDate || item.startDate;
+  if (!val) return 0;
+  const time = new Date(val).getTime();
+  return isNaN(time) ? 0 : time;
+}
+
+// Helper utilitaire pour fusionner deux listes d'entités par leur ID avec arbitrage Last-Write-Wins (local prioritaire si plus récent ou égal)
 function mergeEntityLists<T extends { id?: string }>(localList: T[], remoteList: T[]): T[] {
   const map = new Map<string, T>();
-  for (const item of localList) {
+  // 1. Ajouter d'abord les éléments distants
+  for (const item of remoteList) {
     if (item && item.id) {
       map.set(item.id, item);
     }
   }
-  for (const item of remoteList) {
-    if (item && item.id) {
-      map.set(item.id, item);
+  // 2. Fusionner avec les éléments locaux : si le local est présent, il est prioritaire
+  // sauf si l'élément distant possède un timestamp strictement supérieur (modifié plus récemment ailleurs).
+  for (const localItem of localList) {
+    if (localItem && localItem.id) {
+      const remoteItem = map.get(localItem.id);
+      if (!remoteItem) {
+        map.set(localItem.id, localItem);
+      } else {
+        const localTime = getEntityTimestamp(localItem);
+        const remoteTime = getEntityTimestamp(remoteItem);
+        // Si le local est plus récent ou égal (ou si pas de timestamp), l'action locale prévaut
+        if (localTime >= remoteTime) {
+          map.set(localItem.id, localItem);
+        }
+      }
     }
   }
   return Array.from(map.values());
@@ -389,6 +411,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isSyncingRemoteRef = useRef(false);
   const isInitialMount = useRef(true);
   const pushTimerRef = useRef<any>(null);
+  const purchasesRef = useRef<Purchase[]>(purchases);
+  purchasesRef.current = purchases;
+  const productsRef = useRef<Product[]>(products);
+  productsRef.current = products;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1128,7 +1154,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: now,
     };
 
-    setProducts(prev => [...prev, newProduct]);
+    setProducts(prev => {
+      const next = [...prev, newProduct];
+      localStorage.setItem('provenda_products', JSON.stringify(next));
+      return next;
+    });
+    productsRef.current = [...productsRef.current, newProduct];
     upsertRecordToSupabase('products', newProduct).catch(() => {});
 
     addAuditLog(
@@ -1159,7 +1190,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         justification: 'Stock initial lors de la création du produit',
         timestamp: now,
       };
-      setStockMovements(prev => [movement, ...prev]);
+      setStockMovements(prev => {
+        const next = [movement, ...prev];
+        localStorage.setItem('provenda_stock_movements', JSON.stringify(next));
+        return next;
+      });
       upsertRecordToSupabase('stock_movements', movement).catch(() => {});
     }
   };
@@ -1190,7 +1225,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: now,
     };
 
-    setProducts(prev => prev.map(p => (p.id === updatedProduct.id ? finalProduct : p)));
+    setProducts(prev => {
+      const next = prev.map(p => (p.id === updatedProduct.id ? finalProduct : p));
+      localStorage.setItem('provenda_products', JSON.stringify(next));
+      return next;
+    });
+    productsRef.current = productsRef.current.map(p => (p.id === updatedProduct.id ? finalProduct : p));
     upsertRecordToSupabase('products', finalProduct).catch(() => {});
 
     if (priceChanged) {
@@ -1217,8 +1257,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const archiveProduct = (productId: string) => {
     const target = products.find(p => p.id === productId);
     if (!target) return;
-    const updated = { ...target, status: 'archivé' as const };
-    setProducts(prev => prev.map(p => (p.id === productId ? updated : p)));
+    const now = new Date().toISOString();
+    const updated = { ...target, status: 'archivé' as const, updatedAt: now };
+    setProducts(prev => {
+      const next = prev.map(p => (p.id === productId ? updated : p));
+      localStorage.setItem('provenda_products', JSON.stringify(next));
+      return next;
+    });
+    productsRef.current = productsRef.current.map(p => (p.id === productId ? updated : p));
     upsertRecordToSupabase('products', updated).catch(() => {});
     addAuditLog('MODIFICATION_PRODUIT', `Archivage produit: ${target.name}`, target.id, target.status, 'archivé', 'Archivage du produit');
   };
@@ -1226,8 +1272,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const unarchiveProduct = (productId: string) => {
     const target = products.find(p => p.id === productId);
     if (!target) return;
-    const updated = { ...target, status: 'actif' as const };
-    setProducts(prev => prev.map(p => (p.id === productId ? updated : p)));
+    const now = new Date().toISOString();
+    const updated = { ...target, status: 'actif' as const, updatedAt: now };
+    setProducts(prev => {
+      const next = prev.map(p => (p.id === productId ? updated : p));
+      localStorage.setItem('provenda_products', JSON.stringify(next));
+      return next;
+    });
+    productsRef.current = productsRef.current.map(p => (p.id === productId ? updated : p));
     upsertRecordToSupabase('products', updated).catch(() => {});
     addAuditLog('MODIFICATION_PRODUIT', `Réactivation produit: ${target.name}`, target.id, target.status, 'actif', 'Réactivation du produit');
   };
@@ -1235,9 +1287,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const maskProduct = (productId: string) => {
     const target = products.find(p => p.id === productId);
     if (!target) return;
-    const nextStatus = target.status === 'masqué' ? 'actif' as const : 'masqué' as const;
-    const updated = { ...target, status: nextStatus };
-    setProducts(prev => prev.map(p => (p.id === productId ? updated : p)));
+    const nextStatus = target.status === 'masqué' ? ('actif' as const) : ('masqué' as const);
+    const now = new Date().toISOString();
+    const updated = { ...target, status: nextStatus, updatedAt: now };
+    setProducts(prev => {
+      const next = prev.map(p => (p.id === productId ? updated : p));
+      localStorage.setItem('provenda_products', JSON.stringify(next));
+      return next;
+    });
+    productsRef.current = productsRef.current.map(p => (p.id === productId ? updated : p));
     upsertRecordToSupabase('products', updated).catch(() => {});
     addAuditLog('MODIFICATION_PRODUIT', `Masquage produit: ${target.name}`, target.id, target.status, nextStatus, 'Modification visibilité');
   };
@@ -1246,10 +1304,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const createPurchaseDraft = (
     purchaseData: Omit<Purchase, 'id' | 'referenceNumber' | 'status'>,
     targetSalesPointId?: string
-  ): string => {
+  ): Purchase => {
     const purchaseSeq = purchases.length + 1;
     const ref = `ACH-${new Date().getFullYear()}-${String(purchaseSeq).padStart(6, '0')}`;
     const id = `ach-${Date.now()}`;
+    const now = new Date().toISOString();
 
     const effectiveSpId = (currentUser.role === 'administrateur' || currentUser.role === 'developpeur')
       ? (targetSalesPointId || (effectiveSalesPointId !== 'all' ? effectiveSalesPointId : (salesPoints[0]?.id || 'pos-1')))
@@ -1263,23 +1322,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'brouillon',
       salesPointId: effectiveSpId,
       salesPointName: sp?.name,
+      createdAt: now,
+      updatedAt: now,
     };
 
-    setPurchases(prev => [newPurchase, ...prev]);
-    return id;
+    setPurchases(prev => {
+      const next = [newPurchase, ...prev];
+      localStorage.setItem('provenda_purchases', JSON.stringify(next));
+      return next;
+    });
+    purchasesRef.current = [newPurchase, ...purchasesRef.current];
+    upsertRecordToSupabase('purchases', newPurchase).catch(() => {});
+    return newPurchase;
   };
 
-  const validatePurchaseReception = (purchaseId: string) => {
-    const purchase = purchases.find(p => p.id === purchaseId);
+  const validatePurchaseReception = (purchaseIdOrObj: string | Purchase) => {
+    let purchase: Purchase | undefined;
+    if (typeof purchaseIdOrObj === 'string') {
+      purchase = purchases.find(p => p.id === purchaseIdOrObj) || purchasesRef.current.find(p => p.id === purchaseIdOrObj);
+      if (!purchase) {
+        try {
+          const savedPurchases: Purchase[] = JSON.parse(localStorage.getItem('provenda_purchases') || '[]');
+          purchase = savedPurchases.find(p => p.id === purchaseIdOrObj);
+        } catch {}
+      }
+    } else {
+      purchase = purchaseIdOrObj;
+    }
+
     if (!purchase || purchase.status === 'validé') return;
 
-    const now = new Date().toISOString().replace('T', ' ').slice(0, 16);
-    const updatedProducts = [...products];
+    const now = new Date().toISOString();
+    const currentProds = products.length > 0 ? products : (productsRef.current.length > 0 ? productsRef.current : JSON.parse(localStorage.getItem('provenda_products') || '[]'));
+    const updatedProducts = [...currentProds];
     const newMovements: StockMovement[] = [];
+    const affectedProducts: Product[] = [];
 
     // Ratio of transport fees allocated per item based on purchase line value
     const totalLinesValue = purchase.subtotal || 1;
-    const transportFees = settings.transportFeesIntegratedInCMP ? purchase.transportFees : 0;
+    const transportFees = settings.transportFeesIntegratedInCMP ? (purchase.transportFees || 0) : 0;
 
     const updatedItems = purchase.items.map(item => {
       const productIndex = updatedProducts.findIndex(p => p.id === item.productId);
@@ -1306,13 +1387,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const totalNewValue = valueBefore + entryValue;
       const newCMP = stockAfter > 0 ? Math.round((totalNewValue / stockAfter) * 100) / 100 : cmpBefore;
 
-      // Update product in memory
-      updatedProducts[productIndex] = {
+      const updatedProd: Product = {
         ...product,
         stockCurrentBaseUnit: stockAfter,
         cmp: newCMP,
         updatedAt: now,
       };
+
+      // Update product in memory
+      updatedProducts[productIndex] = updatedProd;
+      affectedProducts.push(updatedProd);
 
       // Create stock movement
       const movement: StockMovement = {
@@ -1345,31 +1429,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    // Update state
-    setProducts(updatedProducts);
-    setStockMovements(prev => [...newMovements, ...prev]);
+    const finalizedPurchase: Purchase = {
+      ...purchase,
+      items: updatedItems,
+      status: 'validé',
+      receptionDate: now,
+      validatedAt: now,
+      updatedAt: now,
+    };
 
-    setPurchases(prev =>
-      prev.map(p =>
-        p.id === purchaseId
-          ? {
-              ...p,
-              items: updatedItems,
-              status: 'validé',
-              receptionDate: now,
-              validatedAt: now,
-            }
-          : p
-      )
-    );
+    // Update state & LocalStorage
+    setProducts(updatedProducts);
+    productsRef.current = updatedProducts;
+    localStorage.setItem('provenda_products', JSON.stringify(updatedProducts));
+
+    setStockMovements(prev => {
+      const next = [...newMovements, ...prev];
+      localStorage.setItem('provenda_stock_movements', JSON.stringify(next));
+      return next;
+    });
+
+    setPurchases(prev => {
+      const exists = prev.some(p => p.id === finalizedPurchase.id);
+      const next = exists
+        ? prev.map(p => (p.id === finalizedPurchase.id ? finalizedPurchase : p))
+        : [finalizedPurchase, ...prev];
+      localStorage.setItem('provenda_purchases', JSON.stringify(next));
+      return next;
+    });
+    purchasesRef.current = [
+      finalizedPurchase,
+      ...purchasesRef.current.filter(p => p.id !== finalizedPurchase.id),
+    ];
+
+    // Push to Supabase immediately
+    affectedProducts.forEach(p => upsertRecordToSupabase('products', p).catch(() => {}));
+    newMovements.forEach(m => upsertRecordToSupabase('stock_movements', m).catch(() => {}));
+    upsertRecordToSupabase('purchases', finalizedPurchase).catch(() => {});
 
     addAuditLog(
       'RECEPTION_FOURNISSEUR',
-      `Réception Achat: ${purchase.referenceNumber}`,
-      purchase.id,
+      `Réception Achat: ${finalizedPurchase.referenceNumber}`,
+      finalizedPurchase.id,
       'Statut: brouillon',
-      `Validé, ${purchase.items.length} produit(s), Total: ${purchase.totalAmount.toLocaleString()} FCFA, Recalcul CMP effectué`,
-      `Fournisseur: ${purchase.supplierName}, BL: ${purchase.supplierDocumentRef}`
+      `Validé, ${finalizedPurchase.items.length} produit(s), Total: ${finalizedPurchase.totalAmount.toLocaleString()} FCFA, Recalcul CMP effectué`,
+      `Fournisseur: ${finalizedPurchase.supplierName}, BL: ${finalizedPurchase.supplierDocumentRef}`
     );
   };
 
@@ -1403,7 +1507,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updatedAt: now,
       };
 
-      setPurchases(prev => prev.map(p => (p.id === purchaseId ? updatedPurchase : p)));
+      setPurchases(prev => {
+        const next = prev.map(p => (p.id === purchaseId ? updatedPurchase : p));
+        localStorage.setItem('provenda_purchases', JSON.stringify(next));
+        return next;
+      });
+      purchasesRef.current = purchasesRef.current.map(p => (p.id === purchaseId ? updatedPurchase : p));
       upsertRecordToSupabase('purchases', updatedPurchase).catch(() => {});
       addAuditLog(
         'MODIFICATION_ACHAT',
@@ -1420,6 +1529,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (purchase.status === 'validé') {
       const newItems = updatedData.items || purchase.items;
       const itemsChanged = updatedData.items && JSON.stringify(updatedData.items) !== JSON.stringify(purchase.items);
+      const affectedProducts: Product[] = [];
 
       if (itemsChanged) {
         const updatedProducts = [...products];
@@ -1472,12 +1582,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 newCMP = stockAfter > 0 ? Math.round(((valueBefore + entryValue) / stockAfter) * 100) / 100 : prod.cmp;
               }
 
-              updatedProducts[pIndex] = {
+              const updProd = {
                 ...prod,
                 stockCurrentBaseUnit: stockAfter,
                 cmp: newCMP,
                 updatedAt: now,
               };
+
+              updatedProducts[pIndex] = updProd;
+              affectedProducts.push(updProd);
 
               newMovements.push({
                 id: `mov-upd-${Date.now()}-${prod.id}`,
@@ -1504,8 +1617,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         setProducts(updatedProducts);
+        productsRef.current = updatedProducts;
+        localStorage.setItem('provenda_products', JSON.stringify(updatedProducts));
+        affectedProducts.forEach(p => upsertRecordToSupabase('products', p).catch(() => {}));
+
         if (newMovements.length > 0) {
-          setStockMovements(prev => [...newMovements, ...prev]);
+          setStockMovements(prev => {
+            const next = [...newMovements, ...prev];
+            localStorage.setItem('provenda_stock_movements', JSON.stringify(next));
+            return next;
+          });
+          newMovements.forEach(m => upsertRecordToSupabase('stock_movements', m).catch(() => {}));
         }
       }
 
@@ -1527,7 +1649,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updatedAt: now,
       };
 
-      setPurchases(prev => prev.map(p => (p.id === purchaseId ? updatedPurchase : p)));
+      setPurchases(prev => {
+        const next = prev.map(p => (p.id === purchaseId ? updatedPurchase : p));
+        localStorage.setItem('provenda_purchases', JSON.stringify(next));
+        return next;
+      });
+      purchasesRef.current = purchasesRef.current.map(p => (p.id === purchaseId ? updatedPurchase : p));
       upsertRecordToSupabase('purchases', updatedPurchase).catch(() => {});
       addAuditLog(
         'MODIFICATION_ACHAT',
@@ -1547,6 +1674,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const purchase = purchases.find(p => p.id === purchaseId);
     if (!purchase) return;
 
+    const now = new Date().toISOString();
+    const affectedProducts: Product[] = [];
+    const reverseMovements: StockMovement[] = [];
+
     if (purchase.status === 'validé') {
       // Must reverse stock and verify stock won't become negative
       const updatedProducts = [...products];
@@ -1561,9 +1692,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      const now = new Date().toISOString().replace('T', ' ').slice(0, 16);
-      const reverseMovements: StockMovement[] = [];
-
       for (const item of purchase.items) {
         const prodIdx = updatedProducts.findIndex(p => p.id === item.productId);
         if (prodIdx !== -1) {
@@ -1572,11 +1700,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const stockBefore = prod.stockCurrentBaseUnit;
           const stockAfter = stockBefore - qtyBase;
 
-          updatedProducts[prodIdx] = {
+          const updProd = {
             ...prod,
             stockCurrentBaseUnit: stockAfter,
             updatedAt: now,
           };
+
+          updatedProducts[prodIdx] = updProd;
+          affectedProducts.push(updProd);
 
           reverseMovements.push({
             id: `mov-rev-${Date.now()}-${prod.id}`,
@@ -1600,21 +1731,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       setProducts(updatedProducts);
-      setStockMovements(prev => [...reverseMovements, ...prev]);
+      productsRef.current = updatedProducts;
+      localStorage.setItem('provenda_products', JSON.stringify(updatedProducts));
+      affectedProducts.forEach(p => upsertRecordToSupabase('products', p).catch(() => {}));
+
+      setStockMovements(prev => {
+        const next = [...reverseMovements, ...prev];
+        localStorage.setItem('provenda_stock_movements', JSON.stringify(next));
+        return next;
+      });
+      reverseMovements.forEach(m => upsertRecordToSupabase('stock_movements', m).catch(() => {}));
     }
 
-    setPurchases(prev =>
-      prev.map(p =>
-        p.id === purchaseId
-          ? {
-              ...p,
-              status: 'annulé',
-              cancelledAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
-              cancellationReason: reason,
-            }
-          : p
-      )
-    );
+    const cancelledPurchase = {
+      ...purchase,
+      status: 'annulé' as const,
+      cancelledAt: now,
+      cancellationReason: reason,
+      updatedAt: now,
+    };
+
+    setPurchases(prev => {
+      const next = prev.map(p => (p.id === purchaseId ? cancelledPurchase : p));
+      localStorage.setItem('provenda_purchases', JSON.stringify(next));
+      return next;
+    });
+    purchasesRef.current = purchasesRef.current.map(p => (p.id === purchaseId ? cancelledPurchase : p));
+    upsertRecordToSupabase('purchases', cancelledPurchase).catch(() => {});
 
     addAuditLog(
       'ANNULATION_RECEPTION',
@@ -2017,24 +2160,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     // 4. Mark invoice as cancelled (never deleted!)
-    setInvoices(prev =>
-      prev.map(i =>
-        i.id === invoiceId
-          ? {
-              ...i,
-              status: 'annulée',
-              cancelledAt: nowStr,
-              cancelledBy: currentUser.name,
-              cancellationReason: reason,
-              creditNoteNumber,
-            }
-          : i
-      )
-    );
+    const cancelledInvoice: Invoice = {
+      ...invoice,
+      status: 'annulée',
+      cancelledAt: nowStr,
+      cancelledBy: currentUser.name,
+      cancellationReason: reason,
+      creditNoteNumber,
+    };
+
+    setInvoices(prev => {
+      const next = prev.map(i => (i.id === invoiceId ? cancelledInvoice : i));
+      localStorage.setItem('provenda_invoices', JSON.stringify(next));
+      return next;
+    });
 
     setProducts(updatedProducts);
-    setStockMovements(prev => [...reverseMovements, ...prev]);
-    setCreditNotes(prev => [newCreditNote, ...prev]);
+    productsRef.current = updatedProducts;
+    localStorage.setItem('provenda_products', JSON.stringify(updatedProducts));
+
+    setStockMovements(prev => {
+      const next = [...reverseMovements, ...prev];
+      localStorage.setItem('provenda_stock_movements', JSON.stringify(next));
+      return next;
+    });
+
+    setCreditNotes(prev => {
+      const next = [newCreditNote, ...prev];
+      localStorage.setItem('provenda_credit_notes', JSON.stringify(next));
+      return next;
+    });
+
+    upsertRecordToSupabase('invoices', cancelledInvoice).catch(() => {});
+    upsertRecordToSupabase('credit_notes', newCreditNote).catch(() => {});
+    updatedProducts.forEach(p => upsertRecordToSupabase('products', p).catch(() => {}));
+    reverseMovements.forEach(m => upsertRecordToSupabase('stock_movements', m).catch(() => {}));
 
     // 5. Audit log
     addAuditLog(
@@ -2098,28 +2258,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       notes: notes || 'Règlement de créance',
     };
 
-    setInvoices(prev =>
-      prev.map(i =>
-        i.id === invoiceId
-          ? {
-              ...i,
-              amountPaid: newPaidTotal,
-              remainingBalance: newRemaining,
-              status: newStatus,
-              payments: [...(i.payments || []), newPayment],
-            }
-          : i
-      )
-    );
+    const updatedInvoice: Invoice = {
+      ...invoice,
+      amountPaid: newPaidTotal,
+      remainingBalance: newRemaining,
+      status: newStatus,
+      payments: [...(invoice.payments || []), newPayment],
+    };
+
+    setInvoices(prev => {
+      const next = prev.map(i => (i.id === invoiceId ? updatedInvoice : i));
+      localStorage.setItem('provenda_invoices', JSON.stringify(next));
+      return next;
+    });
+    upsertRecordToSupabase('invoices', updatedInvoice).catch(() => {});
 
     if (invoice.customerId && invoice.customerId !== 'cst-0') {
-      setCustomers(prev =>
-        prev.map(c =>
+      setCustomers(prev => {
+        const next = prev.map(c =>
           c.id === invoice.customerId
             ? { ...c, currentDebt: Math.max(0, c.currentDebt - amount) }
             : c
-        )
-      );
+        );
+        localStorage.setItem('provenda_customers', JSON.stringify(next));
+        const updatedCust = next.find(c => c.id === invoice.customerId);
+        if (updatedCust) upsertRecordToSupabase('customers', updatedCust).catch(() => {});
+        return next;
+      });
     }
 
     addAuditLog(
@@ -2186,8 +2351,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timestamp: now,
     };
 
-    setProducts(prev => prev.map(p => (p.id === productId ? updatedProduct : p)));
-    setStockMovements(prev => [movement, ...prev]);
+    setProducts(prev => {
+      const next = prev.map(p => (p.id === productId ? updatedProduct : p));
+      localStorage.setItem('provenda_products', JSON.stringify(next));
+      return next;
+    });
+    productsRef.current = productsRef.current.map(p => (p.id === productId ? updatedProduct : p));
+
+    setStockMovements(prev => {
+      const next = [movement, ...prev];
+      localStorage.setItem('provenda_stock_movements', JSON.stringify(next));
+      return next;
+    });
+
+    upsertRecordToSupabase('products', updatedProduct).catch(() => {});
+    upsertRecordToSupabase('stock_movements', movement).catch(() => {});
 
     addAuditLog(
       'AJUSTEMENT_STOCK',
@@ -2270,9 +2448,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'Session d\'inventaire invalide ou déjà validée.' };
     }
 
-    const now = new Date().toISOString().replace('T', ' ').slice(0, 16);
+    const now = new Date().toISOString();
     const updatedProducts = [...products];
     const adjustmentMovements: StockMovement[] = [];
+    const affectedProducts: Product[] = [];
 
     let totalPhysicalValue = 0;
     let totalVarianceVal = 0;
@@ -2294,11 +2473,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const stockBefore = prod.stockCurrentBaseUnit;
           const stockAfter = physStock;
 
-          updatedProducts[prodIdx] = {
+          const updProd = {
             ...prod,
             stockCurrentBaseUnit: stockAfter,
             updatedAt: now,
           };
+
+          updatedProducts[prodIdx] = updProd;
+          affectedProducts.push(updProd);
 
           adjustmentMovements.push({
             id: `mov-inv-${Date.now()}-${item.productId}`,
@@ -2332,25 +2514,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    setProducts(updatedProducts);
-    setStockMovements(prev => [...adjustmentMovements, ...prev]);
+    const finalizedSession: InventorySession = {
+      ...session,
+      status: 'validé',
+      endDate: now,
+      validatedBy: currentUser.name,
+      items: validatedItems,
+      totalPhysicalStockValue: totalPhysicalValue,
+      totalVarianceValue: totalVarianceVal,
+      notes: notes || session.notes,
+    };
 
-    setInventories(prev =>
-      prev.map(s =>
-        s.id === sessionId
-          ? {
-              ...s,
-              status: 'validé',
-              endDate: now,
-              validatedBy: currentUser.name,
-              items: validatedItems,
-              totalPhysicalStockValue: totalPhysicalValue,
-              totalVarianceValue: totalVarianceVal,
-              notes: notes || s.notes,
-            }
-          : s
-      )
-    );
+    setProducts(updatedProducts);
+    productsRef.current = updatedProducts;
+    localStorage.setItem('provenda_products', JSON.stringify(updatedProducts));
+
+    setStockMovements(prev => {
+      const next = [...adjustmentMovements, ...prev];
+      localStorage.setItem('provenda_stock_movements', JSON.stringify(next));
+      return next;
+    });
+
+    setInventories(prev => {
+      const next = prev.map(s => (s.id === sessionId ? finalizedSession : s));
+      localStorage.setItem('provenda_inventories', JSON.stringify(next));
+      return next;
+    });
+
+    affectedProducts.forEach(p => upsertRecordToSupabase('products', p).catch(() => {}));
+    adjustmentMovements.forEach(m => upsertRecordToSupabase('stock_movements', m).catch(() => {}));
+    upsertRecordToSupabase('inventory_sessions', finalizedSession).catch(() => {});
 
     addAuditLog(
       'INVENTAIRE_VALIDE',

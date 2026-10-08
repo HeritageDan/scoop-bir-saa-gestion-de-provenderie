@@ -673,9 +673,12 @@ export const ProductsManager: React.FC = () => {
                           </button>
 
                           <button
-                            onClick={() => maskProduct(prod.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              maskProduct(prod.id);
+                            }}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-500/10 transition cursor-pointer"
-                            title={prod.status === 'masqué' ? 'Afficher' : 'Masquer'}
+                            title={prod.status === 'masqué' ? (language === 'fr' ? 'Afficher' : 'Unhide') : (language === 'fr' ? 'Masquer' : 'Hide')}
                           >
                             {prod.status === 'masqué' ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
