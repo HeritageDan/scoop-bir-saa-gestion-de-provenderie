@@ -1,250 +1,254 @@
-# PROVENDA - Manuel Fonctionnel & Spécification Technique Complète
-**Version :** 2.2  
-**Date d'édition :** 25 Septembre 2026  
-**Auteur :** Équipe d'Ingénierie & Architecture Provenda  
-**Cible :** Administrateurs, Développeurs, Auditeurs Comptables et Responsables d'Exploitation  
-**Monnaie :** Franc CFA (FCFA / XAF)  
-**Format d'export PDF :** Généré dynamiquement via `jspdf` et `jspdf-autotable`
+# COOPS BIR - SAA | PROVENDA — Manuel Fonctionnel & Spécification Technique Complète
+**Version :** 2.5 (Édition Officielle)  
+**Date d'édition :** Octobre 2026  
+**Société :** COOPS BIR - SAA (Société Coopérative Simplifiée d'Élevage et Provenderie)  
+**Siège :** Bafoussam / Douala, Cameroun — RCCM : RC/BFM/2026/B/452  
+**Cible :** Administrateurs, Développeurs, Auditeurs Comptables, Responsables d'Exploitation et Caissiers  
+**Monnaie de Référence :** Franc CFA (FCFA / XAF) avec séparateur de milliers officiel (ex: `1 250 000 FCFA`)  
+**Moteur d'Export PDF :** Compilé dynamiquement côté client via `jsPDF` vectoriel et `jspdf-autotable`
 
 ---
 
 ## Sommaire Exécutif
 
-L'application **Provenda** est un progiciel de gestion intégré (ERP) et terminal de point de vente (POS) conçu spécialement pour les unités de fabrication et de distribution d'aliments pour bétail et volaille (provenderies).
+L'application **Provenda** est un progiciel de gestion intégré (ERP) et terminal de point de vente (POS) développé sur mesure pour les unités de fabrication d'aliments pour bétail et volaille (provenderies modernes) et leurs points de distribution.
 
-Le système garantit l'intégrité comptable et financière des flux de matières premières et d'aliments finis à travers :
-1. **Un moteur de stock au Coût Moyen Pondéré (CMP)** intégrant automatiquement les frais d'approche (transport, déchargement).
-2. **Un contrôle strict des marges commerciales** calculées ligne par ligne et en global lors des ventes.
-3. **Une séparation hermétique des privilèges (RBAC)** empêchant les remises non autorisées et les suppressions de documents.
-4. **Une traçabilité complète (Audit Trail)** consignant chaque modification de prix, annulation et régularisation.
-5. **Une gestion multi-magasins** permettant le pilotage consolidé ou décentralisé de plusieurs points de vente.
+Le système garantit l'intégrité opérationnelle, comptable et financière des flux de matières premières et d'aliments finis à travers :
+1. **Un moteur de stock au Coût Moyen Pondéré (CMP / WAC)** intégrant automatiquement les frais d'approche (fret routier, déchargement et manutention).
+2. **Un terminal point de vente (POS) en temps réel** avec calcul instantané des marges brutes (CA Net - Coût des Ventes au CMP) et encaissements multi-moyens (Espèces, Orange Money, MTN MoMo, Virement bancaire, Vente à terme / Crédit client).
+3. **Un pilote d'impression thermique POS dédié** prenant en charge les tickets de caisse en formats 58 mm et 80 mm, le spooler Windows, les codes-barres Code 39 et la sécurisation des réimpressions (marquage duplicata).
+4. **Une synchronisation cloud automatique avec Supabase (PostgreSQL)** complétant une architecture 100% autonome hors-ligne (local-first).
+5. **Une hiérarchie de sécurité RBAC hermétique à 5 niveaux** distinguant strictement le rôle Développeur (console système et purge transactionnelle), l'Administrateur, les Responsables de dépôt, les Caissiers et les Magasiniers.
+6. **Un catalogue "Produits & Tarifs" dédié** avec gestion des unités (kg/litre vs sac/palette), conditionnements et historique des révisions tarifaires.
+7. **La pérennité inaltérable de l'identité de marque** via l'encapsulation du logo officiel de la coopérative en Base64 autonome, assurant un affichage instantané sur tout nouveau poste, navigateur ou installation hors-ligne.
+8. **Un classement antéchronologique universel** organisant l'ensemble des documents (tickets, factures, achats, mouvements de stock, inventaires, dépenses, journaux d'audit) de manière décroissante (le plus récent en tête).
 
 ---
 
-## 1. Architecture du Système & Modèles de Données
+## 1. Architecture Globale & Matrice de Sécurité (RBAC)
 
-### 1.1 Architecture Technique
+### 1.1 Socle Technique & Performance
 - **Framework Frontend :** React 19 SPA optimisé par Vite.
-- **Typage Statique :** TypeScript strict garantissant la cohérence des modèles et l'absence de régressions à l'exécution.
-- **Gestionnaire d'État :** React Context unifié (`AppContext.tsx`) assurant l'atomicité des transactions (vente, encaissement, décrément de stock et audit exécutés de manière synchrone).
-- **Persistance :** LocalStorage avec validation de schéma et moteur d'import/export de sauvegarde JSON intégrale.
-- **Génération de PDF :** Moteur vectoriel client `jsPDF` avec formatage automatisé des tableaux via `jspdf-autotable`.
-
-### 1.2 Entités Métier Principales
-
-#### `Product` (Article de Provenderie)
-- `id`: Identifiant unique UUID.
-- `code`: Code produit séquentiel normalisé (ex: `PRD-001`).
-- `name`: Libellé commercial (ex: `Aliment Chair Finition`).
-- `category`: Catégorie (`Matières premières`, `Concentrés, prémix et compléments`, `Aliments finis`, `Autres fournitures`).
-- `baseUnit`: Unité de référence du stock physique (`kilogramme`, `litre`, `sac`, `unité`, `tonne`).
-- `saleUnit`: Unité commerciale par défaut sur le terminal de vente.
-- `packaging`: Libellé du conditionnement (ex: `Sac de 50 kg`).
-- `conversionFactor`: Ratio entre l'unité de vente et l'unité de base (ex: 1 sac = 50 kg => facteur = `50`).
-- `purchasePrice`: Dernier prix d'achat unitaire de référence (FCFA).
-- `salePrice`: Prix de vente public standard (FCFA).
-- `cmp`: Coût Moyen Pondéré unitaire en FCFA, recalculé lors de chaque réception de marchandise.
-- `stockCurrentBaseUnit`: Stock physique disponible exprimé dans l'unité de base.
-- `minAlertThresholdBaseUnit`: Seuil critique déclenchant les alertes de réapprovisionnement.
-- `status`: Statut opérationnel (`actif`, `masqué`, `archivé`).
-- `priceHistory`: Tableau horodaté des variations de prix avec auteur et motif de révision.
-
-#### `Invoice` (Facture de Vente)
-- `id`: UUID.
-- `number`: Numérotation séquentielle certifiée (format `FAC-AAAA-XXXXXX`).
-- `date` / `time`: Horodatage de l'opération.
-- `customerId` / `customerName`: Tiers acheteur.
-- `items`: Lignes d'articles vendus (quantité, prix unitaire, remise ligne, CMP historique, CMV, marge brute).
-- `subtotalGross`: Chiffre d'affaires brut avant remise.
-- `totalDiscount`: Montant total des rabais accordés.
-- `totalNet`: Montant net à payer par le client.
-- `totalCostOfGoodsSold`: Coût de revient total (CMV) calculé sur la base du CMP lors de la vente.
-- `grossMargin`: Marge brute dégagée (`totalNet - totalCostOfGoodsSold`).
-- `marginRateSales`: Taux de marge sur chiffre d'affaires (`grossMargin / totalNet * 100`).
-- `payments`: Tableau des encaissements reçus (Espèces, MoMo, Orange Money, Virement).
-- `amountPaid`: Somme totale encaissée.
-- `remainingBalance`: Solde restant dû en cas de crédit ou paiement partiel.
-- `status`: État de la créance (`émise`, `payée`, `partielle`, `crédit`, `annulée`).
-- `isCredit`: Indicateur de vente à terme.
-- `creditDueDate`: Date limite de paiement négociée avec l'éleveur.
+- **Typage Statique :** TypeScript 5.8+ strict pour l'élimination des régressions à l'exécution.
+- **Gestionnaire d'État :** React Context unifié (`AppContext.tsx`) garantissant l'atomicité transactionnelle synchrone.
+- **Stockage Local-First :** LocalStorage et IndexedDB pour une disponibilité 100% autonome hors-ligne.
+- **Synchronisation Cloud :** Moteur d'arrière-plan Supabase JS avec base de données PostgreSQL managée.
+- **Moteur d'Impression :** Pilote thermique hybride (`receiptPrinterService.ts`) pour formats 58 mm et 80 mm.
+- **Packaging Desktop :** Electron avec scripts d'installation autonome et raccourci bureau Windows.
 
 ---
 
-## 2. Matrice des Rôles & Sécurité d'Accès (RBAC)
+### 1.2 Matrice Complète des Rôles & Séparation des Privilèges
 
-L'application distingue quatre profils utilisateurs afin de prévenir la fraude interne et sécuriser la trésorerie :
+Le système applique une séparation stricte des fonctions :
 
-| Fonctionnalité / Droit | Administrateur | Responsable | Caissier | Magasinier |
-| :--- | :---: | :---: | :---: | :---: |
-| **Plafond de remise unitaire & globale** | Jusqu'à 100% | Jusqu'à 15% max | **0% (Interdit)** | **0% (Interdit)** |
-| **Enregistrement de vente POS** | Oui | Oui | Oui | Non |
-| **Encaissement multi-moyens** | Oui | Oui | Oui | Non |
-| **Création / Édition de produits** | Oui | Non (Lecture) | Non (Lecture) | Non (Lecture) |
-| **Modification des prix catalogue** | Oui | Non | Non | Non |
-| **Saisie de commande d'achat (Brouillon)** | Oui | Oui | Non | Non |
-| **Validation de réception (BL & recalcul CMP)** | Oui | Oui | Non | Oui (Sur site) |
-| **Ajustement manuel de stock (Perte/Casse)** | Oui | Oui | Non | Oui (Avec motif) |
-| **Sessions d'inventaire physique** | Création & Validation | Validation | Non | Comptage terrain |
-| **Annulation de facture & Avoirs (AVO)** | Oui | Oui (Avec motif) | Non | Non |
-| **Règlement des créances clients** | Oui | Oui | Oui | Non |
-| **Consultation des marges et rapports financiers** | Oui | Oui | Non | Non |
-| **Piste d'audit (Audit Trail)** | Oui | Oui (Consultation) | Non | Non |
-| **Sauvegarde / Restauration de base** | Oui | Non | Non | Non |
-| **Gestion multi-magasins** | Oui | Magasin assigné | Magasin assigné | Magasin assigné |
+| Fonctionnalité / Droit d'Accès | Développeur | Administrateur | Responsable | Caissier | Magasinier |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Visibilité du compte dans la liste** | **Lui seul** | Masqué | Masqué | Masqué | Masqué |
+| **Création d'utilisateurs** | Tous rôles | Resp, Caiss, Mag | Aucun | Aucun | Aucun |
+| **Plafond de remise unitaire / globale** | 100% | 100% max | 15% max | **0% (Interdit)** | **0% (Interdit)** |
+| **Enregistrement de vente POS** | Oui | Oui | Oui | Oui | Non |
+| **Encaissement multi-moyens de caisse** | Oui | Oui | Oui | Oui | Non |
+| **Gestion du catalogue "Produits & Tarifs"**| Oui | Oui | Consultation | Consultation | Consultation |
+| **Modification des prix catalogue** | Oui | Oui (Avec motif)| Non | Non | Non |
+| **Saisie de bon d'achat (Brouillon)** | Oui | Oui | Oui | Non | Non |
+| **Validation réception BL & recalcul CMP** | Oui | Oui | Oui | Non | Oui (Sur site) |
+| **Sessions d'inventaire physique** | Oui | Création/Validation| Validation | Non | Comptage terrain |
+| **Régularisation perte/casse manuelle** | Oui | Oui | Oui | Non | Oui (Avec motif) |
+| **Annulation de facture & Avoirs (AVO)** | Oui | Oui (Avec motif)| Oui (Avec motif)| Non | Non |
+| **Recouvrement créances clients** | Oui | Oui | Oui | Oui | Non |
+| **Rapports financiers & Valorisation CMP** | Oui | Oui | Oui | Non | Non |
+| **Piste d'audit inaltérable (Audit Trail)**| Oui | Oui | Consultation | Non | Non |
+| **Configuration Cloud Supabase** | Oui | Consultation | Non | Non | Non |
+| **Réinitialisation usine (Purge client)** | **Oui (Exclusif)**| Non | Non | Non | Non |
+
+> **Règle de Gouvernance :** Le compte Développeur est un compte d'ingénierie et de maintenance. Pour préserver l'autorité de l'entreprise, il est masqué dans les listes d'utilisateurs pour tous les autres profils. Il n'existe qu'un seul compte Développeur et un seul compte Administrateur actif à la fois.
 
 ---
 
-## 3. Moteur de Stock & Calculateur du CMP (Coût Moyen Pondéré)
+## 2. Moteur de Stock & Calculateur Dynamique du CMP (WAC)
 
-### 3.1 Algorithme Mathématique du CMP
-Le CMP est l'unique méthode de valorisation des sorties et des stocks de clôture retenue pour refléter fidèlement les coûts d'achat volatils des céréales et tourteaux.
+### 2.1 Formule Mathématique Officielle du CMP
+Le Coût Moyen Pondéré est l'unique méthode de valorisation retenue pour refléter fidèlement les coûts d'acquisition volatils des céréales, tourteaux et concentrés.
 
-Lors de la validation d'une réception fournisseur (`validatePurchaseReception`) :
+Lors de la validation de la réception d'une commande d'achat (`validatePurchaseReception`) :
 ```
-Coût_Entrée = ( Quantité_Reçue × Prix_Achat_Unitaire ) + Frais_Transport_Attribués + Autres_Frais_Approche
+Coût_Entrée = ( Quantité_Reçue × Prix_Achat_Unitaire ) + Frais_Transport_Attribués + Frais_Déchargement_Approche
 
-Nouveau_CMP = [ ( Stock_Actuel_Base × Ancien_CMP ) + Coût_Entrée ] / [ Stock_Actuel_Base + Quantité_Reçue ]
+Nouveau_CMP = [ ( Stock_Initial_Base × Ancien_CMP ) + Coût_Entrée ] / [ Stock_Initial_Base + Quantité_Reçue ]
 ```
 
-### 3.2 Incorporation des Frais d'Approche
-Conformément aux directives de gestion de provenderie :
-- Si un camion livre 10 tonnes de maïs à 180 FCFA/kg avec 150 000 FCFA de frais de transport et 50 000 FCFA de déchargement :
-  - Coût d'achat direct : 1 800 000 FCFA.
-  - Frais d'approche : 200 000 FCFA.
-  - Coût de revient réel d'entrée : 2 000 000 FCFA (soit 200 FCFA/kg réel).
-- Le système impute automatiquement ces 200 000 FCFA dans la valeur entrée du stock, empêchant ainsi la provenderie de vendre à perte en croyant que son coût de revient n'était que de 180 FCFA.
+### 2.2 Incorporation des Frais d'Approche
+Conformément aux normes comptables SYSCOHADA :
+- Les frais de transport routier et de déchargement sont obligatoirement imputés dans le coût d'entrée des stocks au prorata des quantités livrées.
+- Cela évite toute surévaluation trompeuse de la marge brute et empêche la provenderie de vendre en dessous de son coût de revient complet.
 
-### 3.3 Règle de Non-Régression du CMP sur Stock Nul ou Négatif
-Si le stock initial était à 0 ou suite à une rupture physique :
-```
-Nouveau_CMP = Coût_Entrée / Quantité_Reçue
-```
+### 2.3 Moteur de Conversion d'Unités & Conditionnements
+Chaque produit associe son **unité de base de stockage** (kg, litre) à une **unité commerciale de vente** (sac de 50 kg, sac de 25 kg, bidon de 20 L, vrac au kg) :
+- `1 sac de 50 kg` vendu en caisse déduit instantanément `50 kg` du stock physique de l'entrepôt valorisés au CMP unitaire.
+- `1 sac de 25 kg` déduit `25 kg` de stock physique.
+- Le prix de vente s'applique directement au conditionnement commercial sélectionné sur le terminal POS.
 
 ---
 
-## 4. Module Caisse & Terminal Point de Vente (POS)
+## 3. Terminal Point de Vente (POS) & Encaissement Multi-Moyens
 
-### 4.1 Processus de Saisie d'une Vente
-1. **Sélection de l'Article :** Par recherche rapide textuelle ou catégorie.
-2. **Choix du Conditionnement :** Sac ou Kilo. Le facteur de conversion calcule instantanément la déduction en stock de base.
-3. **Application de Remise :**
-   - Si l'utilisateur est Caissier et tente de renseigner une remise > 0%, l'action est bloquée avec invite à faire valider par un Responsable.
-   - Si l'utilisateur est Responsable et tente une remise > 15%, blocage système exigeant l'accord de l'Administrateur.
-4. **Calcul de la Marge en Temps Réel :**
-   - `CMV = Quantité_Base × Produit.cmp`
-   - `Marge = Total_Net - CMV`
-   - Le système affiche la rentabilité brute de la vente avant même l'encaissement.
+### 3.1 Cycle d'Enregistrement d'une Vente
+1. **Recherche Instantanée :** Par code produit normalisé (`PRD-XXX`), désignation commerciale ou catégorie.
+2. **Choix du Conditionnement :** Sélection instantanée sac / kilo avec ajustement automatique du prix unitaire.
+3. **Contrôle Strict des Remises :**
+   - Caissier : champ remise verrouillé à 0%.
+   - Responsable : plafond bloqué à 15% maximum.
+   - Administrateur : dérogation jusqu'à 100% avec motif obligatoire consigné dans l'audit.
+4. **Calcul de Rentabilité en Temps Réel :**
+   - `Coût des Ventes (CMV) = Quantité_Base × CMP`
+   - `Chiffre d'Affaires Net = Total_Brut - Remise`
+   - `Marge Brute = CA_Net - CMV`
+   - `Taux de Marge (%) = (Marge_Brute / CA_Net) × 100`
 
-### 4.2 Multi-Modes de Paiement & Crédits Clients
-- **Espèces :** Saisie du montant remis par le client, calcul automatique de la monnaie à rendre.
-- **Paiement Mobile (MoMo / Orange Money) :** Saisie obligatoire du numéro d'opération/transaction pour rapprochement.
-- **Virement :** Référence bancaire requise.
-- **Vente à Crédit :**
-  - Contrôle du plafond de crédit autorisé du client (`customer.creditLimit`).
-  - Vérification de l'encours déjà existant (`customer.currentDebt`).
-  - Si `currentDebt + totalNet > creditLimit`, le système alerte sur le dépassement de solvabilité.
-  - Fixation obligatoire d'une date d'échéance de règlement.
-
----
-
-## 5. Facturation, Recouvrement & Avoirs
-
-### 5.1 Sérialisation Unique des Documents
-- Les factures suivent le format inviolable : `FAC-[ANNÉE]-[NUMÉRO_6_CHIFFRES]`.
-- Les avoirs suivent le format : `AVO-[ANNÉE]-[NUMÉRO_6_CHIFFRES]`.
-- Les sessions d'inventaire : `INV-[ANNÉE]-[NUMÉRO_6_CHIFFRES]`.
-- Les bons de réception : `ACH-[ANNÉE]-[NUMÉRO_6_CHIFFRES]`.
-
-### 5.2 Annulation de Facture & Génération d'Avoir
-1. Une facture validée ne peut être physiquement détruite.
-2. Pour l'annuler, l'utilisateur exécute `cancelInvoiceWithCreditNote` en fournissant un motif obligatoire.
-3. Le système crée automatiquement un document d'Avoir (`CreditNote`).
-4. Les stocks de matières premières ou d'aliments sont immédiatement réintégrés au CMP de la vente avec un mouvement `retour client`.
-5. Si la facture était à crédit ou partiellement payée, l'encours de dette du client est diminué du solde correspondant.
+### 3.2 Modalités de Règlement Fractionné & Crédits
+- **Espèces :** Saisie du versement client avec calcul instantané du rendu de monnaie.
+- **Mobile Money (Orange Money / MTN MoMo) :** Saisie du numéro de transaction pour traçabilité du relevé financier.
+- **Virement Bancaire :** Enregistrement de la référence du bordereau de banque.
+- **Vente à Crédit / Compte à Terme :**
+   - Contrôle du plafond de crédit (`creditLimit`).
+   - Vérification de l'encours de dette existant (`currentDebt`).
+   - Blocage si le cumul dépasse le plafond autorisé.
+   - Fixation obligatoire d'une date d'échéance de remboursement.
 
 ---
 
-## 6. Inventaires Physiques & Régularisations
+## 4. Pilote d'Impression Thermique POS (58 mm & 80 mm)
 
-### 6.1 Workflow d'une Session d'Inventaire
-1. **Création (`createInventorySession`) :** Fige le stock théorique calculé par les flux informatiques à l'instant précis du lancement.
-2. **Comptage :** Saisie des quantités réellement dénombrées dans les hangars et magasins.
-3. **Calcul des Écarts :**
-   - `Écart Quantité = Stock_Physique_Compté - Stock_Théorique`
-   - `Valeur de l'Écart (FCFA) = Écart_Quantité × CMP`
-4. **Validation (`validateInventorySession`) :**
-   - Ajuste le stock physique disponible pour égaler le comptage.
-   - Génère les mouvements de stock de type `correction d'inventaire`.
-   - Clôture définitivement la session avec archivage des écarts financiers.
-
----
-
-## 7. Répertoire Exhaustif des Fonctions du Code Source (AppContext)
-
-Chaque fonction ci-dessous constitue l'API du contexte applicatif global de Provenda :
-
-### 7.1 Fonctions d'Environnement & Multi-Magasins
-- `toggleTheme()`: Alterne entre thèmes sombre et clair (crème `#FAF7F2`) avec persistance `localStorage`.
-- `setLanguage(lang: 'fr' | 'en')`: Modifie la langue applicative.
-- `t(key: string)`: Traduit les chaînes de caractères via le dictionnaire multilingue.
-- `setCurrentSalesPointId(id: string)`: Change la succursale active de travail.
-- `addSalesPoint(sp)`: Crée un point de vente secondaire avec nom, adresse et gérant.
-- `updateSalesPoint(sp)`: Modifie les paramètres d'un point de vente.
-- `deleteSalesPoint(id)`: Supprime un point de vente non principal.
-
-### 7.2 Fonctions de Sécurité & Authentification
-- `login(email, password)`: Contrôle les identifiants, vérifie l'état du compte et met à jour `lastLogin`.
-- `logout()`: Réinitialise la session active.
-- `switchRole(role)`: Bascule dynamique de rôle pour vérification des habilitations.
-- `addUser(user)`: Enregistre un nouvel employé avec rôle, magasin et plafond de remise.
-- `updateUser(user)`: Modifie le profil d'un employé.
-- `deactivateUser(id)`: Bloque l'accès d'un compte sans effacer son historique comptable.
-
-### 7.3 Fonctions Catalogue & Gestion des Prix
-- `addProduct(prod, initialStock, initialCmp)`: Génère le code article `PRD-XXX`, paramètre le conditionnement et valorise le stock d'ouverture au CMP.
-- `updateProduct(prod, reason)`: Modifie la fiche produit. Si le prix change, consigne une entrée dans `priceHistory` et dans l'audit.
-- `archiveProduct(id)`: Archive un produit obsolète sans altérer les factures passées.
-- `unarchiveProduct(id)`: Réactive un article archivé.
-- `maskProduct(id)`: Masque un produit temporairement indisponible.
-
-### 7.4 Fonctions Achats & Réceptions (Moteur CMP)
-- `createPurchaseDraft(purchase, targetSalesPointId)`: Enregistre une commande fournisseur `ACH-AAAA-XXXXXX` sans impact immédiat sur le stock.
-- `validatePurchaseReception(purchaseId)`: **Algorithme central CMP**. Calcule le nouveau coût moyen pondéré, incrémente les stocks en unité de base, crée les mouvements `entrée fournisseur` et valide le bon.
-- `cancelPurchase(purchaseId, reason)`: Annule une commande fournisseur en attente avec motif.
-
-### 7.5 Fonctions Caisse, Ventes & Facturation
-- `createSale(...)`: Transaction atomique de vente. Vérifie la disponibilité des stocks, contrôle les plafonds de remise du vendeur, valide l'encours du client, calcule la marge brute, génère la facture `FAC-AAAA-XXXXXX`, décrémente les stocks au CMP, enregistre le paiement et trace dans l'audit.
-- `cancelInvoiceWithCreditNote(invoiceId, reason)`: Annule une facture avec émission d'un avoir `AVO-AAAA-XXXXXX`, restockage physique et régularisation de la dette client.
-- `recordDebtPayment(...)`: Encaisse un règlement partiel ou total de dette client, déduit le solde de la facture et réduit l'encours du client.
-
-### 7.6 Fonctions Stocks, Ajustements & Inventaires
-- `recordStockAdjustment(productId, qtyChange, type, justification)`: Ajuste manuellement le stock pour perte, casse, autoconsommation d'élevage ou correction.
-- `createInventorySession(categoryFilter)`: Ouvre une session `INV-AAAA-XXXXXX` et fige le stock théorique.
-- `validateInventorySession(sessionId, countedItems, notes)`: Compare comptage et théorique, valorise les écarts au CMP, ajuste les stocks réels et clôture l'inventaire.
-
-### 7.7 Fonctions Tiers (Clients & Fournisseurs)
-- `addCustomer(customer)`: Crée un tiers client avec son plafond de crédit initial.
-- `updateCustomer(customer)`: Actualise les données d'un client.
-- `addSupplier(supplier)`: Référence un fournisseur de matières premières ou emballages.
-- `updateSupplier(supplier)`: Met à jour les coordonnées d'un fournisseur.
-- `deleteSupplier(supplierId)`: Désactive un fournisseur.
-
-### 7.8 Fonctions Audit, Sauvegardes & Paramètres
-- `addAuditLog(action, target, id, oldVal, newVal, reason)`: Écrit une ligne inaltérable dans le registre de sécurité.
-- `updateSettings(newSettings)`: Enregistre les coordonnées de l'entreprise, NIF/RCCM, taux de TVA et plafonds globaux.
-- `exportSystemBackup()`: Génère une archive JSON complète et horodatée de l'ensemble de la base.
-- `restoreSystemBackup(json)`: Valide et réinjecte une sauvegarde complète dans le système.
-- `resetToDefaultData()`: Rétablit les données d'usine pré-calibrées pour la formation.
-- `getLowStockProducts()`: Détecte en temps réel les produits ayant atteint leur seuil d'alerte.
-- `getOutOfStockProducts()`: Identifie les ruptures de stock critiques.
+### 4.1 Caractéristiques Techniques du Pilote
+Le module d'impression thermique (`receiptPrinterService.ts`) fournit une passerelle haute performance pour l'édition de tickets de caisse :
+- **Formats Supportés :** 58 mm (imprimantes mobiles Bluetooth / USB) et 80 mm (caisses POS de comptoir).
+- **Architecture d'Impression :** Support natif du spooler Windows, imprimantes USB / réseau et conteneur iframe d'impression isolée.
+- **Éléments du Ticket :**
+  - Logo officiel de l'entreprise.
+  - En-tête de la coopérative et coordonnées fiscales (NIF, RCCM).
+  - Identification du caissier, date, heure et client.
+  - Tableau des articles détaillant désignation, quantité, prix unitaire et montant total.
+  - Récapitulatif financier (Total brut, remises, total net à payer, montants perçus, rendu de monnaie).
+  - Code-barres Code 39 du numéro de ticket pour scan optique ultérieur.
+- **Sécurité Anti-Fraude :** En cas de réimpression, mention automatique indélébile `*** DUPLICATA / RÉIMPRESSION ***`.
+- **Outil de Diagnostic :** Bouton de test matériel dans les paramètres pour vérifier la connectivité et l'alignement.
 
 ---
 
-## 8. Exportation & Téléchargement PDF
+## 5. Synchronisation Cloud Supabase & Architecture Hors-Ligne
 
-Le système intègre deux méthodes directes de génération PDF :
-1. **Téléchargement Direct du PDF Haute Définition :** Accessible via le bouton *"Télécharger le Manuel PDF"* dans l'interface de documentation ou le composant `generateApplicationDocumentationPDF()`. Le document est compilé côté client en format A4 vectoriel avec en-têtes, numérotation de pages `Page X sur Y`, table des matières et tableaux de synthèse.
-2. **Impression Optimisée du Navigateur :** Compatible avec la boîte de dialogue d'impression standard (Ctrl+P / Cmd+P), supprimant les barres de navigation et optimisant les sauts de page pour les rapports d'audit et la documentation.
+### 5.1 Fonctionnement Local-First Autonome
+Provenda est conçu pour fonctionner sans interruption, même en cas de coupure totale d'Internet :
+- Les ventes, encaissements, mouvements de stock et écritures d'inventaire sont immédiatement enregistrés en local (IndexedDB / LocalStorage).
+- Dès que le réseau est détecté, le moteur d'arrière-plan déclenche la synchronisation automatique (`performAutomaticSync`) vers la base PostgreSQL Supabase hébergée dans le cloud.
+- Un jeu de clés de secours est configuré dans `src/config/supabaseDefaultConfig.ts`, garantissant le raccordement immédiat sans saisie manuelle préalable.
+
+### 5.2 Sauvegarde & Restauration Système
+- **Export JSON Intégral :** Téléchargement instantané d'une archive complète et horodatée de toutes les tables applicatives.
+- **Restauration Intelligente :** Contrôle de schéma, validation d'intégrité et réinjection automatique des données.
 
 ---
-*Fin du document de spécification fonctionnelle et technique - Provenda v2.2.*
+
+## 6. Catalogue "Produits & Tarifs" & Historique des Prix
+
+Le module **Produits & Tarifs** (`ProductCatalog.tsx`) centralise la gestion commerciale :
+- Création rapide d'articles avec code automatique `PRD-XXX`.
+- Attribution des catégories : Matières premières, Aliments finis, Concentrés & Prémix, Fournitures vétérinaires.
+- Définition des unités d'achat et de vente, ratios de conversion et conditionnements (sacs de 50 kg, 25 kg, vrac au kg, bidons).
+- Révision des prix de vente : chaque modification enregistre l'ancien prix, le nouveau prix, la date, l'utilisateur et le motif dans l'historique `priceHistory` et dans la piste d'audit.
+- Uniformité des contrastes en mode sombre et clair pour une parfaite lisibilité en milieu industriel.
+
+---
+
+## 7. Console Développeur, Remise à Zéro Client & Normes de Tri
+
+### 7.1 Réinitialisation Usine ("Zéro Donnée Client")
+Pour permettre à l'intégrateur ou au développeur de livrer une application propre et vierge au client final :
+- La fonction **"Réinitialiser aux Données Initiales"** supprime l'intégralité des écritures transactionnelles : factures, tickets de caisse, commandes d'achats, mouvements de stock, sessions d'inventaire, dépenses d'exploitation et avoirs.
+- Elle préserve intacts le catalogue des produits, les utilisateurs de base, les paramètres de l'entreprise et le logo officiel en base64.
+- Le client final démarre son exploitation avec une comptabilité vierge sans résidus de tests.
+
+### 7.2 Classement Antéchronologique Universel
+Tous les écrans opérationnels de l'application classent systématiquement les flux par **date et heure de création décroissante** (les plus récents en premier) :
+- Ventes & factures de caisse
+- Commandes d'achats & réceptions fournisseurs
+- Mouvements du grand livre de stock
+- Sessions d'inventaire physique
+- Dépenses de trésorerie
+- Journal de la piste d'audit
+
+### 7.3 Formatage Standard des Devises
+Les montants financiers en Franc CFA adoptent la norme typographique officielle avec **espace insécable comme séparateur de milliers** (ex: `1 250 000 FCFA` au lieu de barres obliques ou de virgules erronées).
+
+---
+
+## 8. Rapports Financiers, Valorisation CMP & Piste d'Audit
+
+### 8.1 Rapport "Stocks & Valorisation CMP"
+- Audit instantané des quantités physiques disponibles en magasin.
+- Valorisation au CMP unitaire réel de chaque matière première et aliment fini.
+- **Ligne de totalisation contrastée :** La valeur totale du stock s'affiche sur un fond sombre uniforme avec texte clair, garantissant une lisibilité optimale à l'écran et sur document imprimé.
+
+### 8.2 Journal des Ventes & Marges
+- Chiffre d'affaires brut, remises accordées, chiffre d'affaires net.
+- Coût des ventes (CMV) calculé ligne par ligne sur la base du CMP lors de la vente.
+- Marge brute en valeur absolue et taux de marge commercial (%).
+
+### 8.3 Piste d'Audit Inaltérable (Audit Trail)
+- Enregistrement forensique de tout événement sensible : horodatage, utilisateur, entité cible, ancienne valeur, nouvelle valeur et justification.
+- Non-répudiation des actes de gestion pour le contrôle interne et les audits comptables.
+
+---
+
+## 9. Répertoire des Fonctions du Code Source (AppContext & Services)
+
+### Authentification & Sécurité RBAC
+- `login(email, password)`: Authentifie l'utilisateur, vérifie l'état actif du compte et met à jour `lastLogin`.
+- `logout()`: Clôture la session active et redirige vers la page d'accès.
+- `switchRole(role)`: Bascule temporairement de rôle pour tester les autorisations.
+- `addUser(user)`: Enregistre un utilisateur selon la hiérarchie Développeur > Administrateur > Opérationnels.
+- `updateUser(user)`: Met à jour coordonnées, rôle, mot de passe ou plafond de remise d'un employé.
+- `deactivateUser(id)`: Bloque l'accès d'un collaborateur sans supprimer son historique de vente.
+
+### Gestion du Catalogue
+- `addProduct(product)`: Crée un nouvel article ou intrant avec unité de base, conversion et prix de vente.
+- `updateProduct(product)`: Modifie la fiche produit et ses paramètres d'approvisionnement.
+- `updateProductPrice(id, newPrice, reason)`: Réviser le prix catalogue avec archivage dans `priceHistory` et audit.
+- `deleteProduct(id)`: Archive un produit obsolète sans impacter les factures antérieures.
+
+### Moteur de Caisse POS & Ventes
+- `createSale(...)`: Transaction atomique de vente. Vérifie le stock, applique les plafonds de remise, calcule la marge au CMP, décrémente le stock, génère `FAC-AAAA-XXXXXX` et imprime le ticket.
+- `cancelInvoiceWithCreditNote(id, reason)`: Annule une vente avec émission d'un avoir `AVO-AAAA-XXXXXX`, réintégration en stock au CMP et ajustement de créance.
+- `recordDebtPayment(...)`: Encaisse un versement sur une créance client et ajuste le solde restant dû.
+
+### Achats, Approvisionnements & Moteur CMP
+- `createPurchaseDraft(p, spId)`: Crée un bon de commande `ACH-AAAA-XXXXXX` avec estimation des frais d'approche.
+- `validatePurchaseReception(id)`: Moteur central du CMP. Intègre les frais de fret, calcule le nouveau CMP unitaire, crédite le stock et valide le bon de livraison.
+- `cancelPurchase(id, reason)`: Annule une commande en attente avec motif justificatif.
+
+### Pilote Thermique POS
+- `printReceipt(invoice, settings, config, isReprint)`: Transmet le ticket formaté à l'imprimante thermique via spooler ou iframe.
+- `formatReceiptThermal58mm(...)`: Génère le template HTML compact 32 colonnes pour imprimante 58 mm.
+- `formatReceiptThermal80mm(...)`: Génère le template HTML standardisé 42 colonnes pour caisse POS 80 mm.
+- `savePrinterConfig(config)`: Sauvegarde la configuration du matériel d'encaissement.
+- `printTestReceipt(settings, config)`: Émet un ticket de diagnostic pour valider le fonctionnement de l'imprimante.
+
+### Synchro Supabase & Maintenance
+- `performAutomaticSync()`: Synchronise automatiquement les tables locales vers la base cloud PostgreSQL.
+- `pushAllLocalDataToSupabase()`: Force l'envoi de la totalité des données locales vers Supabase.
+- `pullAllDataFromSupabase()`: Télécharge l'état cloud le plus récent sur la machine locale.
+- `resetToDefaultData()`: Console développeur : purge complète des données transactionnelles de test pour livraison au client.
+- `exportSystemBackup()`: Génère l'archive JSON téléchargeable de l'état système.
+- `restoreSystemBackup(json)`: Restaure l'application à partir d'un fichier de sauvegarde JSON.
+
+---
+
+## 10. Génération & Téléchargement du Document PDF
+
+1. **Génération Vectorielle Intégrée :** Le manuel est disponible au format PDF A4 officiel en français et en anglais via le module `buildApplicationDocumentationPDF()`.
+2. **Téléchargement dans l'Application :** Accessible directement depuis le menu **Documentation** de l'interface utilisateur en cliquant sur *"Télécharger la Documentation Complète (PDF)"*.
+3. **Mise à Jour Automatisée par Script :** La commande `npm run docs` régénère instantanément les fichiers PDF statiques dans les dossiers `/public` et `/dist`.
+
+---
+*Document officiel de référence fonctionnelle et technique — COOPS BIR - SAA | Provenda ERP v2.5.*

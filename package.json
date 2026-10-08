@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
+    "docs": "tsx scripts/generatePdfFile.ts",
     "electron:dev": "cross-env NODE_ENV=development electron electron/main.cjs",
     "electron:build": "npm run build && electron-builder --win",
     "electron:portable": "npm run build && electron-builder --win portable"

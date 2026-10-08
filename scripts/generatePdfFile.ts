@@ -17,3 +17,12 @@ const bufferEn = Buffer.from(docEn.output('arraybuffer'));
 const outputPathEn = path.resolve(process.cwd(), 'public', 'Documentation_Fonctionnalites_Provenda_EN.pdf');
 fs.writeFileSync(outputPathEn, bufferEn);
 console.log(`English PDF created: ${outputPathEn} (${bufferEn.length} bytes)`);
+
+// Also synchronize to dist/ if present
+const distDir = path.resolve(process.cwd(), 'dist');
+if (fs.existsSync(distDir)) {
+  fs.writeFileSync(path.join(distDir, 'Documentation_Fonctionnalites_Provenda_FR.pdf'), bufferFr);
+  fs.writeFileSync(path.join(distDir, 'Documentation_Fonctionnalites_Provenda.pdf'), bufferFr);
+  fs.writeFileSync(path.join(distDir, 'Documentation_Fonctionnalites_Provenda_EN.pdf'), bufferEn);
+  console.log('Synchronized PDFs to dist/ folder.');
+}
