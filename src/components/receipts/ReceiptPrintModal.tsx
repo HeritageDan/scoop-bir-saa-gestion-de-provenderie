@@ -199,7 +199,7 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
               <div className="text-center mb-2">
                 <img
                   src={settings.logoUrl || DEFAULT_APP_LOGO}
-                  alt={settings.name || 'COOPS BIR SAA'}
+                  alt={settings.name || 'SCOOPS BIR SAA'}
                   className="max-h-12 max-w-[180px] mx-auto object-contain filter grayscale contrast-150"
                 />
               </div>
@@ -207,7 +207,7 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
 
             {/* Store Header */}
             <div className="text-center space-y-0.5">
-              <div className="font-black text-sm tracking-wide">{settings.name || 'COOPS BIR SAA'}</div>
+              <div className="font-black text-sm tracking-wide">{settings.name || 'SCOOPS BIR SAA'}</div>
               <div className="text-[9px] opacity-80">{settings.legalStatus}</div>
               <div className="text-[9.5px]">{settings.address || 'Bafoussam, Cameroun'}</div>
               {settings.phone1 && <div className="text-[9px]">Tél : {settings.phone1}</div>}
@@ -337,7 +337,7 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
             {/* Footer Message */}
             <div className="text-center text-[8.5px] space-y-1 leading-tight">
               <div>{config.footerMessage || settings.ticketFooterNotice || 'Merci de votre fidélité !'}</div>
-              <div className="text-[8px] opacity-80">COOPS BIR SAA POS &middot; Provenderie Certifiée</div>
+              <div className="text-[8px] opacity-80">SCOOPS BIR SAA POS &middot; Provenderie Certifiée</div>
             </div>
 
             {/* Simulated Barcode */}

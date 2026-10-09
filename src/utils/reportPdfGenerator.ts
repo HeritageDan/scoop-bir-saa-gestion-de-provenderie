@@ -4,7 +4,7 @@ import { CompanySettings, Expense, Invoice, Product, Purchase, SalesPoint, User 
 import { isDateInRange, formatHumanDateRange } from './dateFilterUtils';
 import { formatFCFA, formatDate, formatNumber, formatUnit } from './formatters';
 
-// Common Palette for COOPS BIR SAA Reports
+// Common Palette for SCOOPS BIR SAA Reports
 const PRIMARY_COLOR: [number, number, number] = [6, 95, 70]; // Emerald 800
 const SECONDARY_COLOR: [number, number, number] = [15, 23, 42]; // Slate 900
 const TEXT_MUTED: [number, number, number] = [100, 116, 139]; // Slate 500
@@ -30,7 +30,7 @@ function addReportHeaderToDoc(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
   doc.setTextColor(...PRIMARY_COLOR);
-  doc.text(settings.name || 'COOPS BIR SAA', margin, 22);
+  doc.text(settings.name || 'SCOOPS BIR SAA', margin, 22);
 
   // Legal & Address
   doc.setFont('helvetica', 'normal');
@@ -39,7 +39,7 @@ function addReportHeaderToDoc(
   const locationText = `${salesPoint?.name ? salesPoint.name + ' — ' : ''}${salesPoint?.address || settings.address || 'Zone Industrielle Bassa, Douala'}`;
   doc.text(locationText, margin, 27);
 
-  const contactText = `Tél: ${salesPoint?.phone || settings.phone1 || '+237 699 00 11 22'}  |  Email: ${settings.email || 'contact@coops-bir-saa.cm'}  |  NIF: ${settings.taxId || 'M082612345678P'}`;
+  const contactText = `Tél: ${salesPoint?.phone || settings.phone1 || '+237 699 00 11 22'}  |  Email: ${settings.email || 'contact@scoops-bir-saa.cm'}  |  NIF: ${settings.taxId || 'M082612345678P'}`;
   doc.text(contactText, margin, 31.5);
 
   // Metadata block (top right)
@@ -89,7 +89,7 @@ function addReportFooterToDoc(doc: jsPDF, language: 'fr' | 'en' = 'fr') {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(...TEXT_MUTED);
-    doc.text('COOPS BIR SAA • Système Intégré de Gestion de Provenderie', margin, pageHeight - 9);
+    doc.text('SCOOPS BIR SAA • Système Intégré de Gestion de Provenderie', margin, pageHeight - 9);
     doc.text(`Page ${i} sur ${pageCount}`, pageWidth - margin, pageHeight - 9, { align: 'right' });
   }
 }

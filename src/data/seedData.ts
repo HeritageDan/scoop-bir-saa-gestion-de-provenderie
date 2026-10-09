@@ -23,7 +23,7 @@ export const INITIAL_SALES_POINTS: SalesPoint[] = [
     name: 'Siège Principal & Usine (Douala Bassa)',
     address: 'Zone Industrielle Bassa, Douala',
     phone: '+237 699 00 11 22',
-    managerName: 'Direction COOPS BIR SAA',
+    managerName: 'Direction SCOOPS BIR SAA',
     isMain: true,
     active: true,
     createdAt: '2026-01-01',
@@ -34,7 +34,7 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-dev',
     name: 'Développeur Système',
-    email: 'dev@coopsbir.com',
+    email: 'dev@scoopsbir.com',
     password: 'devpassword2026',
     role: 'developpeur',
     active: true,
@@ -510,8 +510,8 @@ export const INITIAL_CUSTOMERS: Customer[] = [
 ];
 
 export const INITIAL_COMPANY_SETTINGS: CompanySettings = {
-  name: 'COOPS BIR SAA',
-  legalStatus: 'Société Coopérative Agricole avec Conseil d\'Administration (COOPS BIR SAA)',
+  name: 'SCOOPS BIR SAA',
+  legalStatus: 'Société Coopérative Agricole avec Conseil d\'Administration (SCOOPS BIR SAA)',
   taxId: 'M082612345678P',
   tradeRegisterNumber: 'RC/BFM/2026/B/452',
   address: 'Zone Agro-Pastorale & Industrielle',
@@ -519,7 +519,7 @@ export const INITIAL_COMPANY_SETTINGS: CompanySettings = {
   country: 'Cameroun',
   phone1: '+237 233 44 55 66',
   phone2: '+237 699 10 20 30',
-  email: 'contact@coops-bir-saa.cm',
+  email: 'contact@scoops-bir-saa.cm',
   currency: 'FCFA',
   taxRatePercent: 0, // Produits d alimentation animale exonérés de TVA selon code fiscal
   isTaxEnabled: false,
@@ -530,7 +530,7 @@ export const INITIAL_COMPANY_SETTINGS: CompanySettings = {
   sessionTimeoutMinutes: 30,
   invoiceFooterNotice:
     'Les marchandises vendues ne sont ni reprises ni échangées après contrôle magasin. Merci de votre confiance.',
-  ticketFooterNotice: 'COOPS BIR SAA — Merci pour votre fidélité ! Aliments de qualité supérieure.',
+  ticketFooterNotice: 'SCOOPS BIR SAA — Merci pour votre fidélité ! Aliments de qualité supérieure.',
   transportFeesIntegratedInCMP: true,
   logoUrl: DEFAULT_APP_LOGO,
 };

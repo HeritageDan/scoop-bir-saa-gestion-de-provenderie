@@ -143,7 +143,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
         )}
         <img
           src={settings.logoUrl || DEFAULT_APP_LOGO}
-          alt={settings.name || 'COOPS BIR SAA'}
+          alt={settings.name || 'SCOOPS BIR SAA'}
           className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg object-contain bg-white p-0.5 border border-slate-200 dark:border-slate-700 shadow-xs shrink-0 cursor-pointer"
           onClick={() => onNavigateTab('settings')}
           title="Cliquez pour configurer le logo ou l'entreprise"
@@ -151,7 +151,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 sm:gap-2">
             <span className="font-bold tracking-tight text-sm sm:text-base uppercase whitespace-nowrap">
-              {settings.name || 'COOPS BIR SAA'}
+              {settings.name || 'SCOOPS BIR SAA'}
             </span>
             <span className="text-[10px] uppercase font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded shrink-0">
               POS

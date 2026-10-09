@@ -17,7 +17,7 @@ export function buildApplicationDocumentationPDF(language: Language = 'fr'): jsP
   const margin = 14;
   const contentWidth = pageWidth - margin * 2;
 
-  // Corporate Color Palette (COOPS BIR SAA / Emerald & Slate)
+  // Corporate Color Palette (SCOOPS BIR SAA / Emerald & Slate)
   const primaryColor: [number, number, number] = [16, 185, 129]; // Emerald 500
   const primaryDark: [number, number, number] = [6, 95, 70]; // Emerald 800
   const primaryLight: [number, number, number] = [209, 250, 229]; // Emerald 100
@@ -46,7 +46,7 @@ export function buildApplicationDocumentationPDF(language: Language = 'fr'): jsP
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
   doc.setTextColor(...primaryDark);
-  doc.text('COOPS BIR - SAA', margin + 26, coverY + 7);
+  doc.text('SCOOPS BIR - SAA', margin + 26, coverY + 7);
 
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
@@ -110,7 +110,7 @@ export function buildApplicationDocumentationPDF(language: Language = 'fr'): jsP
 
   const metadata = isEn
     ? [
-        ['Enterprise & Brand:', 'COOPS BIR - SAA (Feed Mill & Livestock Supplies)'],
+        ['Enterprise & Brand:', 'SCOOPS BIR - SAA (Feed Mill & Livestock Supplies)'],
         ['Application Engine:', 'Provenda ERP & POS Desktop / Web Edition v2.5'],
         ['Accounting Currency:', 'CFA Franc (FCFA / XAF) — Space-separated notation (e.g. 1 250 000 FCFA)'],
         ['Valuation Standard:', 'Weighted Average Cost (WAC / CMP) incorporating landing freight fees'],
@@ -120,7 +120,7 @@ export function buildApplicationDocumentationPDF(language: Language = 'fr'): jsP
         ['Edition Date:', new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'long', year: 'numeric' })],
       ]
     : [
-        ['Entreprise & Marque :', 'COOPS BIR - SAA (Provenderie & Élevage Moderne)'],
+        ['Entreprise & Marque :', 'SCOOPS BIR - SAA (Provenderie & Élevage Moderne)'],
         ['Système Logiciel :', 'Provenda ERP & Caisse POS Desktop / Web Edition v2.5'],
         ['Monnaie Comptable :', 'Franc CFA (FCFA / XAF) — Séparateur de milliers officiel (ex: 1 250 000 FCFA)'],
         ['Méthode de Valorisation :', 'Coût Moyen Pondéré (CMP) avec intégration des frais d\'approche'],
@@ -199,8 +199,8 @@ export function buildApplicationDocumentationPDF(language: Language = 'fr'): jsP
   doc.setTextColor(...slateMuted);
   doc.text(
     isEn
-      ? 'COOPS BIR - SAA © 2026 — Provenda ERP & POS All-in-One Software System'
-      : 'COOPS BIR - SAA © 2026 — Système Intégré Provenda ERP & Caisse POS',
+      ? 'SCOOPS BIR - SAA © 2026 — Provenda ERP & POS All-in-One Software System'
+      : 'SCOOPS BIR - SAA © 2026 — Système Intégré Provenda ERP & Caisse POS',
     margin,
     pageHeight - 8
   );
@@ -217,7 +217,7 @@ export function buildApplicationDocumentationPDF(language: Language = 'fr'): jsP
     doc.setFontSize(8.5);
     doc.setTextColor(...primaryDark);
     doc.text(
-      isEn ? 'COOPS BIR - SAA | PROVENDA ERP & POS REFERENCE' : 'COOPS BIR - SAA | PROVENDA ERP & CAISSE POS',
+      isEn ? 'SCOOPS BIR - SAA | PROVENDA ERP & POS REFERENCE' : 'SCOOPS BIR - SAA | PROVENDA ERP & CAISSE POS',
       margin,
       10
     );
@@ -1006,7 +1006,7 @@ export function buildApplicationDocumentationPDF(language: Language = 'fr'): jsP
             ['performAutomaticSync()', '() => Promise<{ success: boolean; message?: string }>', 'Background engine: checks network, pushes local state changes to Supabase cloud, pulls remote updates.'],
             ['pushAllLocalDataToSupabase()', '() => Promise<{ success: boolean; message: string }>', 'Uploads all local tables (products, invoices, purchases, movements, customers, suppliers) to Supabase.'],
             ['pullAllDataFromSupabase()', '() => Promise<{ success: boolean; data?: any; message?: string }>', 'Downloads cloud state and restores local storage ensuring multi-device synchronization.'],
-            ['resetToDefaultData()', '() => void', 'Developer exclusive maintenance action: purges all transactional entries (invoices, receipts, purchases, movements, sessions, expenses) while keeping product catalog, company settings and base64 logo.'],
+            ['resetToDefaultData()', '() => Promise<void>', 'Developer exclusive maintenance action: completely resets system to blank slate (purges products, customers, suppliers, non-dev users, transactions, inventories, expenses, and audit logs) while preserving developer account and system settings.'],
             ['exportSystemBackup()', '() => string', 'Generates timestamped JSON backup file containing all application state tables for disaster recovery.'],
             ['restoreSystemBackup(json)', '(jsonString: string) => { success: boolean; message?: string }', 'Validates JSON structure and restores full application state with audit logging.'],
           ]
@@ -1014,7 +1014,7 @@ export function buildApplicationDocumentationPDF(language: Language = 'fr'): jsP
             ['performAutomaticSync()', '() => Promise<{ success: boolean; message?: string }>', 'Moteur d\'arrière-plan : vérifie le réseau, pousse les modifications vers Supabase et télécharge les nouveautés.'],
             ['pushAllLocalDataToSupabase()', '() => Promise<{ success: boolean; message: string }>', 'Transfère l\'intégralité des tables locales vers la base cloud PostgreSQL Supabase.'],
             ['pullAllDataFromSupabase()', '() => Promise<{ success: boolean; data?: any; message?: string }>', 'Récupère les données cloud et met à jour le stockage local pour synchroniser plusieurs terminaux.'],
-            ['resetToDefaultData()', '() => void', 'Action Développeur exclusive : purge toutes les transactions (ventes, tickets, achats, mouvements, inventaires, dépenses) tout en conservant le catalogue de base, les paramètres et le logo.'],
+            ['resetToDefaultData()', '() => Promise<void>', 'Action Développeur exclusive : remise à zéro intégrale (purge produits, clients, fournisseurs, utilisateurs non-dev, transactions, inventaires, dépenses et piste d\'audit) en conservant uniquement le compte Développeur et les paramètres système.'],
             ['exportSystemBackup()', '() => string', 'Génère un fichier de sauvegarde JSON horodaté de toutes les tables applicatives.'],
             ['restoreSystemBackup(json)', '(jsonString: string) => { success: boolean; message?: string }', 'Vérifie l\'intégrité du fichier JSON et restaure la base complète avec consignation dans l\'audit.'],
           ],
@@ -1061,8 +1061,8 @@ export function buildApplicationDocumentationPDF(language: Language = 'fr'): jsP
     doc.setTextColor(...slateMuted);
     doc.text(
       isEn
-        ? `COOPS BIR - SAA | Provenda ERP & POS Official Documentation — Page ${i} of ${totalPages}`
-        : `COOPS BIR - SAA | Documentation Officielle Provenda ERP & POS — Page ${i} sur ${totalPages}`,
+        ? `SCOOPS BIR - SAA | Provenda ERP & POS Official Documentation — Page ${i} of ${totalPages}`
+        : `SCOOPS BIR - SAA | Documentation Officielle Provenda ERP & POS — Page ${i} sur ${totalPages}`,
       pageWidth / 2,
       pageHeight - 5,
       { align: 'center' }

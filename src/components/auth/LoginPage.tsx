@@ -106,12 +106,12 @@ export const LoginPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <img
             src={settings.logoUrl || DEFAULT_APP_LOGO}
-            alt={settings.name || 'COOPS BIR SAA'}
+            alt={settings.name || 'SCOOPS BIR SAA'}
             className="w-10 h-10 rounded-lg object-contain bg-white p-0.5 border border-slate-200 dark:border-slate-700 shadow-sm"
           />
           <div>
             <span className="font-bold tracking-tight text-base sm:text-lg uppercase">
-              {settings.name || 'COOPS BIR SAA'}
+              {settings.name || 'SCOOPS BIR SAA'}
             </span>
             <span className="ml-2 text-[10px] uppercase font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
               POS
@@ -182,7 +182,7 @@ export const LoginPage: React.FC = () => {
                     required
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder={language === 'fr' ? 'admin@coopsbir.com ou identifiant' : 'admin@coopsbir.com or username'}
+                    placeholder={language === 'fr' ? 'admin@scoopsbir.com ou identifiant' : 'admin@scoopsbir.com or username'}
                     className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
                       theme === 'dark'
                         ? 'bg-slate-800/80 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500'

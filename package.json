@@ -1,5 +1,5 @@
 {
-  "name": "coops-bir-saa",
+  "name": "scoops-bir-saa",
   "private": true,
   "version": "1.0.0",
   "description": "Application autonome de gestion de provenderie et caisse POS",
@@ -17,8 +17,8 @@
     "electron:portable": "npm run build && electron-builder --win portable"
   },
   "build": {
-    "appId": "com.coopsbir.pos",
-    "productName": "COOPS BIR SAA",
+    "appId": "com.scoopsbir.pos",
+    "productName": "SCOOPS BIR SAA",
     "directories": {
       "output": "dist-electron"
     },

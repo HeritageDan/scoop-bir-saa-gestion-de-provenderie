@@ -812,13 +812,25 @@ export async function clearSupabaseTable(tableName: string): Promise<boolean> {
   if (!config.isConfigured) return false;
 
   try {
-    const res = await fetch(`${config.url}/rest/v1/${tableName}?id=neq.placeholder_none`, {
+    let res = await fetch(`${config.url}/rest/v1/${tableName}?id=neq.placeholder_none`, {
       method: 'DELETE',
       headers: {
         'apikey': config.anonKey,
         'Authorization': `Bearer ${config.anonKey}`,
       },
     });
+
+    if (!res.ok && tableName === 'sales_points') {
+      const fallbackRes = await fetch(`${config.url}/rest/v1/salespoint?id=neq.placeholder_none`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': config.anonKey,
+          'Authorization': `Bearer ${config.anonKey}`,
+        },
+      });
+      return fallbackRes.ok;
+    }
+
     return res.ok;
   } catch {
     return false;
@@ -847,4 +859,78 @@ export async function clearAllSupabaseTransactions(): Promise<boolean> {
     return false;
   }
 }
+
+// Réinitialisation complète : effacer toutes les données (produits, clients, fournisseurs, audit logs, transactions, utilisateurs non-dev)
+// en conservant impérativement le compte Développeur et les paramètres de l'entreprise
+export async function clearAllSupabaseDataExceptDevAndSettings(devUserId?: string): Promise<boolean> {
+  const config = getSupabaseConfig();
+  if (!config.isConfigured) return false;
+
+  try {
+    // 1. Vider toutes les tables transactionnelles, produits, tiers et audit logs
+    const tablesToClear = [
+      'credit_notes',
+      'invoices',
+      'stock_movements',
+      'inventory_sessions',
+      'purchases',
+      'expenses',
+      'audit_logs',
+      'products',
+      'customers',
+      'suppliers',
+    ];
+
+    for (const tbl of tablesToClear) {
+      await clearSupabaseTable(tbl);
+    }
+
+    // 2. Vider les utilisateurs NON-DÉVELOPPEURS (conserver uniquement le développeur)
+    try {
+      await fetch(`${config.url}/rest/v1/users?role=neq.developpeur`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': config.anonKey,
+          'Authorization': `Bearer ${config.anonKey}`,
+        },
+      });
+
+      if (devUserId) {
+        await fetch(`${config.url}/rest/v1/users?id=neq.${devUserId}`, {
+          method: 'DELETE',
+          headers: {
+            'apikey': config.anonKey,
+            'Authorization': `Bearer ${config.anonKey}`,
+          },
+        });
+      }
+    } catch (e) {
+      console.warn('[Supabase] Erreur suppression utilisateurs non-dev:', e);
+    }
+
+    // 3. Vider les points de vente secondaires (ne conserver que pos-1)
+    try {
+      await fetch(`${config.url}/rest/v1/sales_points?id=neq.pos-1`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': config.anonKey,
+          'Authorization': `Bearer ${config.anonKey}`,
+        },
+      });
+      await fetch(`${config.url}/rest/v1/salespoint?id=neq.pos-1`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': config.anonKey,
+          'Authorization': `Bearer ${config.anonKey}`,
+        },
+      });
+    } catch {}
+
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Échec de la réinitialisation complète des tables:', err);
+    return false;
+  }
+}
+
 

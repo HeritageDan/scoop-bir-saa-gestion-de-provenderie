@@ -1,7 +1,7 @@
 {
-  "short_name": "COOPS BIR SAA",
-  "name": "COOPS BIR SAA — Gestion de Provenderie & Caisse POS",
-  "description": "Application autonome de gestion opérationnelle, caisse POS avec impression thermique et reporting pour provenderie",
+  "short_name": "SCOOPS BIR SAA",
+  "name": "SCOOPS BIR SAA",
+  "description": "Application autonome de gestion opérationnelle, caisse POS avec impression thermique et reporting pour provenderie SCOOPS BIR SAA",
   "icons": [
     {
       "src": "/assets/icon-192.png",

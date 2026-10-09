@@ -40,13 +40,13 @@ export const ReportHeader: React.FC<ReportHeaderProps> = ({
         <div className="flex items-start gap-3">
           <img
             src={settings.logoUrl || DEFAULT_APP_LOGO}
-            alt={settings.name || 'COOPS BIR SAA'}
+            alt={settings.name || 'SCOOPS BIR SAA'}
             className="w-16 h-16 object-contain rounded border border-slate-300 p-1 bg-white shrink-0"
           />
           <div>
             <div className="flex items-center gap-2">
               <span className="text-2xl font-black tracking-tight text-emerald-800 uppercase">
-                {settings.name || 'COOPS BIR SAA'}
+                {settings.name || 'SCOOPS BIR SAA'}
               </span>
               <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300">
                 {settings.legalStatus || 'PROVENDERIE'}

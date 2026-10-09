@@ -51,8 +51,10 @@ import {
   upsertRecordToSupabase,
   deleteRecordFromSupabase,
   clearAllSupabaseTransactions,
+  clearAllSupabaseDataExceptDevAndSettings,
   pushAllLocalDataToSupabase,
 } from '../services/supabaseService';
+import { updateAppIconEverywhere } from '../services/appIconService';
 
 interface AppContextType {
   // Theme & Language
@@ -162,7 +164,7 @@ interface AppContextType {
   // Backup & Restore
   exportSystemBackup: () => string;
   restoreSystemBackup: (jsonString: string) => { success: boolean; message: string };
-  resetToDefaultData: () => void;
+  resetToDefaultData: () => Promise<void>;
 
   // Helper selectors
   getLowStockProducts: () => Product[];
@@ -215,7 +217,7 @@ function mergeEntityLists<T extends { id?: string }>(
   const deletedIds = getDeletedIds();
 
   // Sur un nouveau navigateur sans synchronisation antérieure, la base distante est 100% prioritaire
-  if (isFreshClient && remoteList.length > 0) {
+  if (isFreshClient) {
     return remoteList.filter(item => item && item.id && !deletedIds.has(item.id));
   }
 
@@ -327,28 +329,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [products, setProducts] = useState<Product[]>(() => {
     const saved = localStorage.getItem('provenda_products');
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
     const saved = localStorage.getItem('provenda_suppliers');
-    return saved ? JSON.parse(saved) : INITIAL_SUPPLIERS;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [customers, setCustomers] = useState<Customer[]>(() => {
     const saved = localStorage.getItem('provenda_customers');
-    return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [purchases, setPurchases] = useState<Purchase[]>(() => {
     const saved = localStorage.getItem('provenda_purchases');
-    const list: Purchase[] = saved ? JSON.parse(saved) : INITIAL_PURCHASES;
+    const list: Purchase[] = saved ? JSON.parse(saved) : [];
     return list.sort((a, b) => new Date(b.receptionDate || b.orderDate || 0).getTime() - new Date(a.receptionDate || a.orderDate || 0).getTime());
   });
 
   const [invoices, setInvoices] = useState<Invoice[]>(() => {
     const saved = localStorage.getItem('provenda_invoices');
-    const list: Invoice[] = saved ? JSON.parse(saved) : INITIAL_INVOICES;
+    const list: Invoice[] = saved ? JSON.parse(saved) : [];
     return list.sort((a, b) => {
       const timeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
       const timeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
@@ -364,25 +366,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(() => {
     const saved = localStorage.getItem('provenda_stock_movements');
-    const list: StockMovement[] = saved ? JSON.parse(saved) : INITIAL_STOCK_MOVEMENTS;
+    const list: StockMovement[] = saved ? JSON.parse(saved) : [];
     return list.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
   });
 
   const [inventories, setInventories] = useState<InventorySession[]>(() => {
     const saved = localStorage.getItem('provenda_inventories');
-    const list: InventorySession[] = saved ? JSON.parse(saved) : INITIAL_INVENTORIES;
+    const list: InventorySession[] = saved ? JSON.parse(saved) : [];
     return list.sort((a, b) => new Date(b.startDate || 0).getTime() - new Date(a.startDate || 0).getTime());
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
     const saved = localStorage.getItem('provenda_audit_logs');
-    const list: AuditLog[] = saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
+    const list: AuditLog[] = saved ? JSON.parse(saved) : [];
     return list.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
   });
 
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
     const saved = localStorage.getItem('provenda_notifications');
-    return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [settings, setSettings] = useState<CompanySettings>(() => {
@@ -403,7 +405,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [expenses, setExpenses] = useState<Expense[]>(() => {
     const saved = localStorage.getItem('provenda_expenses');
-    const list: Expense[] = saved ? JSON.parse(saved) : INITIAL_EXPENSES;
+    const list: Expense[] = saved ? JSON.parse(saved) : [];
     return list.sort((a, b) => {
       const timeA = new Date(a.createdAt || `${a.date}T${a.time || '00:00'}`).getTime();
       const timeB = new Date(b.createdAt || `${b.date}T${b.time || '00:00'}`).getTime();
@@ -433,6 +435,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     syncWithIndexedDb();
   }, []);
+
+  // Synchronisation dynamique de l'icône de l'application (PWA, Favicon, Desktop Electron)
+  useEffect(() => {
+    if (settings?.logoUrl) {
+      updateAppIconEverywhere(settings.logoUrl);
+    }
+  }, [settings?.logoUrl]);
 
   // Cloud Supabase Sync States
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error' | 'offline'>('idle');
@@ -535,7 +544,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const d = pullRes.data;
         const isFresh = !localStorage.getItem('provenda_last_sync_time');
 
-        if (Array.isArray(d.users) && d.users.length > 0) {
+        if (Array.isArray(d.users)) {
           setUsers(prev => {
             const merged = mergeEntityLists(prev, d.users!, isFresh, lastSyncTime);
             if (!merged.some(u => u.role === 'developpeur')) {
@@ -547,7 +556,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
 
-        if (Array.isArray(d.products) && d.products.length > 0) {
+        if (Array.isArray(d.products)) {
           setProducts(prev => {
             const merged = isFresh ? d.products! : mergeEntityLists(prev, d.products!, false, lastSyncTime);
             localStorage.setItem('provenda_products', JSON.stringify(merged));
@@ -555,7 +564,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
 
-        if (Array.isArray(d.suppliers) && d.suppliers.length > 0) {
+        if (Array.isArray(d.suppliers)) {
           setSuppliers(prev => {
             const merged = isFresh ? d.suppliers! : mergeEntityLists(prev, d.suppliers!, false, lastSyncTime);
             localStorage.setItem('provenda_suppliers', JSON.stringify(merged));
@@ -563,7 +572,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
 
-        if (Array.isArray(d.customers) && d.customers.length > 0) {
+        if (Array.isArray(d.customers)) {
           setCustomers(prev => {
             const merged = isFresh ? d.customers! : mergeEntityLists(prev, d.customers!, false, lastSyncTime);
             localStorage.setItem('provenda_customers', JSON.stringify(merged));
@@ -571,7 +580,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
 
-        if (Array.isArray(d.purchases) && d.purchases.length > 0) {
+        if (Array.isArray(d.purchases)) {
           setPurchases(prev => {
             const merged = isFresh ? d.purchases! : mergeEntityLists(prev, d.purchases!, false, lastSyncTime);
             merged.sort((a, b) => new Date(b.receptionDate || b.orderDate || 0).getTime() - new Date(a.receptionDate || a.orderDate || 0).getTime());
@@ -580,7 +589,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
 
-        if (Array.isArray(d.invoices) && d.invoices.length > 0) {
+        if (Array.isArray(d.invoices)) {
           setInvoices(prev => {
             const merged = isFresh ? d.invoices! : mergeEntityLists(prev, d.invoices!, false, lastSyncTime);
             merged.sort((a, b) => {
@@ -593,7 +602,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
 
-        if (Array.isArray(d.creditNotes) && d.creditNotes.length > 0) {
+        if (Array.isArray(d.creditNotes)) {
           setCreditNotes(prev => {
             const merged = isFresh ? d.creditNotes! : mergeEntityLists(prev, d.creditNotes!, false, lastSyncTime);
             merged.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
@@ -602,7 +611,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
 
-        if (Array.isArray(d.stockMovements) && d.stockMovements.length > 0) {
+        if (Array.isArray(d.stockMovements)) {
           setStockMovements(prev => {
             const merged = isFresh ? d.stockMovements! : mergeEntityLists(prev, d.stockMovements!, false, lastSyncTime);
             merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -611,7 +620,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
 
-        if (Array.isArray(d.inventories) && d.inventories.length > 0) {
+        if (Array.isArray(d.inventories)) {
           setInventories(prev => {
             const merged = isFresh ? d.inventories! : mergeEntityLists(prev, d.inventories!, false, lastSyncTime);
             merged.sort((a, b) => new Date(b.startDate || 0).getTime() - new Date(a.startDate || 0).getTime());
@@ -620,7 +629,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
 
-        if (Array.isArray(d.expenses) && d.expenses.length > 0) {
+        if (Array.isArray(d.expenses)) {
           setExpenses(prev => {
             const merged = isFresh ? d.expenses! : mergeEntityLists(prev, d.expenses!, false, lastSyncTime);
             merged.sort((a, b) => {
@@ -633,15 +642,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
 
-        if (Array.isArray(d.salesPoints) && d.salesPoints.length > 0) {
+        if (Array.isArray(d.salesPoints)) {
           setSalesPoints(prev => {
             const merged = isFresh ? d.salesPoints! : mergeEntityLists(prev, d.salesPoints!, false, lastSyncTime);
+            if (merged.length === 0) {
+              merged.push(INITIAL_SALES_POINTS[0]);
+            }
             localStorage.setItem('provenda_sales_points', JSON.stringify(merged));
             return merged;
           });
         }
 
-        if (Array.isArray(d.auditLogs) && d.auditLogs.length > 0) {
+        if (Array.isArray(d.auditLogs)) {
           setAuditLogs(prev => {
             const merged = isFresh ? d.auditLogs! : mergeEntityLists(prev, d.auditLogs!, false, lastSyncTime);
             merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -945,7 +957,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       (u.name && u.name.trim().toLowerCase() === cleanEmail) ||
       (u.id && u.id.toLowerCase() === cleanEmail) ||
       (u.phone && u.phone.trim().replace(/\s+/g, '') === cleanEmail.replace(/\s+/g, '')) ||
-      (u.role === 'developpeur' && (cleanEmail === 'dev' || cleanEmail === 'dev@coopsbir.com' || cleanEmail === 'dev@provenda.net'))
+      (u.role === 'developpeur' && (cleanEmail === 'dev' || cleanEmail === 'dev@scoopsbir.com' || cleanEmail === 'dev@coopsbir.com' || cleanEmail === 'dev@provenda.net'))
     );
 
     // If not found locally, query Supabase for all users to ensure complete sync
@@ -977,7 +989,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 (u.name && u.name.trim().toLowerCase() === cleanEmail) ||
                 (u.id && u.id.toLowerCase() === cleanEmail) ||
                 (u.phone && u.phone.trim().replace(/\s+/g, '') === cleanEmail.replace(/\s+/g, '')) ||
-                (u.role === 'developpeur' && (cleanEmail === 'dev' || cleanEmail === 'dev@coopsbir.com' || cleanEmail === 'dev@provenda.net'))
+                (u.role === 'developpeur' && (cleanEmail === 'dev' || cleanEmail === 'dev@scoopsbir.com' || cleanEmail === 'dev@coopsbir.com' || cleanEmail === 'dev@provenda.net'))
               );
             }
           }
@@ -2977,14 +2989,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const resetToDefaultData = () => {
+  const resetToDefaultData = async (): Promise<void> => {
+    isSyncingRemoteRef.current = true;
+    if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+
     // 1. Keep solely Developer account for client hand-off
     const devUser = users.find(u => u.role === 'developpeur') || INITIAL_USERS[0];
     const blankUsers = [devUser];
     setUsers(blankUsers);
     setCurrentUser(devUser);
 
-    // 2. Main Sales Point (COOPS BIR SAA)
+    // 2. Main Sales Point (SCOOPS BIR SAA)
     const mainSp: SalesPoint = {
       id: 'pos-1',
       code: 'DP-DLA-01',
@@ -3009,62 +3024,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setExpenses([]);
     setNotifications([]);
 
-    // 4. Default cash customer (0 debt)
-    const defaultCashCustomer: Customer = {
-      id: 'cst-0',
-      code: 'CST-000',
-      name: 'Client Comptant / Vente Directe',
-      phone: '+237 600 000 000',
-      email: 'comptant@coopsbir.com',
-      address: 'Vente directe au comptoir, Douala',
-      type: 'particulier',
-      creditLimit: 0,
-      currentDebt: 0,
-      active: true,
-      createdAt: new Date().toISOString().slice(0, 10),
-    };
-    setCustomers([defaultCashCustomer]);
+    // 4. Customers & Suppliers: completely deleted
+    setCustomers([]);
     setSuppliers([]);
 
-    // 5. Products catalog: clean blank slate so client registers their own products
+    // 5. Products catalog: completely deleted
     setProducts([]);
 
-    // 6. Settings: Clean COOPS BIR SAA defaults
-    const cleanSettings: CompanySettings = {
-      ...INITIAL_COMPANY_SETTINGS,
-      name: 'COOPS BIR SAA',
-      logoUrl: DEFAULT_APP_LOGO,
+    // 6. Settings: PRESERVED as requested ("except the developer, and the system settings")
+    const preservedSettings: CompanySettings = {
+      ...settings,
+      logoUrl: settings.logoUrl || DEFAULT_APP_LOGO,
     };
-    setSettings(cleanSettings);
+    setSettings(preservedSettings);
 
-    // 7. Audit log initialization entry
-    const initLog: AuditLog = {
-      id: `aud-init-${Date.now()}`,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
-      userId: devUser.id,
-      userName: devUser.name,
-      userRole: 'developpeur',
-      action: 'RESTAURATION_SYSTEME',
-      targetObject: 'Mise en production client',
-      objectId: 'SYSTEM-BLANK',
-      justification: 'Remise à zéro complète : tous les tickets de caisse, factures, réceptions, inventaires et mouvements ont été effacés pour démarrage réel.',
-      ipAddress: '127.0.0.1',
-    };
-    setAuditLogs([initLog]);
+    // 7. Audit log: completely deleted
+    setAuditLogs([]);
 
-    // 8. Wipe LocalStorage & IndexedDB (tout en préservant impérativement la configuration Supabase)
+    // 8. Wipe LocalStorage & IndexedDB (tout en préservant impérativement la configuration Supabase et les paramètres)
     const cfg = getSupabaseConfig();
     const savedUrl = localStorage.getItem('provenda_supabase_url') || cfg.url;
     const savedKey = localStorage.getItem('provenda_supabase_key') || cfg.anonKey;
+    const currentTheme = localStorage.getItem('provenda_theme') || theme;
+    const currentLang = localStorage.getItem('provenda_language') || language;
+
     localStorage.clear();
     if (savedUrl) localStorage.setItem('provenda_supabase_url', savedUrl);
     if (savedKey) localStorage.setItem('provenda_supabase_key', savedKey);
+    localStorage.setItem('provenda_theme', currentTheme);
+    localStorage.setItem('provenda_language', currentLang);
     localStorage.setItem('provenda_auth', 'true');
     localStorage.setItem('provenda_current_user_id', devUser.id);
     localStorage.setItem('provenda_users', JSON.stringify(blankUsers));
     localStorage.setItem('provenda_sales_points', JSON.stringify([mainSp]));
-    localStorage.setItem('provenda_settings', JSON.stringify(cleanSettings));
-    localStorage.setItem('provenda_customers', JSON.stringify([defaultCashCustomer]));
+    localStorage.setItem('provenda_settings', JSON.stringify(preservedSettings));
+    localStorage.setItem('provenda_customers', JSON.stringify([]));
     localStorage.setItem('provenda_products', JSON.stringify([]));
     localStorage.setItem('provenda_invoices', JSON.stringify([]));
     localStorage.setItem('provenda_credit_notes', JSON.stringify([]));
@@ -3073,16 +3067,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('provenda_purchases', JSON.stringify([]));
     localStorage.setItem('provenda_expenses', JSON.stringify([]));
     localStorage.setItem('provenda_suppliers', JSON.stringify([]));
-    localStorage.setItem('provenda_audit_logs', JSON.stringify([initLog]));
+    localStorage.setItem('provenda_audit_logs', JSON.stringify([]));
+    localStorage.setItem('provenda_notifications', JSON.stringify([]));
+    localStorage.setItem('provenda_deleted_ids', JSON.stringify([]));
+    localStorage.setItem('provenda_last_sync_time', new Date().toISOString());
+
     clearAllIndexedDbStores();
 
-    // 9. Wipe Supabase transaction tables & push clean state if connected
+    // 9. Vider Supabase de manière synchrone et exhaustive (produits, clients, fournisseurs, audit logs, transactions, utilisateurs non-dev)
     const config = getSupabaseConfig();
     if (config.isConfigured) {
-      clearAllSupabaseTransactions().then(() => {
-        pushAllLocalDataToSupabase({
+      try {
+        await clearAllSupabaseDataExceptDevAndSettings(devUser.id);
+        // Pousser le compte développeur, le point de vente principal et les paramètres préservés
+        await pushAllLocalDataToSupabase({
           products: [],
-          customers: [defaultCashCustomer],
+          customers: [],
           suppliers: [],
           purchases: [],
           invoices: [],
@@ -3091,12 +3091,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           inventories: [],
           users: blankUsers,
           salesPoints: [mainSp],
-          auditLogs: [initLog],
-          settings: cleanSettings,
+          auditLogs: [],
+          settings: preservedSettings,
           expenses: [],
-        }).catch(err => console.warn('[Supabase] Reset sync:', err));
-      });
+        });
+      } catch (err) {
+        console.warn('[Supabase] Reset sync:', err);
+      }
     }
+
+    isSyncingRemoteRef.current = false;
+    hasLocalChangesRef.current = false;
   };
 
   const getLowStockProducts = () => {

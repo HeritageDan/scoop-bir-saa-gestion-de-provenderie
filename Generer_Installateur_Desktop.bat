@@ -1,10 +1,10 @@
 @echo off
-title COOPS BIR SAA - Generation du Package Desktop Standalone (.EXE)
+title SCOOPS BIR SAA - Generation du Package Desktop Standalone (.EXE)
 color 0B
 cd /d "%~dp0"
 
 echo ======================================================================
-echo    COOPS BIR SAA - GENERATION DU SETUP / INSTALLATEUR WINDOWS (.EXE)
+echo    SCOOPS BIR SAA - GENERATION DU SETUP / INSTALLATEUR WINDOWS (.EXE)
 echo ======================================================================
 echo.
 

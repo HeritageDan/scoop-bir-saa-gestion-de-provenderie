@@ -126,7 +126,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
   };
 
   // Selected customer object
-  const selectedCustomer = customers.find(c => c.id === selectedCustomerId) || customers[0];
+  const selectedCustomer = customers.find(c => c.id === selectedCustomerId) || customers[0] || null;
 
   // Filter products: only active products
   const filteredProducts = products.filter(p => {
@@ -266,6 +266,12 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
 
     if (cart.length === 0) {
       setErrorMsg('Veuillez ajouter au moins un produit au panier.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!selectedCustomer) {
+      setErrorMsg(language === 'fr' ? 'Veuillez enregistrer ou sélectionner un client avant d\'effectuer une vente.' : 'Please register or select a customer before completing a sale.');
       setIsSubmitting(false);
       return;
     }
@@ -728,6 +734,10 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
                 {language === 'fr' ? 'Enregistrer Client' : 'Save Customer'}
               </button>
             </form>
+          ) : customers.length === 0 ? (
+            <div className="text-xs text-amber-500 italic py-1.5 px-2 border border-dashed border-amber-500/30 rounded-lg">
+              {language === 'fr' ? 'Aucun client enregistré (utilisez le bouton + pour en ajouter)' : 'No customer registered (use the + button to add)'}
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               <select
@@ -746,7 +756,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
                 ))}
               </select>
 
-              {selectedCustomer.id !== 'cst-0' && selectedCustomer.currentDebt > 0 && (
+              {selectedCustomer && selectedCustomer.id !== 'cst-0' && selectedCustomer.currentDebt > 0 && (
                 <div className="bg-rose-500/10 border border-rose-500/30 text-rose-500 text-[10px] px-2 py-1 rounded font-semibold whitespace-nowrap">
                   {language === 'fr' ? 'Dette :' : 'Debt:'} {formatFCFA(selectedCustomer.currentDebt)}
                 </div>

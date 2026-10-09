@@ -9,7 +9,7 @@ function createWindow() {
     height: 800,
     minWidth: 1024,
     minHeight: 700,
-    title: 'COOPS BIR SAA — Gestion de Provenderie & Caisse POS',
+    title: 'SCOOPS BIR SAA',
     icon: path.join(__dirname, '../public/assets/icon-512.png'),
     webPreferences: {
       nodeIntegration: false,
@@ -81,6 +81,24 @@ ipcMain.handle('print-receipt', async (event, { printerName, silent = true, copi
       );
     });
   } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// IPC: Dynamic Desktop Icon updater when user uploads logo
+ipcMain.handle('update-app-icon', async (event, { base64DataUrl }) => {
+  if (!base64DataUrl) return { success: false, error: 'Donnée image manquante' };
+  try {
+    const { nativeImage } = require('electron');
+    const image = nativeImage.createFromDataURL(base64DataUrl);
+    if (mainWindow && !image.isEmpty()) {
+      mainWindow.setIcon(image);
+    }
+    const { updateDesktopIconEverywhere } = require('../scripts/desktopIconUpdater.cjs');
+    updateDesktopIconEverywhere(base64DataUrl);
+    return { success: true };
+  } catch (err) {
+    console.error('Failed to update app icon in Electron:', err);
     return { success: false, error: err.message };
   }
 });

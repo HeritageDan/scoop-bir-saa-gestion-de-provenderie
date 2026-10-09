@@ -401,9 +401,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.restore_empty_error': 'Veuillez coller le contenu JSON de sauvegarde.',
     'settings.restore_invalid_error': 'Erreur : structure JSON invalide ou corrompue.',
     'settings.reset_title': 'Mise en Production : Remise à Blanc Complète',
-    'settings.reset_desc': 'Supprime définitivement tous les tickets de caisse, factures, réceptions, mouvements de stock, sessions d\'inventaire et dépenses pour livrer un système 100% vierge au client. Seul votre compte Développeur est conservé pour créer l\'Administrateur.',
+    'settings.reset_desc': 'Supprime définitivement tous les produits, clients, fournisseurs, utilisateurs, factures, réceptions, mouvements de stock, inventaires, dépenses et journaux d\'audit. Seuls votre compte Développeur et les paramètres système sont conservés.',
     'settings.reset_btn': 'Réinitialiser le Système Vierge (Mise en Production)',
-    'settings.reset_confirm': 'ATTENTION ACTION IRRÉVERSIBLE : Cette action va complètement supprimer toutes les données de transaction (ventes, tickets, stocks, achats, inventaires, dépenses). Le système redeviendra 100% vierge pour le client en conservant uniquement votre compte Développeur. Confirmer ?',
+    'settings.reset_confirm': 'ATTENTION ACTION IRRÉVERSIBLE : Cette action va complètement supprimer toutes les données (produits, clients, fournisseurs, utilisateurs non-dev, factures, stocks, achats, inventaires, dépenses, journaux d\'audit). Seuls votre compte Développeur et les paramètres système seront conservés. Confirmer la réinitialisation complète ?',
 
     'settings.supabase_title': 'Base de Données Cloud Supabase (PostgreSQL)',
     'settings.supabase_desc': 'Connectez votre instance Cloud Supabase pour activer la persistance PostgreSQL et la synchronisation multi-postes.',
@@ -831,9 +831,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.restore_empty_error': 'Please paste the JSON backup content.',
     'settings.restore_invalid_error': 'Error: invalid or corrupted JSON data structure.',
     'settings.reset_title': 'Production Reset: Clean Slate for Client',
-    'settings.reset_desc': 'Permanently deletes all test receipts, sales invoices, stock movements, inventories, and expenses to hand over a 100% clean blank system to the client. Only your Developer account is preserved to create the Administrator.',
+    'settings.reset_desc': 'Permanently deletes all products, customers, suppliers, users, receipts, sales invoices, stock movements, inventories, expenses and audit logs. Only your Developer account and system settings are preserved.',
     'settings.reset_btn': 'Reset to Blank (Production Launch)',
-    'settings.reset_confirm': 'WARNING: This will permanently delete all test transactions (sales, receipts, stock movements, physical inventories, expenses). The system will become 100% blank for the client, preserving only your Developer account. Continue?',
+    'settings.reset_confirm': 'WARNING: This will permanently delete all products, customers, suppliers, non-developer users, transactions, inventories, expenses, and audit logs. Only your Developer account and system settings will be preserved. Continue?',
 
     'settings.supabase_title': 'Supabase Cloud Database (PostgreSQL)',
     'settings.supabase_desc': 'Connect your Supabase Cloud PostgreSQL database for multi-device sync and cloud backup.',

@@ -1,5 +1,5 @@
 /**
- * Configuration Supabase par défaut pour COOPS BIR SAA (Provenda)
+ * Configuration Supabase par défaut pour SCOOPS BIR SAA (Provenda)
  * 
  * Ce fichier permet d'embarquer les clés du projet Supabase afin que
  * chaque nouveau navigateur, appareil mobile ou installation de bureau

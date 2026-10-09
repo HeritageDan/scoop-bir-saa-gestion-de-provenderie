@@ -50,6 +50,7 @@ import {
 import { SUPABASE_SCHEMA_SQL } from '../../services/supabaseSchema';
 import { DEFAULT_APP_LOGO } from '../../config/defaultLogo';
 import { getDatabaseStats } from '../../services/indexedDbStorage';
+import { updateAppIconEverywhere } from '../../services/appIconService';
 
 export const SettingsManager: React.FC = () => {
   const {
@@ -100,6 +101,7 @@ export const SettingsManager: React.FC = () => {
   const [backupJson, setBackupJson] = useState('');
   const [restoreError, setRestoreError] = useState('');
   const [restoreSuccess, setRestoreSuccess] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
 
   // Logo upload from PC state
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -150,12 +152,15 @@ export const SettingsManager: React.FC = () => {
           ctx.drawImage(img, 0, 0, width, height);
           const optimizedDataUrl = canvas.toDataURL('image/png');
           setCompanyForm(prev => ({ ...prev, logoUrl: optimizedDataUrl }));
+          updateAppIconEverywhere(optimizedDataUrl);
         } else {
           setCompanyForm(prev => ({ ...prev, logoUrl: dataUrl }));
+          updateAppIconEverywhere(dataUrl);
         }
       };
       img.onerror = () => {
         setCompanyForm(prev => ({ ...prev, logoUrl: dataUrl }));
+        updateAppIconEverywhere(dataUrl);
       };
       img.src = dataUrl;
     };
@@ -170,6 +175,7 @@ export const SettingsManager: React.FC = () => {
 
   const handleRemoveLogo = () => {
     setCompanyForm(prev => ({ ...prev, logoUrl: DEFAULT_APP_LOGO }));
+    updateAppIconEverywhere(DEFAULT_APP_LOGO);
   };
 
   // Thermal Printer config state
@@ -300,10 +306,12 @@ export const SettingsManager: React.FC = () => {
 
   const handleSaveCompany = (e: React.FormEvent) => {
     e.preventDefault();
+    const finalLogo = companyForm.logoUrl || DEFAULT_APP_LOGO;
     updateSettings({
       ...companyForm,
-      logoUrl: companyForm.logoUrl || DEFAULT_APP_LOGO,
+      logoUrl: finalLogo,
     });
+    updateAppIconEverywhere(finalLogo);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);
   };
@@ -377,18 +385,25 @@ export const SettingsManager: React.FC = () => {
     }
   };
 
-  const handleResetData = () => {
+  const handleResetData = async () => {
     const confirmMsg = language === 'fr'
-      ? 'ATTENTION ACTION IRRÉVERSIBLE :\n\nVoulez-vous réinitialiser l\'application à un état 100% VIERGE pour la mise en production client ?\n\n• Tous les tickets et factures seront supprimés\n• Tous les inventaires physiques seront supprimés\n• Tous les mouvements de stock et achats seront supprimés\n• Toutes les dépenses seront supprimées\n• Le catalogue de produits sera réinitialisé à blanc\n• Seul votre compte Développeur sera conservé pour créer l\'Administrateur.\n\nConfirmer la remise à blanc complète ?'
-      : 'WARNING IRREVERSIBLE ACTION:\n\nDo you want to reset the system to a 100% BLANK slate for client production launch?\n\n• All receipts and invoices will be deleted\n• All physical inventories will be deleted\n• All stock movements and purchases will be deleted\n• All expenses will be deleted\n• Product catalog will be reset blank\n• Only your Developer account will be preserved.\n\nConfirm complete blank reset?';
+      ? 'ATTENTION ACTION IRRÉVERSIBLE :\n\nVoulez-vous réinitialiser l\'application à un état 100% VIERGE ?\n\n• Tous les produits seront supprimés\n• Tous les clients et fournisseurs seront supprimés\n• Tous les utilisateurs (sauf votre compte Développeur) seront supprimés\n• Tous les tickets, factures et achats seront supprimés\n• Tous les mouvements de stock et inventaires seront supprimés\n• Toutes les dépenses et les journaux d\'audit seront supprimés\n• Seuls votre compte Développeur et les paramètres du système seront conservés.\n\nConfirmer la réinitialisation complète ?'
+      : 'WARNING IRREVERSIBLE ACTION:\n\nDo you want to reset the system to a 100% BLANK slate?\n\n• All products will be deleted\n• All customers and suppliers will be deleted\n• All users (except your Developer account) will be deleted\n• All receipts, invoices and purchases will be deleted\n• All stock movements and inventories will be deleted\n• All expenses and audit logs will be deleted\n• Only your Developer account and system settings will be preserved.\n\nConfirm complete reset?';
 
     if (window.confirm(confirmMsg)) {
-      resetToDefaultData();
-      alert(
-        language === 'fr'
-          ? 'Le système a été réinitialisé à blanc avec succès ! Tous les tickets, mouvements et inventaires de test ont été définitivement effacés. Vous pouvez maintenant créer le compte Administrateur de votre client.'
-          : 'System successfully reset to blank! All receipts, movements and inventories have been cleared.'
-      );
+      setIsResetting(true);
+      try {
+        await resetToDefaultData();
+        alert(
+          language === 'fr'
+            ? 'Le système a été réinitialisé à blanc avec succès ! Tous les produits, clients, fournisseurs, utilisateurs, transactions et journaux d\'audit ont été définitivement effacés localement et sur Supabase. Votre compte Développeur et vos paramètres système ont été préservés.'
+            : 'System successfully reset to blank! All products, customers, suppliers, users, transactions and audit logs have been permanently deleted locally and on Supabase. Your Developer account and system settings have been preserved.'
+        );
+      } catch (err: any) {
+        alert(language === 'fr' ? `Erreur lors de la réinitialisation : ${err?.message || err}` : `Reset error: ${err?.message || err}`);
+      } finally {
+        setIsResetting(false);
+      }
     }
   };
 
@@ -1122,7 +1137,7 @@ export const SettingsManager: React.FC = () => {
                         required
                         value={newUserForm.email}
                         onChange={e => setNewUserForm({ ...newUserForm, email: e.target.value })}
-                        placeholder="admin@coopsbir.com"
+                        placeholder="admin@scoopsbir.com"
                         className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                           theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                         }`}
@@ -1183,7 +1198,7 @@ export const SettingsManager: React.FC = () => {
                       {currentUser.role === 'developpeur' && hasActiveAdmin && (
                         <p className="text-[10px] text-amber-500 mt-1">
                           {language === 'fr'
-                            ? 'ℹ️ Un Administrateur actif existe déjà. Selon la hiérarchie COOPS BIR SAA, un seul Administrateur est autorisé.'
+                            ? 'ℹ️ Un Administrateur actif existe déjà. Selon la hiérarchie SCOOPS BIR SAA, un seul Administrateur est autorisé.'
                             : 'ℹ️ An active Administrator already exists. Only one is allowed.'}
                         </p>
                       )}
@@ -1860,9 +1875,17 @@ export const SettingsManager: React.FC = () => {
               <button
                 type="button"
                 onClick={handleResetData}
-                className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2 rounded-xl shadow-xs cursor-pointer transition shrink-0 self-start sm:self-auto text-xs"
+                disabled={isResetting}
+                className="bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-xl shadow-xs cursor-pointer transition shrink-0 self-start sm:self-auto text-xs flex items-center gap-2"
               >
-                {t('settings.reset_btn')}
+                {isResetting ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>{language === 'fr' ? 'Réinitialisation en cours...' : 'Resetting...'}</span>
+                  </>
+                ) : (
+                  <span>{t('settings.reset_btn')}</span>
+                )}
               </button>
             </div>
           </div>

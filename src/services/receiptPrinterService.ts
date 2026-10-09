@@ -1,5 +1,5 @@
 /**
- * COOPS BIR SAA - Thermal Receipt Printing Engine
+ * SCOOPS BIR SAA - Thermal Receipt Printing Engine
  * 
  * High-performance POS thermal printer driver supporting:
  * - 58 mm and 80 mm paper formats
@@ -17,7 +17,7 @@ export const DEFAULT_PRINTER_CONFIG: ReceiptPrinterConfig = {
   paperWidth: '80mm',
   printerName: 'Imprimante Windows par défaut',
   numberOfCopies: 1,
-  headerMessage: 'COOPS BIR SAA — Provenderie & Élevage',
+  headerMessage: 'SCOOPS BIR SAA — Provenderie & Élevage',
   footerMessage: 'Merci pour votre fidélité ! Aliments de qualité supérieure pour volailles, porcs et bétail.',
   showBarcode: true,
   showLogo: true,
@@ -121,7 +121,7 @@ export const buildThermalReceiptHtml = (
   const logoHtml =
     config.showLogo && effectiveReceiptLogo
       ? `<div style="text-align: center; margin-bottom: 4px;">
-          <img src="${effectiveReceiptLogo}" alt="${settings.name || 'COOPS BIR SAA'}" style="max-height: 42px; max-width: ${is58mm ? '44mm' : '65mm'}; object-fit: contain; filter: grayscale(100%) contrast(150%);" />
+          <img src="${effectiveReceiptLogo}" alt="${settings.name || 'SCOOPS BIR SAA'}" style="max-height: 42px; max-width: ${is58mm ? '44mm' : '65mm'}; object-fit: contain; filter: grayscale(100%) contrast(150%);" />
         </div>`
       : '';
 
@@ -239,7 +239,7 @@ export const buildThermalReceiptHtml = (
 
         <!-- Store Header -->
         <div class="text-center">
-          <div style="font-size: ${titleSize}; font-weight: 900; letter-spacing: 0.5px;">${settings.name || 'COOPS BIR SAA'}</div>
+          <div style="font-size: ${titleSize}; font-weight: 900; letter-spacing: 0.5px;">${settings.name || 'SCOOPS BIR SAA'}</div>
           ${settings.legalStatus ? `<div style="font-size: 8.5px; margin-top: 1px;">${settings.legalStatus}</div>` : ''}
           <div style="font-size: 9px; margin-top: 2px;">${settings.address || 'Bafoussam, Cameroun'}</div>
           ${settings.phone1 ? `<div style="font-size: 9px;">Tél: ${settings.phone1} ${settings.phone2 ? '/ ' + settings.phone2 : ''}</div>` : ''}
@@ -371,7 +371,7 @@ export const buildThermalReceiptHtml = (
         <div class="text-center" style="font-size: 8.5px; margin-top: 3px; line-height: 1.3;">
           <div>${config.footerMessage || settings.ticketFooterNotice || 'Merci de votre fidélité !'}</div>
           <div style="margin-top: 2px; font-size: 8px;">Les provendes de qualité supérieure certifiées</div>
-          <div style="font-size: 7.5px; color: #444; margin-top: 2px;">COOPS BIR SAA POS v2.2 - Mode Hors-Ligne</div>
+          <div style="font-size: 7.5px; color: #444; margin-top: 2px;">SCOOPS BIR SAA POS v2.2 - Mode Hors-Ligne</div>
         </div>
 
         ${barcodeHtml}
