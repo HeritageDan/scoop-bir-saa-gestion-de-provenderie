@@ -407,33 +407,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Bottom session indicator */}
-        <div className={`p-3 border-t shrink-0 ${
+        <div className={`px-3 py-1.5 border-t shrink-0 ${
           theme === 'dark' ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-slate-50'
         }`}>
-          <div className={`rounded-xl p-2.5 border ${
+          <div className={`rounded-lg px-2.5 py-1.5 border ${
             theme === 'dark' ? 'bg-slate-800/80 border-slate-700/60' : 'bg-white border-slate-200 shadow-xs'
           }`}>
-            <div className="flex items-center justify-between text-[11px] font-semibold mb-1">
-              <span className={theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}>{t('sidebar.session_profile')}</span>
-              <span className="text-emerald-500 capitalize">{t(`role.${currentUser.role}`) || currentUser.role}</span>
+            <div className="flex items-center justify-between text-[10px] font-semibold leading-tight">
+              <span className={theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}>{t('sidebar.session_profile')}</span>
+              <span className="text-emerald-500 capitalize font-bold truncate ml-1">{t(`role.${currentUser.role}`) || currentUser.role}</span>
             </div>
-            <div className={`text-[10px] flex items-center gap-1.5 ${
+            <div className={`text-[9px] mt-0.5 flex items-center gap-1.5 leading-tight ${
               theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
             }`}>
-              <span>{t('sidebar.max_discount')}</span>
-              <span className="font-semibold text-emerald-500">
-                {currentUser.role === 'caissier'
-                  ? '0%'
-                  : currentUser.role === 'responsable'
-                  ? '≤ 15%'
-                  : t('sidebar.unlimited')}
-              </span>
-            </div>
-            <div className={`text-[10px] mt-1 flex items-center gap-1 ${
-              theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
-            }`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>{t('sidebar.rules_active')}</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+              <span className="truncate">{t('sidebar.rules_active')}</span>
             </div>
           </div>
         </div>
