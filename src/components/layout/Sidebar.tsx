@@ -22,6 +22,7 @@ import {
   Globe,
   Cloud,
   RefreshCw,
+  MonitorDown,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -51,6 +52,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     lastSyncTime,
     triggerManualSync,
     isSupabaseConfigured,
+    setShowDesktopInstallModal,
+    isStandalone,
   } = useApp();
 
   // Alert counters
@@ -331,6 +334,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             )}
           </div>
+        </div>
+
+        {/* Desktop App Quick Launch / Install Button */}
+        <div className="px-3 pt-2 pb-1 shrink-0">
+          <button
+            onClick={() => setShowDesktopInstallModal(true)}
+            className={`w-full py-1.5 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-between border transition cursor-pointer ${
+              theme === 'dark'
+                ? 'bg-slate-800/80 hover:bg-slate-800 text-sky-400 border-slate-700/80'
+                : 'bg-white hover:bg-slate-50 text-sky-700 border-slate-200 shadow-xs'
+            }`}
+            title={language === 'fr' ? 'Installer ou télécharger l\'application de bureau Windows' : 'Install or download Windows desktop app'}
+          >
+            <div className="flex items-center gap-2">
+              <MonitorDown className="w-3.5 h-3.5 text-sky-500" />
+              <span className="font-semibold text-[11px]">
+                {language === 'fr' ? 'Application Bureau' : 'Desktop App'}
+              </span>
+            </div>
+            <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase bg-sky-500/10 text-sky-500 border border-sky-500/20">
+              {isStandalone ? (language === 'fr' ? 'Actif' : 'Active') : (language === 'fr' ? 'Installer' : 'Install')}
+            </span>
+          </button>
         </div>
 
         {/* Bottom Theme & Language Controls */}

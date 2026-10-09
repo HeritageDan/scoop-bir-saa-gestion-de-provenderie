@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   RefreshCw,
   X,
+  MonitorDown,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -21,9 +22,21 @@ import {
   testSupabaseConnection,
 } from '../../services/supabaseService';
 import { DEFAULT_APP_LOGO } from '../../config/defaultLogo';
+import { DesktopInstallModal } from '../modals/DesktopInstallModal';
 
 export const LoginPage: React.FC = () => {
-  const { login, theme, language, t, settings, triggerManualSync, isSupabaseConfigured } = useApp();
+  const {
+    login,
+    theme,
+    language,
+    t,
+    settings,
+    triggerManualSync,
+    isSupabaseConfigured,
+    showDesktopInstallModal,
+    setShowDesktopInstallModal,
+    canInstallPwa,
+  } = useApp();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -119,8 +132,28 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Top Right Cloud Supabase Link Button */}
+        {/* Top Right Cloud Supabase Link & Desktop App Buttons */}
         <div className="flex items-center gap-2">
+          {/* Desktop App Download & Install Quick Access */}
+          <button
+            type="button"
+            onClick={() => setShowDesktopInstallModal(true)}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${
+              theme === 'dark'
+                ? 'bg-slate-800 border-slate-700 text-sky-400 hover:bg-slate-700 hover:text-sky-300'
+                : 'bg-white border-slate-200 text-sky-700 hover:bg-slate-50 shadow-xs'
+            }`}
+            title="Installer ou télécharger l'application de bureau Windows"
+          >
+            <MonitorDown className="w-4 h-4 text-sky-500" />
+            <span className="hidden sm:inline">
+              {language === 'fr' ? 'App Bureau' : 'Desktop App'}
+            </span>
+            {canInstallPwa && (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Prêt pour installation directe" />
+            )}
+          </button>
+
           <button
             onClick={handleOpenCloudModal}
             className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${
@@ -385,6 +418,12 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Desktop Install & Download Modal */}
+      <DesktopInstallModal
+        isOpen={showDesktopInstallModal}
+        onClose={() => setShowDesktopInstallModal(false)}
+      />
     </div>
   );
 };

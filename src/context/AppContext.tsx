@@ -176,6 +176,13 @@ interface AppContextType {
   syncErrorMessage?: string;
   triggerManualSync: (silent?: boolean) => Promise<void>;
   isSupabaseConfigured: boolean;
+
+  // Desktop & PWA Installation
+  canInstallPwa: boolean;
+  isStandalone: boolean;
+  installPwa: () => Promise<boolean>;
+  showDesktopInstallModal: boolean;
+  setShowDesktopInstallModal: (show: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -265,6 +272,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [language, setLanguageState] = useState<Language>(() => {
     return (localStorage.getItem('provenda_language') as Language) || 'fr';
   });
+
+  // Desktop & PWA Installation State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [canInstallPwa, setCanInstallPwa] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+  });
+  const [showDesktopInstallModal, setShowDesktopInstallModal] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setCanInstallPwa(true);
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+      setCanInstallPwa(false);
+      setIsStandalone(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const installPwa = async (): Promise<boolean> => {
+    if (!deferredPrompt) {
+      return false;
+    }
+    try {
+      await deferredPrompt.prompt();
+      const choiceResult = await deferredPrompt.userChoice;
+      if (choiceResult && choiceResult.outcome === 'accepted') {
+        setDeferredPrompt(null);
+        setCanInstallPwa(false);
+        setIsStandalone(true);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Error during PWA installation prompt:', err);
+      return false;
+    }
+  };
 
   // Sales point (Points de vente et dépôts)
   const [salesPoints, setSalesPoints] = useState<SalesPoint[]>(() => {
@@ -3230,6 +3288,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         syncErrorMessage,
         triggerManualSync,
         isSupabaseConfigured: getSupabaseConfig().isConfigured,
+        canInstallPwa,
+        isStandalone,
+        installPwa,
+        showDesktopInstallModal,
+        setShowDesktopInstallModal,
       }}
     >
       {children}

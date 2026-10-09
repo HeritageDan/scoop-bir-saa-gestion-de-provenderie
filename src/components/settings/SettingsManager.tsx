@@ -27,6 +27,9 @@ import {
   Trash2,
   Plus,
   X,
+  MonitorDown,
+  Laptop,
+  FileCode,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { CompanySettings, Role, ReceiptPrinterConfig, ReceiptPaperWidth } from '../../types';
@@ -78,6 +81,9 @@ export const SettingsManager: React.FC = () => {
     theme,
     language,
     t,
+    setShowDesktopInstallModal,
+    isStandalone,
+    canInstallPwa,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'company' | 'users' | 'security' | 'database' | 'printer'>('company');
@@ -1854,6 +1860,124 @@ export const SettingsManager: React.FC = () => {
                 )}
               </div>
             </form>
+          </div>
+
+          {/* DESKTOP APPLICATION & SHORTCUTS CARD */}
+          <div className={`border rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs ${
+            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-500 flex items-center justify-center">
+                  <MonitorDown className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className={`text-sm font-bold flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                    <span>{language === 'fr' ? 'Application de Bureau & Raccourcis Windows' : 'Desktop Application & Windows Shortcuts'}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase bg-sky-500/10 text-sky-500 border border-sky-500/20">
+                      {isStandalone ? (language === 'fr' ? 'Mode Bureau Actif' : 'Desktop Mode Active') : (language === 'fr' ? 'Web PWA' : 'Web PWA')}
+                    </span>
+                  </h2>
+                  <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                    {language === 'fr'
+                      ? 'Installez SCOOPS BIR SAA directement sur votre Bureau Windows ou téléchargez les scripts lanceurs autonomes.'
+                      : 'Install SCOOPS BIR SAA directly to your Windows Desktop or download standalone launcher scripts.'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowDesktopInstallModal(true)}
+                className="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2 rounded-xl shadow-xs flex items-center gap-2 cursor-pointer transition text-xs shrink-0"
+              >
+                <MonitorDown className="w-4 h-4" />
+                <span>{language === 'fr' ? 'Ouvrir l\'Assistant d\'Installation' : 'Open Install Wizard'}</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+              {/* Launcher bat */}
+              <div className={`p-3.5 rounded-xl border flex flex-col justify-between ${
+                theme === 'dark' ? 'bg-slate-800/40 border-slate-800' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-sky-500">
+                    <FileCode className="w-3.5 h-3.5" />
+                    <span>Lancer_SCOOPS_BIR_SAA.bat</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {language === 'fr'
+                      ? 'Démarre le serveur local et ouvre l\'application en mode plein écran sans barre URL.'
+                      : 'Starts local server and opens app in fullscreen mode without URL bar.'}
+                  </p>
+                </div>
+                <div className="pt-3">
+                  <a
+                    href="/Lancer_SCOOPS_BIR_SAA.bat"
+                    download="Lancer_SCOOPS_BIR_SAA.bat"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white transition shadow-xs cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>{language === 'fr' ? 'Télécharger (.bat)' : 'Download (.bat)'}</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Shortcut installer bat */}
+              <div className={`p-3.5 rounded-xl border flex flex-col justify-between ${
+                theme === 'dark' ? 'bg-slate-800/40 border-slate-800' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-500">
+                    <Laptop className="w-3.5 h-3.5" />
+                    <span>Installer_Raccourci_Bureau.bat</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {language === 'fr'
+                      ? 'Place automatiquement le raccourci officiel avec l\'icône sur votre Bureau Windows.'
+                      : 'Automatically places the official shortcut with icon on your Windows Desktop.'}
+                  </p>
+                </div>
+                <div className="pt-3">
+                  <a
+                    href="/Installer_Raccourci_Bureau.bat"
+                    download="Installer_Raccourci_Bureau.bat"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-xs cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>{language === 'fr' ? 'Télécharger (.bat)' : 'Download (.bat)'}</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Windows Icon ico */}
+              <div className={`p-3.5 rounded-xl border flex flex-col justify-between ${
+                theme === 'dark' ? 'bg-slate-800/40 border-slate-800' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-indigo-500">
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>app_icon.ico (Icône Windows)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {language === 'fr'
+                      ? 'Icône Windows HD multi-résolution issue du logo de l\'entreprise.'
+                      : 'HD multi-resolution Windows icon generated from company logo.'}
+                  </p>
+                </div>
+                <div className="pt-3">
+                  <a
+                    href="/assets/app_icon.ico"
+                    download="SCOOPS_BIR_SAA_icon.ico"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-xs cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>{language === 'fr' ? 'Télécharger (.ico)' : 'Download (.ico)'}</span>
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* FACTORY RESET CARD */}

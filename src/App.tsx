@@ -17,13 +17,14 @@ import { UserManager } from './components/admin/UserManager';
 import { LoginPage } from './components/auth/LoginPage';
 import { InvoiceModal } from './components/modals/InvoiceModal';
 import { GlobalSearchModal } from './components/modals/GlobalSearchModal';
+import { DesktopInstallModal } from './components/modals/DesktopInstallModal';
 import { DocumentationManager } from './components/documentation/DocumentationManager';
 import { ExpensesManager } from './components/expenses/ExpensesManager';
 import { ProductsManager } from './components/products/ProductsManager';
 import { Invoice } from './types';
 
 function AppContent() {
-  const { currentUser, isAuthenticated, theme } = useApp();
+  const { currentUser, isAuthenticated, theme, showDesktopInstallModal, setShowDesktopInstallModal } = useApp();
 
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -160,6 +161,11 @@ function AppContent() {
         invoice={activeInvoiceForPrint}
         onClose={() => setActiveInvoiceForPrint(null)}
         onOpenPaymentModal={handleOpenPaymentFromInvoice}
+      />
+
+      <DesktopInstallModal
+        isOpen={showDesktopInstallModal}
+        onClose={() => setShowDesktopInstallModal(false)}
       />
     </div>
   );
