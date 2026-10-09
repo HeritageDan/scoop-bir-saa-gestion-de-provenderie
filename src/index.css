@@ -9,31 +9,11 @@
     --border-cream-subtle: #EFE9DF;
   }
 
-  /* Global typography scaling: slightly increase base font size for enhanced readability */
+  /* Ensure crisp font smoothing without inflating root layout rem scale */
   html {
-    font-size: 17px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-  }
-
-  body {
-    font-size: 0.95rem;
-    line-height: 1.5;
-  }
-
-  /* Enhanced readability for micro-typography (badges, timestamps, subtext) across the app */
-  .text-\[8px\], .text-\[8\.5px\] {
-    font-size: 0.68rem !important;
-  }
-  .text-\[9px\], .text-\[9\.5px\] {
-    font-size: 0.74rem !important;
-  }
-  .text-\[10px\] {
-    font-size: 0.8rem !important;
-  }
-  .text-\[11px\] {
-    font-size: 0.84rem !important;
   }
 
   /* Light mode: replace harsh white backgrounds with warm, elegant cream-white palette */
