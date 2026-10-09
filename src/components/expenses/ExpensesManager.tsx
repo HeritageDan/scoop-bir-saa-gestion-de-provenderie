@@ -534,8 +534,9 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ onOpenReport }
                   <input
                     type="number"
                     min="1"
-                    step="100"
+                    step="any"
                     required
+                    placeholder="Ex: 2000"
                     value={amount || ''}
                     onChange={e => setAmount(Number(e.target.value))}
                     className={`w-full px-3 py-2 rounded-xl text-xs font-mono font-bold border focus:outline-none focus:ring-1 focus:ring-rose-500 ${
