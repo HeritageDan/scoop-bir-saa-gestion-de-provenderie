@@ -47,12 +47,32 @@ export const PurchasesManager: React.FC = () => {
     currentSalesPointId === 'all' ? (salesPoints[0]?.id || 'pos-1') : currentSalesPointId
   );
 
+  // Synchronize adminSalesPointId when active point of sale changes in Header
+  React.useEffect(() => {
+    if (currentSalesPointId !== 'all') {
+      setAdminSalesPointId(currentSalesPointId);
+    }
+  }, [currentSalesPointId]);
+
   // Modal for new reception
   const [showNewModal, setShowNewModal] = useState(false);
   const [selectedSupplierId, setSelectedSupplierId] = useState(suppliers[0]?.id || '');
   const [supplierDocRef, setSupplierDocRef] = useState('');
   const [transportFees, setTransportFees] = useState<number>(0);
   const [purchaseNotes, setPurchaseNotes] = useState('');
+
+  const handleOpenNewModal = () => {
+    if (currentSalesPointId !== 'all') {
+      setAdminSalesPointId(currentSalesPointId);
+    } else if (salesPoints.length > 0 && !salesPoints.some(s => s.id === adminSalesPointId)) {
+      setAdminSalesPointId(salesPoints[0]?.id || 'pos-1');
+    }
+    if (suppliers.length > 0 && (!selectedSupplierId || !suppliers.some(s => s.id === selectedSupplierId))) {
+      setSelectedSupplierId(suppliers[0]?.id || '');
+    }
+    setErrorMsg('');
+    setShowNewModal(true);
+  };
 
   // Items in new reception
   interface FormItem {
@@ -81,15 +101,16 @@ export const PurchasesManager: React.FC = () => {
       const matchesSalesPoint =
         currentSalesPointId === 'all' || !p.salesPointId || p.salesPointId === currentSalesPointId;
       const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
-      const matchesSearch =
-        p.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.supplierName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.supplierDocumentRef.toLowerCase().includes(searchTerm.toLowerCase());
+      const ref = (p.referenceNumber || '').toLowerCase();
+      const sup = (p.supplierName || '').toLowerCase();
+      const doc = (p.supplierDocumentRef || '').toLowerCase();
+      const term = searchTerm.toLowerCase().trim();
+      const matchesSearch = !term || ref.includes(term) || sup.includes(term) || doc.includes(term);
       return matchesSalesPoint && matchesStatus && matchesSearch;
     })
     .sort((a, b) => {
-      const timeA = new Date(a.receptionDate || a.orderDate).getTime();
-      const timeB = new Date(b.receptionDate || b.orderDate).getTime();
+      const timeA = new Date(a.receptionDate || a.orderDate || a.createdAt || 0).getTime();
+      const timeB = new Date(b.receptionDate || b.orderDate || b.createdAt || 0).getTime();
       return timeB - timeA;
     });
 
@@ -143,54 +164,92 @@ export const PurchasesManager: React.FC = () => {
       return;
     }
 
-    const now = new Date().toISOString().replace('T', ' ').slice(0, 16);
-    const dateCode = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const finalDocRef = supplierDocRef.trim() || `ENTREE-${dateCode}-${Date.now().toString().slice(-4)}`;
-
-    const purchaseItems: PurchaseItem[] = formItems.map(item => {
-      const prod = products.find(p => p.id === item.productId)!;
-      return {
-        productId: prod.id,
-        productCode: prod.code,
-        productName: prod.name,
-        unit: prod.saleUnit,
-        quantityOrdered: item.quantity,
-        quantityReceived: item.quantity,
-        unitPrice: item.unitPrice,
-        totalPrice: item.quantity * item.unitPrice,
-      };
-    });
-
-    const newPurchase = createPurchaseDraft({
-      supplierDocumentRef: finalDocRef,
-      supplierId: supplier.id,
-      supplierName: supplier.name,
-      orderDate: now,
-      items: purchaseItems,
-      subtotal,
-      transportFees: 0,
-      otherFees: 0,
-      totalAmount: subtotal,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      notes: purchaseNotes,
-    }, (currentUser.role === 'administrateur' || currentUser.role === 'developpeur') ? adminSalesPointId : undefined);
-
-    if (validateDirectly) {
-      validatePurchaseReception(newPurchase);
+    // Validate items
+    for (const item of formItems) {
+      if (!item.productId) {
+        setErrorMsg(language === 'fr' ? 'Veuillez sélectionner un produit pour chaque ligne.' : 'Please select a product for each line.');
+        return;
+      }
+      if (item.quantity <= 0) {
+        setErrorMsg(language === 'fr' ? 'La quantité doit être strictement positive.' : 'Quantity must be strictly positive.');
+        return;
+      }
+      if (item.unitPrice < 0) {
+        setErrorMsg(language === 'fr' ? 'Le prix unitaire ne peut pas être négatif.' : 'Unit price cannot be negative.');
+        return;
+      }
     }
 
-    setShowNewModal(false);
-    setSupplierDocRef('');
-    setTransportFees(0);
-    setPurchaseNotes('');
-    setFormItems([
-      {
-        productId: products[0]?.id || '',
-        quantity: 10,
-        unitPrice: products[0]?.purchasePrice || 15000,
-      },
-    ]);
+    const nowIso = new Date().toISOString();
+    const dateCode = nowIso.slice(0, 10).replace(/-/g, '');
+    const finalDocRef = supplierDocRef.trim() || `ENTREE-${dateCode}-${Date.now().toString().slice(-4)}`;
+
+    const purchaseItems: PurchaseItem[] = formItems
+      .map(item => {
+        const prod = products.find(p => p.id === item.productId);
+        if (!prod) return null;
+        const qty = Number(item.quantity || 0);
+        const price = Number(item.unitPrice || 0);
+        return {
+          productId: prod.id,
+          productCode: prod.code,
+          productName: prod.name,
+          unit: prod.saleUnit,
+          quantityOrdered: qty,
+          quantityReceived: qty,
+          unitPrice: price,
+          totalPrice: qty * price,
+        };
+      })
+      .filter((it): it is PurchaseItem => it !== null);
+
+    if (purchaseItems.length === 0) {
+      setErrorMsg(language === 'fr' ? 'Aucun produit valide dans le formulaire.' : 'No valid product in form.');
+      return;
+    }
+
+    const calculatedSubtotal = purchaseItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    const finalTransportFees = Math.max(0, Number(transportFees || 0));
+    const calculatedTotalAmount = calculatedSubtotal + finalTransportFees;
+
+    const targetSpId = (currentUser.role === 'administrateur' || currentUser.role === 'developpeur')
+      ? (adminSalesPointId || (currentSalesPointId !== 'all' ? currentSalesPointId : (salesPoints[0]?.id || 'pos-1')))
+      : (currentUser.assignedSalesPointId || 'pos-1');
+
+    try {
+      const newPurchase = createPurchaseDraft({
+        supplierDocumentRef: finalDocRef,
+        supplierId: supplier.id,
+        supplierName: supplier.name,
+        orderDate: nowIso,
+        items: purchaseItems,
+        subtotal: calculatedSubtotal,
+        transportFees: finalTransportFees,
+        otherFees: 0,
+        totalAmount: calculatedTotalAmount,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        notes: purchaseNotes.trim(),
+      }, targetSpId);
+
+      if (validateDirectly) {
+        validatePurchaseReception(newPurchase);
+      }
+
+      setShowNewModal(false);
+      setSupplierDocRef('');
+      setTransportFees(0);
+      setPurchaseNotes('');
+      setFormItems([
+        {
+          productId: products[0]?.id || '',
+          quantity: 10,
+          unitPrice: products[0]?.purchasePrice || 15000,
+        },
+      ]);
+    } catch (err: any) {
+      setErrorMsg(err?.message || (language === 'fr' ? 'Erreur lors de l\'enregistrement de la réception.' : 'Error saving goods reception.'));
+    }
   };
 
   const handleConfirmCancel = (e: React.FormEvent) => {
@@ -354,7 +413,7 @@ export const PurchasesManager: React.FC = () => {
             currentUser.role === 'magasinier' ||
             currentUser.role === 'developpeur') && (
             <button
-              onClick={() => setShowNewModal(true)}
+              onClick={handleOpenNewModal}
               className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />

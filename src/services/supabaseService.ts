@@ -488,18 +488,35 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
   }
 }
 
-// Envoi d'un enregistrement unique à Supabase (pour synchronisation temps réel)
+// Envoi d'un enregistrement unique à Supabase (pour synchronisation temps réel avec tolérance de schéma)
 export async function upsertRecordToSupabase(tableName: string, record: any): Promise<boolean> {
   const config = getSupabaseConfig();
   if (!config.isConfigured) return false;
 
   try {
-    const res = await fetch(`${config.url}/rest/v1/${tableName}?on_conflict=id`, {
-      method: 'POST',
-      headers: getSupabaseHeaders(config.anonKey),
-      body: JSON.stringify(record),
-    });
-    return res.ok;
+    let payload = { ...record };
+    let attempts = 0;
+    while (attempts < 5) {
+      attempts++;
+      const res = await fetch(`${config.url}/rest/v1/${tableName}?on_conflict=id`, {
+        method: 'POST',
+        headers: getSupabaseHeaders(config.anonKey),
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) return true;
+
+      if (res.status === 400) {
+        const errText = await res.text();
+        const match = errText.match(/Could not find the '([^']+)' column/i);
+        if (match && match[1] && payload[match[1]] !== undefined) {
+          delete payload[match[1]];
+          continue; // Réessayer sans la colonne absente du schéma distant
+        }
+      }
+      return false;
+    }
+    return false;
   } catch {
     return false;
   }
@@ -638,14 +655,36 @@ export async function pushAllLocalDataToSupabase(data: {
           let fallbackErr = '';
 
           for (const item of table.items) {
-            const singleRes = await fetch(`${config.url}/rest/v1/${table.name}?on_conflict=id`, {
-              method: 'POST',
-              headers: getSupabaseHeaders(config.anonKey),
-              body: JSON.stringify(item),
-            });
-            if (!singleRes.ok) {
+            let itemPayload = { ...item };
+            let attempts = 0;
+            let singleSuccess = false;
+            while (attempts < 5) {
+              attempts++;
+              const singleRes = await fetch(`${config.url}/rest/v1/${table.name}?on_conflict=id`, {
+                method: 'POST',
+                headers: getSupabaseHeaders(config.anonKey),
+                body: JSON.stringify(itemPayload),
+              });
+              if (singleRes.ok) {
+                singleSuccess = true;
+                break;
+              }
+              if (singleRes.status === 400) {
+                const singleErrText = await singleRes.text();
+                const match = singleErrText.match(/Could not find the '([^']+)' column/i);
+                if (match && match[1] && itemPayload[match[1]] !== undefined) {
+                  delete itemPayload[match[1]];
+                  continue;
+                }
+                fallbackErr = singleErrText;
+                break;
+              } else {
+                fallbackErr = await singleRes.text();
+                break;
+              }
+            }
+            if (!singleSuccess) {
               fallbackSuccess = false;
-              fallbackErr = await singleRes.text();
               break;
             }
           }
@@ -688,19 +727,35 @@ export async function pushAllLocalDataToSupabase(data: {
       }
     }
 
-    // Paramètres entreprise
+    // Paramètres entreprise (avec tolérance de colonnes absentes comme logoUrl)
     if (data.settings) {
-      const settingsPayload = [{ id: 'company-settings-1', ...data.settings }];
-      const res = await fetch(`${config.url}/rest/v1/company_settings?on_conflict=id`, {
-        method: 'POST',
-        headers: getSupabaseHeaders(config.anonKey),
-        body: JSON.stringify(settingsPayload),
-      });
-      if (res.ok) {
-        details['settings'] = true;
-      } else {
-        const errText = await res.text();
-        console.warn('Erreur lors de la sauvegarde des paramètres dans Supabase:', errText);
+      let settingsPayload: any = { id: 'company-settings-1', ...data.settings };
+      let attempts = 0;
+      while (attempts < 5) {
+        attempts++;
+        const res = await fetch(`${config.url}/rest/v1/company_settings?on_conflict=id`, {
+          method: 'POST',
+          headers: getSupabaseHeaders(config.anonKey),
+          body: JSON.stringify([settingsPayload]),
+        });
+        if (res.ok) {
+          details['settings'] = true;
+          break;
+        }
+        if (res.status === 400) {
+          const errText = await res.text();
+          const match = errText.match(/Could not find the '([^']+)' column/i);
+          if (match && match[1] && settingsPayload[match[1]] !== undefined) {
+            delete settingsPayload[match[1]];
+            continue;
+          }
+          console.warn('Erreur lors de la sauvegarde des paramètres dans Supabase:', errText);
+          break;
+        } else {
+          const errText = await res.text();
+          console.warn('Erreur lors de la sauvegarde des paramètres dans Supabase:', errText);
+          break;
+        }
       }
     }
 

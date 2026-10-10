@@ -146,7 +146,9 @@ CREATE TABLE IF NOT EXISTS public.purchases (
   notes TEXT,
   "validatedAt" TIMESTAMPTZ,
   "cancelledAt" TIMESTAMPTZ,
-  "cancellationReason" TEXT
+  "cancellationReason" TEXT,
+  "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+  "updatedAt" TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 7. Table des Factures de Vente (POS)
@@ -282,7 +284,8 @@ CREATE TABLE IF NOT EXISTS public.company_settings (
   "sessionTimeoutMinutes" NUMERIC DEFAULT 30,
   "invoiceFooterNotice" TEXT,
   "ticketFooterNotice" TEXT,
-  "transportFeesIntegratedInCMP" BOOLEAN DEFAULT true
+  "transportFeesIntegratedInCMP" BOOLEAN DEFAULT true,
+  "logoUrl" TEXT
 );
 
 -- 13. Table des Dépenses d'Exploitation

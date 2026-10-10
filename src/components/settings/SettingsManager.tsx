@@ -30,6 +30,7 @@ import {
   MonitorDown,
   Laptop,
   FileCode,
+  Clock,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { CompanySettings, Role, ReceiptPrinterConfig, ReceiptPaperWidth } from '../../types';
@@ -67,6 +68,8 @@ export const SettingsManager: React.FC = () => {
     exportSystemBackup,
     restoreSystemBackup,
     resetToDefaultData,
+    lastAutoBackupTime,
+    triggerAutoBackup,
     products,
     customers,
     suppliers,
@@ -388,6 +391,35 @@ export const SettingsManager: React.FC = () => {
     } else {
       setRestoreSuccess('Base de données restaurée avec succès !');
       setBackupJson('');
+    }
+  };
+
+  const [autoBackupMsg, setAutoBackupMsg] = useState('');
+
+  const handleManualTriggerAutoBackup = () => {
+    const json = triggerAutoBackup();
+    if (json) {
+      setAutoBackupMsg(language === 'fr' ? 'Sauvegarde instantanée de sécurité enregistrée avec succès !' : 'Instant safety backup recorded successfully!');
+      setTimeout(() => setAutoBackupMsg(''), 3000);
+    }
+  };
+
+  const handleRestoreLatestAutoBackup = () => {
+    const raw = localStorage.getItem('provenda_auto_backup_latest');
+    if (!raw) {
+      alert(language === 'fr' ? 'Aucune sauvegarde automatique récente trouvée.' : 'No recent auto-backup found.');
+      return;
+    }
+    const confirmMsg = language === 'fr'
+      ? 'Voulez-vous restaurer les données à partir de la dernière sauvegarde automatique de 2 minutes ?'
+      : 'Do you want to restore data from the last 2-minute auto-backup?';
+    if (window.confirm(confirmMsg)) {
+      const res = restoreSystemBackup(raw);
+      if (res.success) {
+        alert(language === 'fr' ? 'Données restaurées avec succès depuis la sauvegarde automatique !' : 'Data restored successfully from auto-backup!');
+      } else {
+        alert(res.message);
+      }
     }
   };
 
@@ -1725,6 +1757,80 @@ export const SettingsManager: React.FC = () => {
                 </div>
               )}
             </form>
+          </div>
+
+          {/* AUTOMATIC 2-MINUTE BACKUP ENGINE STATUS CARD */}
+          <div className={`border rounded-2xl p-5 sm:p-6 shadow-xs ${
+            theme === 'dark'
+              ? 'bg-slate-900/90 border-emerald-500/30'
+              : 'bg-emerald-50/60 border-emerald-200'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                  </span>
+                  <h3 className={`text-sm font-bold flex items-center gap-2 ${
+                    theme === 'dark' ? 'text-white' : 'text-slate-900'
+                  }`}>
+                    {language === 'fr'
+                      ? 'Sauvegarde Locale Automatique Active (Toutes les 2 minutes)'
+                      : 'Active Automatic Local Backup (Every 2 minutes)'}
+                  </h3>
+                  <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                    2 MIN
+                  </span>
+                </div>
+                <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                  {language === 'fr'
+                    ? 'Un instantané complet de vos réceptions d\'approvisionnement, stocks, ventes et dépenses est automatiquement archivé toutes les 2 minutes pour prévenir toute perte de données.'
+                    : 'A complete snapshot of your incoming procurement, stocks, sales and expenses is automatically archived every 2 minutes to prevent data loss.'}
+                </p>
+                <div className="flex items-center gap-2 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 pt-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>
+                    {language === 'fr' ? 'Dernière sauvegarde automatique :' : 'Last automatic backup:'}{' '}
+                    <strong>
+                      {lastAutoBackupTime
+                        ? lastAutoBackupTime.toLocaleTimeString()
+                        : (language === 'fr' ? 'En attente du premier cycle...' : 'Awaiting first cycle...')}
+                    </strong>
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleManualTriggerAutoBackup}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-xs cursor-pointer transition"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>{language === 'fr' ? 'Sauvegarder Maintenant' : 'Backup Now'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRestoreLatestAutoBackup}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
+                    theme === 'dark'
+                      ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-xs'
+                  }`}
+                >
+                  <Upload className="w-3.5 h-3.5 text-blue-500" />
+                  <span>{language === 'fr' ? 'Restaurer Dernière Auto-Sauvegarde' : 'Restore Last Auto-Backup'}</span>
+                </button>
+              </div>
+            </div>
+
+            {autoBackupMsg && (
+              <div className="mt-3 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{autoBackupMsg}</span>
+              </div>
+            )}
           </div>
 
           {/* BACKUP & RESTORE ROW */}

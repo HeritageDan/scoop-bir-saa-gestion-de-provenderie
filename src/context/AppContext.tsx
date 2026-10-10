@@ -165,6 +165,8 @@ interface AppContextType {
   exportSystemBackup: () => string;
   restoreSystemBackup: (jsonString: string) => { success: boolean; message: string };
   resetToDefaultData: () => Promise<void>;
+  lastAutoBackupTime: Date | null;
+  triggerAutoBackup: () => string;
 
   // Helper selectors
   getLowStockProducts: () => Product[];
@@ -219,7 +221,7 @@ function mergeEntityLists<T extends { id?: string }>(
   localList: T[],
   remoteList: T[],
   isFreshClient = false,
-  lastSyncTime?: Date | null
+  _lastSyncTime?: Date | null
 ): T[] {
   const deletedIds = getDeletedIds();
 
@@ -238,22 +240,19 @@ function mergeEntityLists<T extends { id?: string }>(
   }
 
   // 2. Fusionner avec les éléments locaux
-  const lastSyncMs = lastSyncTime ? lastSyncTime.getTime() : 0;
   for (const localItem of localList) {
     if (localItem && localItem.id && !deletedIds.has(localItem.id)) {
       const remoteItem = map.get(localItem.id);
       if (!remoteItem) {
-        const localTime = getEntityTimestamp(localItem);
-        // Si l'élément local a été créé après la dernière synchronisation, on le conserve pour le pousser
-        // Sinon, s'il a déjà été synchronisé et n'apparaît plus sur le distant, il a été supprimé sur un autre terminal
-        if (!lastSyncMs || localTime > lastSyncMs) {
-          map.set(localItem.id, localItem);
-        }
+        // RÈGLE FONDAMENTALE OFFLINE-FIRST: Tout élément présent localement et non explicitement supprimé
+        // DOIT être conservé ! On ne supprime JAMAIS des données locales simplement parce que le
+        // serveur distant ne les a pas encore reçues ou ne les possède pas.
+        map.set(localItem.id, localItem);
       } else {
         const localTime = getEntityTimestamp(localItem);
         const remoteTime = getEntityTimestamp(remoteItem);
-        // Le local l'emporte uniquement s'il est strictement plus récent
-        if (localTime > remoteTime) {
+        // Le local l'emporte s'il est plus récent ou égal (priorité aux saisies locales)
+        if (localTime >= remoteTime) {
           map.set(localItem.id, localItem);
         }
       }
@@ -2916,6 +2915,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  // Automated 2-Minute Local Backup Engine
+  const [lastAutoBackupTime, setLastAutoBackupTime] = useState<Date | null>(() => {
+    const saved = localStorage.getItem('provenda_last_auto_backup_time');
+    return saved ? new Date(saved) : null;
+  });
+
+  const triggerAutoBackup = useCallback((): string => {
+    try {
+      const currentUsers = JSON.parse(localStorage.getItem('provenda_users') || '[]');
+      const currentSalesPoints = JSON.parse(localStorage.getItem('provenda_sales_points') || '[]');
+      const currentProducts = JSON.parse(localStorage.getItem('provenda_products') || '[]');
+      const currentSuppliers = JSON.parse(localStorage.getItem('provenda_suppliers') || '[]');
+      const currentCustomers = JSON.parse(localStorage.getItem('provenda_customers') || '[]');
+      const currentPurchases = JSON.parse(localStorage.getItem('provenda_purchases') || '[]');
+      const currentInvoices = JSON.parse(localStorage.getItem('provenda_invoices') || '[]');
+      const currentCreditNotes = JSON.parse(localStorage.getItem('provenda_credit_notes') || '[]');
+      const currentStockMovements = JSON.parse(localStorage.getItem('provenda_stock_movements') || '[]');
+      const currentInventories = JSON.parse(localStorage.getItem('provenda_inventories') || '[]');
+      const currentAuditLogs = JSON.parse(localStorage.getItem('provenda_audit_logs') || '[]');
+      const currentSettings = JSON.parse(localStorage.getItem('provenda_settings') || '{}');
+      const currentExpenses = JSON.parse(localStorage.getItem('provenda_expenses') || '[]');
+
+      // Ne pas écraser si la base locale est totalement vide
+      if (currentUsers.length === 0 && currentProducts.length === 0 && currentPurchases.length === 0 && currentInvoices.length === 0) {
+        return '';
+      }
+
+      const backupData = {
+        appName: 'SCOOPS BIR SAA Management System',
+        version: '2.2',
+        exportDate: new Date().toISOString(),
+        type: 'AUTO_BACKUP_2MIN',
+        checksum: `AUTO-2MIN-${Date.now()}`,
+        data: {
+          users: currentUsers,
+          salesPoints: currentSalesPoints,
+          products: currentProducts,
+          suppliers: currentSuppliers,
+          customers: currentCustomers,
+          purchases: currentPurchases,
+          invoices: currentInvoices,
+          creditNotes: currentCreditNotes,
+          stockMovements: currentStockMovements,
+          inventories: currentInventories,
+          auditLogs: currentAuditLogs,
+          settings: currentSettings,
+          expenses: currentExpenses,
+        },
+      };
+
+      const backupJson = JSON.stringify(backupData);
+      localStorage.setItem('provenda_auto_backup_latest', backupJson);
+      const now = new Date();
+      localStorage.setItem('provenda_last_auto_backup_time', now.toISOString());
+      setLastAutoBackupTime(now);
+      return backupJson;
+    } catch (err) {
+      console.warn('[Auto Backup 2min Error]:', err);
+      return '';
+    }
+  }, []);
+
+  // Timer exécutant la sauvegarde automatique toutes les 2 minutes (120 000 ms)
+  useEffect(() => {
+    // Sauvegarde initiale après 5 secondes d'activité
+    const initialTimer = setTimeout(() => {
+      triggerAutoBackup();
+    }, 5000);
+
+    // Répétition automatique toutes les 2 minutes
+    const intervalId = setInterval(() => {
+      triggerAutoBackup();
+    }, 2 * 60 * 1000);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(intervalId);
+    };
+  }, [triggerAutoBackup]);
+
   // Backup & Restore Engine (Section 13, 17, 19 Criterion #14)
   const exportSystemBackup = (): string => {
     const backupData = {
@@ -3281,6 +3360,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         exportSystemBackup,
         restoreSystemBackup,
         resetToDefaultData,
+        lastAutoBackupTime,
+        triggerAutoBackup,
         getLowStockProducts,
         getOutOfStockProducts,
         syncStatus,
