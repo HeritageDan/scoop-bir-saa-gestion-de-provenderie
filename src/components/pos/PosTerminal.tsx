@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Search,
   ShoppingCart,
@@ -54,6 +54,12 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
   const [targetSalesPointId, setTargetSalesPointId] = useState<string>(() =>
     currentSalesPointId === 'all' ? (salesPoints[0]?.id || 'pos-1') : currentSalesPointId
   );
+
+  useEffect(() => {
+    if (currentSalesPointId && currentSalesPointId !== 'all') {
+      setTargetSalesPointId(currentSalesPointId);
+    }
+  }, [currentSalesPointId]);
 
   // Search & Filters
   const [searchTerm, setSearchTerm] = useState('');

@@ -2998,7 +2998,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Backup & Restore Engine (Section 13, 17, 19 Criterion #14)
   const exportSystemBackup = (): string => {
     const backupData = {
-      appName: 'Provenda Management System',
+      appName: 'SCOOPS BIR SAA Management System',
       version: '2.2',
       exportDate: new Date().toISOString(),
       exportedBy: currentUser.name,
@@ -3161,8 +3161,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setExpenses([]);
     setNotifications([]);
 
-    // 4. Customers & Suppliers: completely deleted
-    setCustomers([]);
+    // 4. Customers & Suppliers: completely deleted except default cash customer (cst-0)
+    const defaultCashCustomer: Customer = {
+      id: 'cst-0',
+      code: 'CST-000',
+      name: 'Client Comptant / Divers',
+      phone: 'Sans téléphone',
+      type: 'particulier',
+      creditLimit: 0,
+      currentDebt: 0,
+      active: true,
+      notes: 'Passage caisse standard sans compte nominatif.',
+      createdAt: new Date().toISOString().slice(0, 10),
+    };
+    setCustomers([defaultCashCustomer]);
     setSuppliers([]);
 
     // 5. Products catalog: completely deleted
@@ -3195,7 +3207,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('provenda_users', JSON.stringify(blankUsers));
     localStorage.setItem('provenda_sales_points', JSON.stringify([mainSp]));
     localStorage.setItem('provenda_settings', JSON.stringify(preservedSettings));
-    localStorage.setItem('provenda_customers', JSON.stringify([]));
+    localStorage.setItem('provenda_customers', JSON.stringify([defaultCashCustomer]));
     localStorage.setItem('provenda_products', JSON.stringify([]));
     localStorage.setItem('provenda_invoices', JSON.stringify([]));
     localStorage.setItem('provenda_credit_notes', JSON.stringify([]));
@@ -3211,15 +3223,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     clearAllIndexedDbStores();
 
-    // 9. Vider Supabase de manière synchrone et exhaustive (produits, clients, fournisseurs, audit logs, transactions, utilisateurs non-dev)
+    // 9. Vider Supabase de manière synchrone et exhaustive (produits, clients non-comptant, fournisseurs, audit logs, transactions, utilisateurs non-dev)
     const config = getSupabaseConfig();
     if (config.isConfigured) {
       try {
         await clearAllSupabaseDataExceptDevAndSettings(devUser.id);
-        // Pousser le compte développeur, le point de vente principal et les paramètres préservés
+        // Pousser le compte développeur, le point de vente principal, le client comptant et les paramètres préservés
         await pushAllLocalDataToSupabase({
           products: [],
-          customers: [],
+          customers: [defaultCashCustomer],
           suppliers: [],
           purchases: [],
           invoices: [],
