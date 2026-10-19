@@ -91,6 +91,7 @@ export async function updateAppIconEverywhere(logoUrl: string): Promise<void> {
     // 3. Mettre à jour dynamiquement le manifest PWA (pour les raccourcis bureau Chrome / Edge / Windows)
     try {
       const dynamicManifest = {
+        id: "/?app=scoops-bir-pos",
         short_name: "SCOOPS BIR SAA",
         name: "SCOOPS BIR SAA",
         description: "Application autonome de gestion opérationnelle, caisse POS avec impression thermique et reporting pour provenderie SCOOPS BIR SAA",
@@ -106,7 +107,8 @@ export async function updateAppIconEverywhere(logoUrl: string): Promise<void> {
             sizes: "512x512"
           }
         ],
-        start_url: "/",
+        start_url: "/?app=scoops-bir-pos",
+        scope: "/",
         background_color: "#059669",
         theme_color: "#059669",
         display: "standalone",

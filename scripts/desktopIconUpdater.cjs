@@ -98,7 +98,7 @@ function updateDesktopIconEverywhere(imageInput) {
     fs.writeFileSync(path.join(distAssets, 'app_icon.ico'), icoBuffer);
   }
 
-  // 3. Update Chrome and Edge PWA Web Applications cached .ico files
+  // 3. Update ONLY SCOOPS BIR PWA Web Applications cached .ico files (NEVER touch other apps!)
   const localAppData = process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE || 'C:\\Users\\HP', 'AppData\\Local');
   const browserPwaDirs = [
     path.join(localAppData, 'Google/Chrome/User Data/Default/Web Applications'),
@@ -108,9 +108,22 @@ function updateDesktopIconEverywhere(imageInput) {
   for (const bDir of browserPwaDirs) {
     const icoFiles = findIcoFilesRecursively(bDir);
     for (const icoPath of icoFiles) {
-      try {
-        fs.writeFileSync(icoPath, icoBuffer);
-      } catch {}
+      const lower = icoPath.toLowerCase();
+      const fileName = path.basename(lower);
+      // ABSOLUTE ISOLATION SAFEGUARD:
+      // Only modify icons whose filename or parent folder specifically belongs to SCOOPS BIR SAA / Provenda.
+      // Under NO circumstances touch other apps (such as Claude, FragMill, etc.)
+      const isScoopsApp = (
+        fileName.includes('scoops') ||
+        fileName.includes('provenda') ||
+        lower.includes('_crx_pidoicnnmgenbggabcogogjdjebdgjkk')
+      );
+
+      if (isScoopsApp) {
+        try {
+          fs.writeFileSync(icoPath, icoBuffer);
+        } catch {}
+      }
     }
   }
 

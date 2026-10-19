@@ -1,6 +1,8 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 
+app.setAppUserModelId('com.scoopsbir.pos');
+
 let mainWindow = null;
 
 function createWindow() {

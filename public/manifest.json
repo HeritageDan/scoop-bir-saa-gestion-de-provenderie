@@ -1,5 +1,5 @@
 {
-  "id": "/",
+  "id": "/?app=scoops-bir-pos",
   "short_name": "SCOOPS BIR SAA",
   "name": "SCOOPS BIR SAA",
   "description": "Application autonome de gestion opérationnelle, caisse POS avec impression thermique et reporting pour provenderie SCOOPS BIR SAA",
@@ -29,7 +29,7 @@
       "purpose": "maskable"
     }
   ],
-  "start_url": "/",
+  "start_url": "/?app=scoops-bir-pos",
   "scope": "/",
   "background_color": "#059669",
   "theme_color": "#059669",
