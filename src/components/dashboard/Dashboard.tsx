@@ -15,6 +15,7 @@ import {
   Tag,
   ShieldCheck,
   Info,
+  Calendar,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Invoice, Product } from '../../types';
@@ -42,8 +43,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
     getOutOfStockProducts,
   } = useApp();
 
-  // Period selector: 'today' | '7days' | 'month' | 'all'
-  const [period, setPeriod] = useState<'today' | '7days' | 'month' | 'all'>('today');
+  // Period selector: 'today' | 'specific' | '7days' | 'month' | 'all'
+  const [period, setPeriod] = useState<'today' | 'specific' | '7days' | 'month' | 'all'>('today');
+  const [selectedSpecificDate, setSelectedSpecificDate] = useState<string>('');
 
   // Filters: Category & Product
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -88,6 +90,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
   const periodInvoices = useMemo(() => {
     return validInvoices.filter(inv => {
       if (period === 'today') return inv.date === todayStr;
+      if (period === 'specific') {
+        return selectedSpecificDate ? inv.date === selectedSpecificDate : true;
+      }
       if (period === '7days') {
         const d = new Date(inv.date);
         const diffDays = (Date.now() - d.getTime()) / (1000 * 3600 * 24);
@@ -100,7 +105,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
       }
       return true;
     });
-  }, [validInvoices, period, todayStr]);
+  }, [validInvoices, period, todayStr, selectedSpecificDate]);
 
   // Scoped metrics based on category and product filter
   const scopedMetrics = useMemo(() => {
@@ -202,10 +207,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
 
   // Filtered recent invoices
   const displayInvoices = useMemo(() => {
+    const baseList = period === 'specific' || period === 'today' ? periodInvoices : validInvoices;
     if (selectedCategory === 'all' && selectedProductId === 'all') {
-      return validInvoices.slice(0, 6);
+      return baseList.slice(0, 6);
     }
-    return validInvoices
+    return baseList
       .filter(inv =>
         inv.items.some(it => {
           const prod = products.find(p => p.id === it.productId);
@@ -215,7 +221,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
         })
       )
       .slice(0, 6);
-  }, [validInvoices, selectedCategory, selectedProductId, products]);
+  }, [validInvoices, periodInvoices, period, selectedCategory, selectedProductId, products]);
 
   const isFiltered = selectedCategory !== 'all' || selectedProductId !== 'all';
 
@@ -291,30 +297,80 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
           </p>
         </div>
 
-        {/* Period Selector Tabs */}
-        <div className={`flex items-center gap-1 p-1 rounded-xl self-start md:self-auto border ${
-          theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'
-        }`}>
-          {[
-            { id: 'today', label: t('dashboard.period.today') },
-            { id: '7days', label: t('dashboard.period.7days') },
-            { id: 'month', label: t('dashboard.period.month') },
-            { id: 'all', label: t('dashboard.period.all') },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setPeriod(tab.id as any)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                period === tab.id
-                  ? 'bg-emerald-600 text-white shadow-xs'
+        {/* Period Selector Tabs & Specific Date Picker */}
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          <div className={`flex items-center gap-1 p-1 rounded-xl border ${
+            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'
+          }`}>
+            {[
+              { id: 'today', label: t('dashboard.period.today') },
+              { id: '7days', label: t('dashboard.period.7days') },
+              { id: 'month', label: t('dashboard.period.month') },
+              { id: 'all', label: t('dashboard.period.all') },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setPeriod(tab.id as any);
+                  setSelectedSpecificDate('');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  period === tab.id
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : theme === 'dark'
+                    ? 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Specific Date Picker Input */}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border transition ${
+            period === 'specific'
+              ? 'border-emerald-500 bg-emerald-500/10 shadow-xs ring-1 ring-emerald-500/30'
+              : theme === 'dark'
+              ? 'bg-slate-900 border-slate-800'
+              : 'bg-slate-100 border-slate-200'
+          }`}>
+            <Calendar className={`w-3.5 h-3.5 shrink-0 ${period === 'specific' ? 'text-emerald-500' : 'text-slate-400'}`} />
+            <input
+              type="date"
+              value={selectedSpecificDate}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSelectedSpecificDate(val);
+                if (val) {
+                  setPeriod('specific');
+                } else {
+                  setPeriod('today');
+                }
+              }}
+              title={language === 'fr' ? 'Sélectionner une date précise du calendrier' : 'Pick a specific calendar date'}
+              className={`text-xs font-semibold bg-transparent focus:outline-none cursor-pointer ${
+                period === 'specific'
+                  ? 'text-emerald-500 font-bold'
                   : theme === 'dark'
-                  ? 'text-slate-400 hover:text-white hover:bg-slate-800'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                  ? 'text-slate-300'
+                  : 'text-slate-700'
               }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+            />
+            {selectedSpecificDate && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedSpecificDate('');
+                  setPeriod('today');
+                }}
+                className="p-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                title={language === 'fr' ? 'Réinitialiser à Aujourd\'hui' : 'Reset to Today'}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -474,7 +530,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
                   {scopedMetrics.itemsSoldQty} {focusProduct.saleUnit}s
                 </div>
                 <div className="text-[10px] text-slate-500">
-                  {language === 'fr' ? `Sur la période (${period})` : `Over period (${period})`}
+                  {period === 'specific' && selectedSpecificDate
+                    ? (language === 'fr' ? `Journée du ${formatDate(selectedSpecificDate)}` : `Day of ${formatDate(selectedSpecificDate)}`)
+                    : (language === 'fr' ? `Sur la période (${period})` : `Over period (${period})`)}
                 </div>
               </div>
 
@@ -670,7 +728,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
         >
           <div>
             <div className="text-xs text-slate-400">
-              {t('dashboard.secondary.discounts')} ({period})
+              {t('dashboard.secondary.discounts')} ({period === 'specific' && selectedSpecificDate ? formatDate(selectedSpecificDate) : period})
             </div>
             <div className="text-base font-bold text-amber-500 mt-0.5">
               {formatFCFA(scopedMetrics.totalDiscounts)}
@@ -789,7 +847,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
                 theme === 'dark' ? 'text-white' : 'text-slate-900'
               }`}>
                 <Receipt className="w-4 h-4 text-emerald-500" />
-                <span>{t('dashboard.recent_sales.title')}</span>
+                <span>
+                  {period === 'specific' && selectedSpecificDate
+                    ? (language === 'fr' ? `Ventes du ${formatDate(selectedSpecificDate)}` : `Sales for ${formatDate(selectedSpecificDate)}`)
+                    : t('dashboard.recent_sales.title')}
+                </span>
               </h2>
               <button
                 onClick={() => onNavigateTab('invoices')}

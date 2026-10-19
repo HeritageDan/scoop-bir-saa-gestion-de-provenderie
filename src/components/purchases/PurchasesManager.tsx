@@ -41,6 +41,7 @@ export const PurchasesManager: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'validé' | 'brouillon' | 'annulé'>('all');
+  const [dateFilter, setDateFilter] = useState<string>('');
 
   // Sales Point selector for Admin
   const [adminSalesPointId, setAdminSalesPointId] = useState<string>(() =>
@@ -101,12 +102,17 @@ export const PurchasesManager: React.FC = () => {
       const matchesSalesPoint =
         currentSalesPointId === 'all' || !p.salesPointId || p.salesPointId === currentSalesPointId;
       const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
+      const matchesDate =
+        !dateFilter ||
+        (p.receptionDate && p.receptionDate.slice(0, 10) === dateFilter) ||
+        (p.orderDate && p.orderDate.slice(0, 10) === dateFilter) ||
+        (p.createdAt && p.createdAt.slice(0, 10) === dateFilter);
       const ref = (p.referenceNumber || '').toLowerCase();
       const sup = (p.supplierName || '').toLowerCase();
       const doc = (p.supplierDocumentRef || '').toLowerCase();
       const term = searchTerm.toLowerCase().trim();
       const matchesSearch = !term || ref.includes(term) || sup.includes(term) || doc.includes(term);
-      return matchesSalesPoint && matchesStatus && matchesSearch;
+      return matchesSalesPoint && matchesStatus && matchesDate && matchesSearch;
     })
     .sort((a, b) => {
       const timeA = new Date(a.receptionDate || a.orderDate || a.createdAt || 0).getTime();
@@ -442,26 +448,82 @@ export const PurchasesManager: React.FC = () => {
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className={`text-xs hidden sm:inline ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-            {language === 'fr' ? 'Statut :' : 'Status:'}
-          </span>
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value as any)}
-            className={`rounded-lg px-2.5 py-1.5 text-xs font-medium border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${
-              theme === 'dark'
-                ? 'bg-slate-800 border-slate-700 text-white'
-                : 'bg-slate-50 border-slate-200 text-slate-900'
-            }`}
-          >
-            <option value="all">{language === 'fr' ? 'Tous les statuts' : 'All statuses'}</option>
-            <option value="validé">{language === 'fr' ? 'Validé (Stock & CMP mis à jour)' : 'Validated (Stock & CMP updated)'}</option>
-            <option value="brouillon">{language === 'fr' ? 'Brouillon en attente' : 'Pending draft'}</option>
-            <option value="annulé">{language === 'fr' ? 'Annulé' : 'Cancelled'}</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Specific Date Filter */}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition ${
+            dateFilter
+              ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/30'
+              : theme === 'dark'
+              ? 'bg-slate-800 border-slate-700'
+              : 'bg-slate-50 border-slate-200'
+          }`}>
+            <Calendar className={`w-3.5 h-3.5 shrink-0 ${dateFilter ? 'text-emerald-500' : 'text-slate-400'}`} />
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={e => setDateFilter(e.target.value)}
+              title={language === 'fr' ? 'Filtrer par date de réception (ex: 2026-09-08)' : 'Filter by reception date (e.g. 2026-09-08)'}
+              className={`bg-transparent focus:outline-none cursor-pointer text-xs font-medium ${
+                dateFilter
+                  ? 'text-emerald-500 font-bold'
+                  : theme === 'dark'
+                  ? 'text-slate-300'
+                  : 'text-slate-700'
+              }`}
+            />
+            {dateFilter && (
+              <button
+                type="button"
+                onClick={() => setDateFilter('')}
+                className="p-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                title={language === 'fr' ? 'Effacer la date' : 'Clear date'}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className={`text-xs hidden sm:inline ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+              {language === 'fr' ? 'Statut :' : 'Status:'}
+            </span>
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value as any)}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-medium border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${
+                theme === 'dark'
+                  ? 'bg-slate-800 border-slate-700 text-white'
+                  : 'bg-slate-50 border-slate-200 text-slate-900'
+              }`}
+            >
+              <option value="all">{language === 'fr' ? 'Tous les statuts' : 'All statuses'}</option>
+              <option value="validé">{language === 'fr' ? 'Validé (Stock & CMP mis à jour)' : 'Validated (Stock & CMP updated)'}</option>
+              <option value="brouillon">{language === 'fr' ? 'Brouillon en attente' : 'Pending draft'}</option>
+              <option value="annulé">{language === 'fr' ? 'Annulé' : 'Cancelled'}</option>
+            </select>
+          </div>
         </div>
       </div>
+
+      {dateFilter && (
+        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-500 font-medium">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 shrink-0" />
+            <span>
+              {language === 'fr'
+                ? `Filtre actif pour le ${formatDate(dateFilter)} : ${filteredPurchases.length} arrivage(s) trouvé(s)`
+                : `Active filter for ${formatDate(dateFilter)}: ${filteredPurchases.length} reception(s) found`}
+            </span>
+          </div>
+          <button
+            onClick={() => setDateFilter('')}
+            className="text-xs hover:underline flex items-center gap-1 cursor-pointer font-semibold"
+          >
+            <span>{language === 'fr' ? 'Effacer le filtre' : 'Clear filter'}</span>
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Purchases Table */}
       <div className={`border rounded-xl overflow-hidden shadow-xs ${

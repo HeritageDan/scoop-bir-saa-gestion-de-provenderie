@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Outro SCOOPS BIR SAA</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      background: radial-gradient(circle at 50% 60%, #064e3b 0%, #022c22 35%, #0b1120 75%, #050811 100%);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .grid-bg {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(16, 185, 129, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(16, 185, 129, 0.08) 1px, transparent 1px);
+      background-size: 60px 60px;
+      opacity: 0.8;
+    }
+    .glow-circle {
+      position: absolute;
+      width: 700px;
+      height: 700px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.3) 0%, transparent 70%);
+      filter: blur(50px);
+    }
+    .container {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      max-width: 1300px;
+      padding: 40px;
+    }
+    .success-icon {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 56px;
+      box-shadow: 0 0 50px rgba(16, 185, 129, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+      margin-bottom: 30px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+    }
+    .badge-certified {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 24px;
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.5);
+      border-radius: 9999px;
+      color: #6ee7b7;
+      font-size: 15px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 25px;
+    }
+    h1 {
+      font-size: 72px;
+      font-weight: 900;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #ffffff 40%, #6ee7b7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      font-size: 26px;
+      font-weight: 500;
+      color: #cbd5e1;
+      max-width: 900px;
+      line-height: 1.45;
+      margin-bottom: 45px;
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      width: 100%;
+      margin-bottom: 30px;
+    }
+    .metric-card {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(12px);
+      border-radius: 20px;
+      padding: 24px 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
+    .metric-val {
+      font-size: 34px;
+      font-weight: 900;
+      color: #34d399;
+      margin-bottom: 6px;
+    }
+    .metric-lbl {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #94a3b8;
+    }
+    .footer-bar {
+      position: absolute;
+      bottom: 40px;
+      left: 60px;
+      right: 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #64748b;
+      font-size: 14px;
+      font-weight: 600;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 25px;
+    }
+  </style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="glow-circle"></div>
+
+  <div class="container">
+    <div class="success-icon">✓</div>
+    
+    <div class="badge-certified">
+      Certification Pré-Livraison Validée • 100% Fonctionnel
+    </div>
+
+    <h1>SCOOPS BIR SAA</h1>
+    <div class="subtitle">
+      Votre solution tout-en-un pour optimiser la rentabilité de votre provenderie et sécuriser vos encaissements.
+    </div>
+
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-val">15 Modules</div>
+        <div class="metric-lbl">Couverture Intégrale</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">100% Hors-Ligne</div>
+        <div class="metric-lbl">Autonomie Totale</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">2 Minutes</div>
+        <div class="metric-lbl">Sauvegarde Automatique</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">0 Erreur</div>
+        <div class="metric-lbl">Fiabilité Certifiée</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-bar">
+    <div>SCOOPS BIR SAA — Société Coopérative Agricole</div>
+    <div>Prêt pour déploiement immédiat en caisse et magasin</div>
+    <div>Documentation & Manuels PDF inclus</div>
+  </div>
+</body>
+</html>

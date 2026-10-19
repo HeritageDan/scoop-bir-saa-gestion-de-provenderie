@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Sliders,
   Plus,
+  Calendar,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Product, StockMovementType } from '../../types';
@@ -37,6 +38,7 @@ export const StockManager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [movementFilter, setMovementFilter] = useState<string>('all');
+  const [movementDateFilter, setMovementDateFilter] = useState<string>('');
 
   // New Product Modal State
   const [showNewProductModal, setShowNewProductModal] = useState(false);
@@ -85,11 +87,12 @@ export const StockManager: React.FC = () => {
   const filteredMovements = stockMovements
     .filter(m => {
       const matchesType = movementFilter === 'all' || m.type === movementFilter;
+      const matchesDate = !movementDateFilter || (m.timestamp && m.timestamp.slice(0, 10) === movementDateFilter);
       const matchesSearch =
         m.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.referenceDocument.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.userName.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesType && matchesSearch;
+      return matchesType && matchesDate && matchesSearch;
     })
     .sort((a, b) => {
       const timeA = new Date(a.timestamp).getTime();
@@ -543,31 +546,87 @@ export const StockManager: React.FC = () => {
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400 hidden sm:inline">
-                {language === 'fr' ? 'Type de Mouvement :' : 'Movement Type:'}
-              </span>
-              <select
-                value={movementFilter}
-                onChange={e => setMovementFilter(e.target.value)}
-                className={`rounded-lg px-2.5 py-1.5 text-xs border font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${
-                  theme === 'dark'
-                    ? 'bg-slate-800 border-slate-700 text-white'
-                    : 'bg-slate-50 border-slate-200 text-slate-850'
-                }`}
-              >
-                <option value="all">{language === 'fr' ? 'Tous les types' : 'All types'}</option>
-                <option value="entrée fournisseur">{language === 'fr' ? 'Entrée fournisseur' : 'Supplier reception'}</option>
-                <option value="vente">{language === 'fr' ? 'Vente' : 'Sale'}</option>
-                <option value="retour client">{language === 'fr' ? 'Retour client (Avoir)' : 'Customer return'}</option>
-                <option value="retour fournisseur">{language === 'fr' ? 'Retour fournisseur' : 'Supplier return'}</option>
-                <option value="correction d'inventaire">{language === 'fr' ? 'Correction inventaire' : 'Inventory correction'}</option>
-                <option value="produit endommagé">{language === 'fr' ? 'Produit endommagé' : 'Damaged goods'}</option>
-                <option value="perte">{language === 'fr' ? 'Perte' : 'Loss'}</option>
-                <option value="consommation interne">{language === 'fr' ? 'Consommation interne' : 'Internal use'}</option>
-              </select>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Specific Date Filter */}
+              <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition ${
+                movementDateFilter
+                  ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/30'
+                  : theme === 'dark'
+                  ? 'bg-slate-800 border-slate-700'
+                  : 'bg-slate-50 border-slate-200'
+              }`}>
+                <Calendar className={`w-3.5 h-3.5 shrink-0 ${movementDateFilter ? 'text-emerald-500' : 'text-slate-400'}`} />
+                <input
+                  type="date"
+                  value={movementDateFilter}
+                  onChange={e => setMovementDateFilter(e.target.value)}
+                  title={language === 'fr' ? 'Filtrer par date précise (ex: 2026-09-08)' : 'Filter by specific date (e.g. 2026-09-08)'}
+                  className={`bg-transparent focus:outline-none cursor-pointer text-xs font-medium ${
+                    movementDateFilter
+                      ? 'text-emerald-500 font-bold'
+                      : theme === 'dark'
+                      ? 'text-slate-300'
+                      : 'text-slate-700'
+                  }`}
+                />
+                {movementDateFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setMovementDateFilter('')}
+                    className="p-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                    title={language === 'fr' ? 'Effacer la date' : 'Clear date'}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 hidden sm:inline">
+                  {language === 'fr' ? 'Type :' : 'Type:'}
+                </span>
+                <select
+                  value={movementFilter}
+                  onChange={e => setMovementFilter(e.target.value)}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs border font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${
+                    theme === 'dark'
+                      ? 'bg-slate-800 border-slate-700 text-white'
+                      : 'bg-slate-50 border-slate-200 text-slate-850'
+                  }`}
+                >
+                  <option value="all">{language === 'fr' ? 'Tous les types' : 'All types'}</option>
+                  <option value="entrée fournisseur">{language === 'fr' ? 'Entrée fournisseur' : 'Supplier reception'}</option>
+                  <option value="vente">{language === 'fr' ? 'Vente' : 'Sale'}</option>
+                  <option value="retour client">{language === 'fr' ? 'Retour client (Avoir)' : 'Customer return'}</option>
+                  <option value="retour fournisseur">{language === 'fr' ? 'Retour fournisseur' : 'Supplier return'}</option>
+                  <option value="correction d'inventaire">{language === 'fr' ? 'Correction inventaire' : 'Inventory correction'}</option>
+                  <option value="produit endommagé">{language === 'fr' ? 'Produit endommagé' : 'Damaged goods'}</option>
+                  <option value="perte">{language === 'fr' ? 'Perte' : 'Loss'}</option>
+                  <option value="consommation interne">{language === 'fr' ? 'Consommation interne' : 'Internal use'}</option>
+                </select>
+              </div>
             </div>
           </div>
+
+          {movementDateFilter && (
+            <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-500 font-medium">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 shrink-0" />
+                <span>
+                  {language === 'fr'
+                    ? `Filtre actif pour le ${formatDate(movementDateFilter)} : ${filteredMovements.length} mouvement(s) de stock`
+                    : `Active filter for ${formatDate(movementDateFilter)}: ${filteredMovements.length} stock movement(s)`}
+                </span>
+              </div>
+              <button
+                onClick={() => setMovementDateFilter('')}
+                className="text-xs hover:underline flex items-center gap-1 cursor-pointer font-semibold"
+              >
+                <span>{language === 'fr' ? 'Effacer le filtre' : 'Clear filter'}</span>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* Movements Table */}
           <div className={`border rounded-xl overflow-hidden shadow-xs ${

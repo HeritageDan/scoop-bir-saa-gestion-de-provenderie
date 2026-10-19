@@ -282,7 +282,29 @@ CREATE TABLE IF NOT EXISTS public.company_settings (
   "sessionTimeoutMinutes" NUMERIC DEFAULT 30,
   "invoiceFooterNotice" TEXT,
   "ticketFooterNotice" TEXT,
-  "transportFeesIntegratedInCMP" BOOLEAN DEFAULT true
+  "transportFeesIntegratedInCMP" BOOLEAN DEFAULT true,
+  "logoUrl" TEXT
+);
+ALTER TABLE public.company_settings ADD COLUMN IF NOT EXISTS "logoUrl" TEXT;
+
+-- 13. Table des Dépenses d'Exploitation
+CREATE TABLE IF NOT EXISTS public.expenses (
+  id TEXT PRIMARY KEY,
+  "referenceNumber" TEXT NOT NULL,
+  date TEXT NOT NULL,
+  time TEXT,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC DEFAULT 0,
+  "paymentMethod" TEXT DEFAULT 'espèces',
+  "recordedBy" TEXT NOT NULL,
+  "userId" TEXT NOT NULL,
+  "salesPointId" TEXT,
+  "salesPointName" TEXT,
+  "receiptReference" TEXT,
+  notes TEXT,
+  "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+  "updatedAt" TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ==============================================================================
@@ -312,6 +334,7 @@ ALTER TABLE public.stock_movements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.company_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
 
 -- Politiques permissives universelles pour l'ERP multi-utilisateurs
 DO $$
@@ -322,7 +345,7 @@ BEGIN
     SELECT unnest(ARRAY[
       'sales_points', 'users', 'suppliers', 'customers', 'products',
       'purchases', 'invoices', 'credit_notes', 'stock_movements',
-      'inventory_sessions', 'audit_logs', 'company_settings'
+      'inventory_sessions', 'audit_logs', 'company_settings', 'expenses'
     ])
   LOOP
     EXECUTE format('DROP POLICY IF EXISTS "Allow full access to %I" ON public.%I', tbl, tbl);
@@ -336,7 +359,7 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
     BEGIN
-      ALTER PUBLICATION supabase_realtime ADD TABLE public.products, public.invoices, public.stock_movements;
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.products, public.invoices, public.stock_movements, public.expenses;
     EXCEPTION
       WHEN duplicate_object THEN NULL;
       WHEN others THEN NULL;

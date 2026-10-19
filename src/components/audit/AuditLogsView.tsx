@@ -13,12 +13,14 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AuditLog } from '../../types';
+import { formatDate } from '../../utils/formatters';
 
 export const AuditLogsView: React.FC = () => {
   const { auditLogs, theme, language, t } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [actionFilter, setActionFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState<string>('');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
   const filteredLogs = auditLogs
@@ -30,7 +32,8 @@ export const AuditLogsView: React.FC = () => {
         (log.justification || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesRole = roleFilter === 'all' || log.userRole === roleFilter;
       const matchesAction = actionFilter === 'all' || log.action === actionFilter;
-      return matchesSearch && matchesRole && matchesAction;
+      const matchesDate = !dateFilter || (log.timestamp && log.timestamp.slice(0, 10) === dateFilter);
+      return matchesSearch && matchesRole && matchesAction && matchesDate;
     })
     .sort((a, b) => {
       const timeA = new Date(a.timestamp).getTime();
@@ -124,6 +127,40 @@ export const AuditLogsView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Specific Date Filter */}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition ${
+            dateFilter
+              ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/30'
+              : theme === 'dark'
+              ? 'bg-slate-800 border-slate-700'
+              : 'bg-slate-50 border-slate-200'
+          }`}>
+            <Calendar className={`w-3.5 h-3.5 shrink-0 ${dateFilter ? 'text-emerald-500' : 'text-slate-400'}`} />
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={e => setDateFilter(e.target.value)}
+              title={language === 'fr' ? 'Filtrer par date précise (ex: 2026-09-08)' : 'Filter by specific date (e.g. 2026-09-08)'}
+              className={`bg-transparent focus:outline-none cursor-pointer text-xs font-medium ${
+                dateFilter
+                  ? 'text-emerald-500 font-bold'
+                  : theme === 'dark'
+                  ? 'text-slate-300'
+                  : 'text-slate-700'
+              }`}
+            />
+            {dateFilter && (
+              <button
+                type="button"
+                onClick={() => setDateFilter('')}
+                className="p-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                title={language === 'fr' ? 'Effacer la date' : 'Clear date'}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
           <select
             value={roleFilter}
             onChange={e => setRoleFilter(e.target.value)}
@@ -141,6 +178,26 @@ export const AuditLogsView: React.FC = () => {
           </select>
         </div>
       </div>
+
+      {dateFilter && (
+        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-500 font-medium">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 shrink-0" />
+            <span>
+              {language === 'fr'
+                ? `Filtre actif pour le ${formatDate(dateFilter)} : ${filteredLogs.length} événement(s) d'audit`
+                : `Active filter for ${formatDate(dateFilter)}: ${filteredLogs.length} audit log(s)`}
+            </span>
+          </div>
+          <button
+            onClick={() => setDateFilter('')}
+            className="text-xs hover:underline flex items-center gap-1 cursor-pointer font-semibold"
+          >
+            <span>{language === 'fr' ? 'Effacer le filtre' : 'Clear filter'}</span>
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Audit Log Table */}
       <div className={`border rounded-xl overflow-hidden shadow-xs ${

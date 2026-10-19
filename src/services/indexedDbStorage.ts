@@ -82,6 +82,16 @@ export const openDatabase = (): Promise<IDBDatabase> => {
         dbInstance = null;
         dbInitPromise = null;
       };
+
+      // Request browser to guarantee persistent storage (never auto-evict during low disk space)
+      if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+        navigator.storage.persist().then((isPersisted) => {
+          if (isPersisted) {
+            console.log('[IndexedDB] Persistent storage granted (immunity to automatic browser eviction).');
+          }
+        }).catch(() => {});
+      }
+
       resolve(dbInstance);
     };
 

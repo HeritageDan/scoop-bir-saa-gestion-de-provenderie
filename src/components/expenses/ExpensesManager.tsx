@@ -52,7 +52,8 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ onOpenReport }
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'month'>('month');
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'month' | 'specific'>('month');
+  const [specificDate, setSpecificDate] = useState<string>('');
 
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -87,6 +88,8 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ onOpenReport }
         matchesDate = exp.date === todayStr;
       } else if (dateFilter === 'month') {
         matchesDate = exp.date.startsWith(currentMonthStr);
+      } else if (dateFilter === 'specific') {
+        matchesDate = specificDate ? exp.date === specificDate : true;
       }
 
       return matchesCategory && matchesSearch && matchesDate;
@@ -242,7 +245,11 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ onOpenReport }
           theme === 'dark' ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
         }`}>
           <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
-            <span>Dépenses Filtrées</span>
+            <span>
+              {dateFilter === 'specific' && specificDate
+                ? (language === 'fr' ? `Dépenses du ${formatDate(specificDate)}` : `Expenses for ${formatDate(specificDate)}`)
+                : 'Dépenses Filtrées'}
+            </span>
             <TrendingDown className="w-4 h-4 text-rose-500" />
           </div>
           <div className="text-2xl font-bold text-rose-500 mt-2 font-mono">
@@ -335,12 +342,15 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ onOpenReport }
             ))}
           </select>
 
-          {/* Date Filter */}
+          {/* Date Filter Buttons */}
           <div className={`flex rounded-xl p-1 border text-xs ${
             theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
           }`}>
             <button
-              onClick={() => setDateFilter('month')}
+              onClick={() => {
+                setDateFilter('month');
+                setSpecificDate('');
+              }}
               className={`px-3 py-1 rounded-lg font-medium transition cursor-pointer ${
                 dateFilter === 'month'
                   ? 'bg-rose-600 text-white'
@@ -352,7 +362,10 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ onOpenReport }
               Ce mois
             </button>
             <button
-              onClick={() => setDateFilter('today')}
+              onClick={() => {
+                setDateFilter('today');
+                setSpecificDate('');
+              }}
               className={`px-3 py-1 rounded-lg font-medium transition cursor-pointer ${
                 dateFilter === 'today'
                   ? 'bg-rose-600 text-white'
@@ -364,7 +377,10 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ onOpenReport }
               Aujourd'hui
             </button>
             <button
-              onClick={() => setDateFilter('all')}
+              onClick={() => {
+                setDateFilter('all');
+                setSpecificDate('');
+              }}
               className={`px-3 py-1 rounded-lg font-medium transition cursor-pointer ${
                 dateFilter === 'all'
                   ? 'bg-rose-600 text-white'
@@ -376,8 +392,76 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ onOpenReport }
               Tout
             </button>
           </div>
+
+          {/* Specific Date Filter */}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs transition ${
+            dateFilter === 'specific'
+              ? 'border-rose-500 bg-rose-500/10 ring-1 ring-rose-500/30'
+              : theme === 'dark'
+              ? 'bg-slate-800 border-slate-700'
+              : 'bg-slate-50 border-slate-200'
+          }`}>
+            <Calendar className={`w-3.5 h-3.5 shrink-0 ${dateFilter === 'specific' ? 'text-rose-500' : 'text-slate-400'}`} />
+            <input
+              type="date"
+              value={specificDate}
+              onChange={e => {
+                const val = e.target.value;
+                setSpecificDate(val);
+                if (val) {
+                  setDateFilter('specific');
+                } else {
+                  setDateFilter('month');
+                }
+              }}
+              title={language === 'fr' ? 'Filtrer par date précise (ex: 2026-09-08)' : 'Filter by specific date (e.g. 2026-09-08)'}
+              className={`bg-transparent focus:outline-none cursor-pointer text-xs font-medium ${
+                dateFilter === 'specific'
+                  ? 'text-rose-500 font-bold'
+                  : theme === 'dark'
+                  ? 'text-slate-300'
+                  : 'text-slate-700'
+              }`}
+            />
+            {specificDate && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSpecificDate('');
+                  setDateFilter('month');
+                }}
+                className="p-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                title={language === 'fr' ? 'Effacer la date' : 'Clear date'}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      {dateFilter === 'specific' && specificDate && (
+        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-500 font-medium">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 shrink-0" />
+            <span>
+              {language === 'fr'
+                ? `Filtre actif pour le ${formatDate(specificDate)} : ${filteredExpenses.length} dépense(s) (${formatFCFA(totalFilteredAmount)})`
+                : `Active filter for ${formatDate(specificDate)}: ${filteredExpenses.length} expense(s) (${formatFCFA(totalFilteredAmount)})`}
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              setSpecificDate('');
+              setDateFilter('month');
+            }}
+            className="text-xs hover:underline flex items-center gap-1 cursor-pointer font-semibold"
+          >
+            <span>{language === 'fr' ? 'Effacer le filtre' : 'Clear filter'}</span>
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Expenses Table */}
       <div className={`rounded-2xl border overflow-hidden ${

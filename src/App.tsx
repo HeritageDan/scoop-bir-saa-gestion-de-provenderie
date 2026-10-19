@@ -26,11 +26,33 @@ import { Invoice } from './types';
 function AppContent() {
   const { currentUser, isAuthenticated, theme, showDesktopInstallModal, setShowDesktopInstallModal } = useApp();
 
-  const [currentTab, setCurrentTab] = useState<string>('dashboard');
+  const [currentTab, setCurrentTab] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam) return tabParam;
+      if (window.location.hash) return window.location.hash.replace('#', '');
+    }
+    return 'dashboard';
+  });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeInvoiceForPrint, setActiveInvoiceForPrint] = useState<Invoice | null>(null);
   const [invoiceToSettle, setInvoiceToSettle] = useState<Invoice | null>(null);
+
+  React.useEffect(() => {
+    const handleUrlChange = () => {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab') || window.location.hash.replace('#', '');
+      if (tab) setCurrentTab(tab);
+    };
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
+    };
+  }, []);
 
   // If user is not authenticated, display Login Page with email & password + role quick-switch
   if (!isAuthenticated) {
