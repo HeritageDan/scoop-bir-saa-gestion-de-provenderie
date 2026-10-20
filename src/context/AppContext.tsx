@@ -767,44 +767,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await performAutomaticSync(silent);
   }, [performAutomaticSync]);
 
-  // Periodic and Event-Driven Cloud Synchronization Poller (Ultra-Lightweight 3-Hour Interval)
+  // Mode Sauvegarde et Synchronisation STRICTEMENT MANUELS
+  // Élimination totale de tout automatisme : aucun déclenchement au rafraîchissement de la page, aucune récurrence toutes les 3h, aucune synchronisation sur reconnexion réseau.
+  // La synchronisation cloud s'exécute UNIQUEMENT lorsque l'utilisateur clique volontairement sur "Synchroniser" ou "Pousser vers Supabase".
   useEffect(() => {
-    // 1. Synchronisation initiale unique au montage de l'application
-    performAutomaticSync(false);
-
-    // 2. Synchronisation d'arrière-plan ultra-économique toutes les 3 HEURES (3 * 60 * 60 * 1000 ms)
-    // Garantit une consommation Egress & Logs < 1.5% du quota gratuit Supabase
-    const intervalId = setInterval(() => {
-      performAutomaticSync(true);
-    }, 3 * 60 * 60 * 1000);
-
-    // 3. Reconnexion Internet : synchronisation douce uniquement si plus de 3 heures se sont écoulées
-    let lastSyncTimeMs = Date.now();
     const handleOnline = () => {
-      setSyncStatus('syncing');
-      const now = Date.now();
-      if (now - lastSyncTimeMs >= 3 * 60 * 60 * 1000) {
-        lastSyncTimeMs = now;
-        performAutomaticSync(false);
-      } else {
-        setSyncStatus('synced');
-      }
+      setSyncStatus('idle');
     };
 
     const handleOffline = () => {
       setSyncStatus('offline');
     };
 
-    // Note : Aucun écouteur sur le focus de fenêtre pour éliminer tout déclenchement intempestif lors des changements d'applications
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
     return () => {
-      clearInterval(intervalId);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [performAutomaticSync]);
+  }, []);
 
   // Dual-Persistence Engine: Instant localStorage + High-Capacity IndexedDB + Cloud Sync
   useEffect(() => {
@@ -1072,7 +1054,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       `Connexion réussie (${target.role})`,
       'Authentification avec mot de passe'
     );
-    performAutomaticSync(false).catch(() => {});
     return { success: true };
   };
 

@@ -51,11 +51,6 @@ export const LoginPage: React.FC = () => {
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Auto-fetch users from Supabase on mount
-  useEffect(() => {
-    triggerManualSync(true).catch(() => {});
-  }, [triggerManualSync]);
-
   const handleOpenCloudModal = () => {
     const cfg = getSupabaseConfig();
     setCloudUrl(cfg.url);
