@@ -293,13 +293,14 @@ export function clearSupabaseConfig(): void {
 }
 
 // Headers HTTP standard pour l'API REST Supabase (PostgREST)
+// Utilise strictement 'Prefer': 'return=minimal' pour éliminer tout transfert de données en retour lors des écritures (Egress = 0 octet)
 function getSupabaseHeaders(anonKey: string): HeadersInit {
   const cleanKey = normalizeSupabaseKey(anonKey);
   return {
     'apikey': cleanKey,
     'Authorization': `Bearer ${cleanKey}`,
     'Content-Type': 'application/json',
-    'Prefer': 'return=representation,resolution=merge-duplicates',
+    'Prefer': 'return=minimal,resolution=merge-duplicates',
   };
 }
 
@@ -533,6 +534,7 @@ export async function deleteRecordFromSupabase(tableName: string, id: string): P
       headers: {
         'apikey': config.anonKey,
         'Authorization': `Bearer ${config.anonKey}`,
+        'Prefer': 'return=minimal',
       },
     });
     return res.ok;
@@ -872,6 +874,7 @@ export async function clearSupabaseTable(tableName: string): Promise<boolean> {
       headers: {
         'apikey': config.anonKey,
         'Authorization': `Bearer ${config.anonKey}`,
+        'Prefer': 'return=minimal',
       },
     });
 
@@ -881,6 +884,7 @@ export async function clearSupabaseTable(tableName: string): Promise<boolean> {
         headers: {
           'apikey': config.anonKey,
           'Authorization': `Bearer ${config.anonKey}`,
+          'Prefer': 'return=minimal',
         },
       });
       return fallbackRes.ok;

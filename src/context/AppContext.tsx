@@ -578,15 +578,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [salesPoints]);
 
   const scheduleBackgroundPush = useCallback(() => {
-    if (isSyncingRemoteRef.current) return;
+    // Marquer les changements locaux sans requêtes réseau intempestives
     hasLocalChangesRef.current = true;
-    if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
-    pushTimerRef.current = setTimeout(() => {
-      if (!isSyncingRemoteRef.current) {
-        pushCurrentStateToSupabase();
-      }
-    }, 10000); // Debounce de 10s pour regrouper les écritures (vente + stock + audit) en un seul envoi
-  }, [pushCurrentStateToSupabase]);
+  }, []);
 
   // Automatic Background Cloud Supabase Synchronization Function
   const performAutomaticSync = useCallback(async (silent = true) => {
@@ -816,68 +810,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('provenda_expenses', JSON.stringify(expenses));
     saveStoreItems('expenses', expenses);
-    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
-  }, [expenses, scheduleBackgroundPush]);
+  }, [expenses]);
 
   useEffect(() => {
     localStorage.setItem('provenda_users', JSON.stringify(users));
     saveStoreItems('users', users);
-    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
-  }, [users, scheduleBackgroundPush]);
+  }, [users]);
 
   useEffect(() => {
     localStorage.setItem('provenda_products', JSON.stringify(products));
     saveStoreItems('products', products);
-    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
-  }, [products, scheduleBackgroundPush]);
+  }, [products]);
 
   useEffect(() => {
     localStorage.setItem('provenda_suppliers', JSON.stringify(suppliers));
     saveStoreItems('suppliers', suppliers);
-    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
-  }, [suppliers, scheduleBackgroundPush]);
+  }, [suppliers]);
 
   useEffect(() => {
     localStorage.setItem('provenda_customers', JSON.stringify(customers));
     saveStoreItems('customers', customers);
-    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
-  }, [customers, scheduleBackgroundPush]);
+  }, [customers]);
 
   useEffect(() => {
     localStorage.setItem('provenda_purchases', JSON.stringify(purchases));
     saveStoreItems('purchases', purchases);
-    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
-  }, [purchases, scheduleBackgroundPush]);
+  }, [purchases]);
 
   useEffect(() => {
     localStorage.setItem('provenda_invoices', JSON.stringify(invoices));
     saveStoreItems('invoices', invoices);
-    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
-  }, [invoices, scheduleBackgroundPush]);
+  }, [invoices]);
 
   useEffect(() => {
     localStorage.setItem('provenda_credit_notes', JSON.stringify(creditNotes));
     saveStoreItems('creditNotes', creditNotes);
-    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
-  }, [creditNotes, scheduleBackgroundPush]);
+  }, [creditNotes]);
 
   useEffect(() => {
     localStorage.setItem('provenda_stock_movements', JSON.stringify(stockMovements));
     saveStoreItems('stockMovements', stockMovements);
-    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
-  }, [stockMovements, scheduleBackgroundPush]);
+  }, [stockMovements]);
 
   useEffect(() => {
     localStorage.setItem('provenda_inventories', JSON.stringify(inventories));
     saveStoreItems('inventories', inventories);
-    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
-  }, [inventories, scheduleBackgroundPush]);
+  }, [inventories]);
 
   useEffect(() => {
     localStorage.setItem('provenda_audit_logs', JSON.stringify(auditLogs));
     saveStoreItems('auditLogs', auditLogs);
-    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
-  }, [auditLogs, scheduleBackgroundPush]);
+  }, [auditLogs]);
 
   useEffect(() => {
     localStorage.setItem('provenda_notifications', JSON.stringify(notifications));
@@ -886,14 +869,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('provenda_settings', JSON.stringify(settings));
     saveMetadata('settings', settings);
-    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
-  }, [settings, scheduleBackgroundPush]);
+  }, [settings]);
 
   useEffect(() => {
     localStorage.setItem('provenda_sales_points', JSON.stringify(salesPoints));
     saveStoreItems('salesPoints', salesPoints);
-    if (!isInitialMount.current && !isSyncingRemoteRef.current) scheduleBackgroundPush();
-  }, [salesPoints, scheduleBackgroundPush]);
+  }, [salesPoints]);
 
   // Theme handling
   const toggleTheme = () => {
@@ -2959,8 +2940,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         appName: 'SCOOPS BIR SAA Management System',
         version: '2.2',
         exportDate: new Date().toISOString(),
-        type: 'AUTO_BACKUP_2MIN',
-        checksum: `AUTO-2MIN-${Date.now()}`,
+        type: 'MANUAL_LOCAL_BACKUP',
+        checksum: `LOCAL-${Date.now()}`,
         data: {
           users: currentUsers,
           salesPoints: currentSalesPoints,
@@ -2997,23 +2978,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  // Timer exécutant la sauvegarde automatique toutes les 2 minutes (120 000 ms)
-  useEffect(() => {
-    // Sauvegarde initiale après 5 secondes d'activité
-    const initialTimer = setTimeout(() => {
-      triggerAutoBackup();
-    }, 5000);
-
-    // Répétition automatique toutes les 2 minutes
-    const intervalId = setInterval(() => {
-      triggerAutoBackup();
-    }, 2 * 60 * 1000);
-
-    return () => {
-      clearTimeout(initialTimer);
-      clearInterval(intervalId);
-    };
-  }, [triggerAutoBackup]);
+  // Sauvegarde automatique d'arrière-plan complètement arrêtée à la demande de l'utilisateur
+  // La sauvegarde reste disponible sur action manuelle via triggerAutoBackup() ou exportSystemBackup()
 
   // Backup & Restore Engine (Section 13, 17, 19 Criterion #14)
   const exportSystemBackup = (): string => {

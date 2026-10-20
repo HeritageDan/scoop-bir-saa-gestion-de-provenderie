@@ -411,8 +411,8 @@ export const SettingsManager: React.FC = () => {
       return;
     }
     const confirmMsg = language === 'fr'
-      ? 'Voulez-vous restaurer les données à partir de la dernière sauvegarde automatique de 2 minutes ?'
-      : 'Do you want to restore data from the last 2-minute auto-backup?';
+      ? 'Voulez-vous restaurer les données à partir de la dernière sauvegarde locale ?'
+      : 'Do you want to restore data from the last local backup?';
     if (window.confirm(confirmMsg)) {
       const res = restoreSystemBackup(raw);
       if (res.success) {
@@ -1759,43 +1759,42 @@ export const SettingsManager: React.FC = () => {
             </form>
           </div>
 
-          {/* AUTOMATIC 2-MINUTE BACKUP ENGINE STATUS CARD */}
+          {/* LOCAL BACKUP ENGINE STATUS CARD (AUTOMATIC BACKUP STOPPED) */}
           <div className={`border rounded-2xl p-5 sm:p-6 shadow-xs ${
             theme === 'dark'
-              ? 'bg-slate-900/90 border-emerald-500/30'
-              : 'bg-emerald-50/60 border-emerald-200'
+              ? 'bg-slate-900/90 border-slate-700/50'
+              : 'bg-slate-50 border-slate-200'
           }`}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
                   </span>
                   <h3 className={`text-sm font-bold flex items-center gap-2 ${
                     theme === 'dark' ? 'text-white' : 'text-slate-900'
                   }`}>
                     {language === 'fr'
-                      ? 'Sauvegarde Locale Automatique Active (Toutes les 2 minutes)'
-                      : 'Active Automatic Local Backup (Every 2 minutes)'}
+                      ? 'Sauvegarde Automatique : Complètement Arrêtée (Mode Manuel Uniquement)'
+                      : 'Automatic Backup: Completely Stopped (Manual Mode Only)'}
                   </h3>
-                  <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                    2 MIN
+                  <span className="text-[10px] font-mono font-bold bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                    {language === 'fr' ? 'ARRÊTÉE' : 'STOPPED'}
                   </span>
                 </div>
                 <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
                   {language === 'fr'
-                    ? 'Un instantané complet de vos réceptions d\'approvisionnement, stocks, ventes et dépenses est automatiquement archivé toutes les 2 minutes pour prévenir toute perte de données.'
-                    : 'A complete snapshot of your incoming procurement, stocks, sales and expenses is automatically archived every 2 minutes to prevent data loss.'}
+                    ? "La sauvegarde automatique toutes les 2 minutes a été complètement arrêtée afin d'éliminer la consommation de bande passante et de quotas Supabase. Vos données sont persistées localement et vous pouvez déclencher une sauvegarde manuelle à tout moment ci-contre."
+                    : "Automatic backup every 2 minutes has been completely stopped to eliminate network quota usage. Your data is safely stored locally and you can trigger a manual backup anytime."}
                 </p>
-                <div className="flex items-center gap-2 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 pt-1">
+                <div className="flex items-center gap-2 text-[11px] font-medium text-slate-500 dark:text-slate-400 pt-1">
                   <Clock className="w-3.5 h-3.5" />
                   <span>
-                    {language === 'fr' ? 'Dernière sauvegarde automatique :' : 'Last automatic backup:'}{' '}
+                    {language === 'fr' ? 'Dernière sauvegarde manuelle :' : 'Last manual backup:'}{' '}
                     <strong>
                       {lastAutoBackupTime
                         ? lastAutoBackupTime.toLocaleTimeString()
-                        : (language === 'fr' ? 'En attente du premier cycle...' : 'Awaiting first cycle...')}
+                        : (language === 'fr' ? 'Aucune sauvegarde effectuée' : 'No backup performed yet')}
                     </strong>
                   </span>
                 </div>
@@ -1820,7 +1819,7 @@ export const SettingsManager: React.FC = () => {
                   }`}
                 >
                   <Upload className="w-3.5 h-3.5 text-blue-500" />
-                  <span>{language === 'fr' ? 'Restaurer Dernière Auto-Sauvegarde' : 'Restore Last Auto-Backup'}</span>
+                  <span>{language === 'fr' ? 'Restaurer Dernière Sauvegarde' : 'Restore Last Backup'}</span>
                 </button>
               </div>
             </div>
