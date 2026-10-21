@@ -293,13 +293,13 @@ export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
               </div>
             </div>
 
-            {/* Column 4: Encaissements Effectifs */}
+            {/* Column 4: Encaissements & Caisse */}
             <div className="space-y-1.5">
               <div className="text-slate-500 text-[10px] uppercase font-bold">
-                {isEn ? 'Actual Cash Flow & Tender' : 'Encaissements Effectifs'}
+                {isEn ? 'Actual Cash Flow & Till' : 'Encaissements & Caisse'}
               </div>
               <div className="flex justify-between">
-                <span>{isEn ? 'Cash :' : 'Espèces :'}</span>
+                <span>{isEn ? 'Cash Receipts :' : 'Espèces :'}</span>
                 <span className="font-mono font-bold">{formatFCFA(cashSales)}</span>
               </div>
               <div className="flex justify-between">
@@ -311,12 +311,15 @@ export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
                 <span className="font-mono">{formatFCFA(bankSales)}</span>
               </div>
               <div className="flex justify-between text-rose-700 font-semibold border-t pt-1">
-                <span>{isEn ? 'Customer Credit / Due :' : 'Crédits / Solde dû :'}</span>
+                <span>{isEn ? 'Credit / Balance due :' : 'Crédits / Solde dû :'}</span>
                 <span className="font-mono">{formatFCFA(remainingCredit)}</span>
               </div>
-              <div className="flex justify-between font-bold text-emerald-900 border-t pt-1">
-                <span>{isEn ? 'Total Reconciled :' : 'Total Réconcilié :'}</span>
-                <span className="font-mono font-bold">{formatFCFA(cashSales + mobileSales + bankSales + remainingCredit)}</span>
+              <div className={`flex justify-between font-bold ${netCashInTill >= 0 ? 'text-emerald-900' : 'text-rose-700'} border-t pt-1`}>
+                <div>
+                  <span>{isEn ? 'Net Cash in Till :' : 'Solde Net Caisse :'}</span>
+                  <span className="block text-[9px] font-normal text-slate-500 font-sans">{isEn ? '(Cash - Expenses)' : '(Espèces - Dépenses)'}</span>
+                </div>
+                <span className="font-mono font-bold">{formatFCFA(netCashInTill)}</span>
               </div>
             </div>
           </div>
