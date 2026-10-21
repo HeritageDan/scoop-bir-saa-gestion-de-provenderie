@@ -293,10 +293,10 @@ export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
               </div>
             </div>
 
-            {/* Column 4: Encaissements & Caisse */}
+            {/* Column 4: Encaissements Effectifs */}
             <div className="space-y-1.5">
               <div className="text-slate-500 text-[10px] uppercase font-bold">
-                {isEn ? 'Cash Receipts & Till' : 'Encaissements Effectifs & Caisse'}
+                {isEn ? 'Actual Cash Flow & Tender' : 'Encaissements Effectifs'}
               </div>
               <div className="flex justify-between">
                 <span>{isEn ? 'Cash :' : 'Espèces :'}</span>
@@ -314,13 +314,9 @@ export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
                 <span>{isEn ? 'Customer Credit / Due :' : 'Crédits / Solde dû :'}</span>
                 <span className="font-mono">{formatFCFA(remainingCredit)}</span>
               </div>
-              <div className="flex justify-between text-rose-600 border-t pt-1">
-                <span>{isEn ? 'Less Cash Expenses :' : 'Moins Dépenses décaissées :'}</span>
-                <span className="font-mono">-{formatFCFA(totalExpenses)}</span>
-              </div>
-              <div className={`flex justify-between font-bold ${netCashInTill >= 0 ? 'text-emerald-900' : 'text-rose-700'} border-t pt-1`}>
-                <span>{isEn ? 'Net Cash in Till :' : 'Solde Net Caisse :'}</span>
-                <span className="font-mono font-bold">{formatFCFA(netCashInTill)}</span>
+              <div className="flex justify-between font-bold text-emerald-900 border-t pt-1">
+                <span>{isEn ? 'Total Reconciled :' : 'Total Réconcilié :'}</span>
+                <span className="font-mono font-bold">{formatFCFA(cashSales + mobileSales + bankSales + remainingCredit)}</span>
               </div>
             </div>
           </div>

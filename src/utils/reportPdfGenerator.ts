@@ -358,7 +358,7 @@ export function generateSalesReportPDF(
       isEn ? "Activity Volumes" : "Volumes d'Activité",
       isEn ? "Turnover (Sales)" : "Chiffre d'Affaires",
       isEn ? "Profitability & Operations" : "Rentabilité & Exploitation",
-      isEn ? "Actual Cash Flow & Till" : "Encaissements & Caisse"
+      isEn ? "Actual Cash Flow & Tender" : "Encaissements Effectifs"
     ]],
     body: [
       [
@@ -389,7 +389,7 @@ export function generateSalesReportPDF(
         ``,
         ``,
         `${isEn ? 'Net Operating Profit' : 'Résultat Net Exploit.'} : ${netOperatingIncome >= 0 ? '+' : ''}${formatFCFA(netOperatingIncome)}`,
-        `${isEn ? 'Net Cash in Till' : 'Solde Net Caisse'} : ${formatFCFA(netCashInTill)}`,
+        `${isEn ? 'Total Reconciled' : 'Total Réconcilié'} : ${formatFCFA(cashSales + mobileSales + bankSales + remainingCredit)}`,
       ],
     ],
     theme: 'grid',
