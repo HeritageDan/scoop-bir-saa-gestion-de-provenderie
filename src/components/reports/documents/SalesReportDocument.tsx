@@ -312,7 +312,11 @@ export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
               </div>
               <div className="flex justify-between text-rose-700 font-semibold border-t pt-1">
                 <span>{isEn ? 'Credit / Balance due :' : 'Crédits / Solde dû :'}</span>
-                <span className="font-mono">{formatFCFA(remainingCredit)}</span>
+                <span className="font-mono">-{formatFCFA(remainingCredit)}</span>
+              </div>
+              <div className="flex justify-between text-rose-700 font-semibold">
+                <span>{isEn ? 'Period Expenses :' : 'Dépenses Période :'}</span>
+                <span className="font-mono">-{formatFCFA(totalExpenses)}</span>
               </div>
               <div className={`flex justify-between font-bold ${netCashInTill >= 0 ? 'text-emerald-900' : 'text-rose-700'} border-t pt-1`}>
                 <div>

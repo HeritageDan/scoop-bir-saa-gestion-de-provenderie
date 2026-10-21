@@ -78,12 +78,14 @@ function addReportHeaderToDoc(
   doc.setFontSize(8);
   doc.setTextColor(...SECONDARY_COLOR);
   const locationText = `${salesPoint?.name ? salesPoint.name + ' — ' : ''}${salesPoint?.address || settings.address || 'Zone Industrielle Bassa, Douala'}`;
-  doc.text(locationText, textX, 25.5);
+  doc.text(locationText, textX, 25.2);
 
-  const contactText = `${isEn ? 'Phone' : 'Tél'}: ${salesPoint?.phone || settings.phone1 || '+237 699 00 11 22'}  |  Email: ${settings.email || 'contact@scoops-bir-saa.cm'}  |  NIF: ${settings.taxId || 'M082612345678P'}  |  RCCM: ${settings.tradeRegisterNumber || 'RC/DLA/2026/B/100'}`;
+  const contactLine1 = `${isEn ? 'Phone' : 'Tél'}: ${salesPoint?.phone || settings.phone1 || '+237 699 00 11 22'}  |  Email: ${settings.email || 'contact@scoops-bir-saa.cm'}`;
+  const contactLine2 = `NIF: ${settings.taxId || 'M082612345678P'}  |  RCCM: ${settings.tradeRegisterNumber || 'RC/DLA/2026/B/100'}`;
   doc.setFontSize(7.2);
   doc.setTextColor(...TEXT_MUTED);
-  doc.text(contactText, textX, 29.8);
+  doc.text(contactLine1, textX, 29.2);
+  doc.text(contactLine2, textX, 33.2);
 
   // Metadata block (top right)
   const now = new Date();
@@ -102,25 +104,25 @@ function addReportHeaderToDoc(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.text(`${isEn ? 'Issued:' : 'Édité le :'} ${dateStr} ${isEn ? 'at' : 'à'} ${timeStr}`, pageWidth - margin, 23.5, { align: 'right' });
-  doc.text(`${isEn ? 'By:' : 'Par :'} ${currentUser.name} (${currentUser.role})`, pageWidth - margin, 28, { align: 'right' });
+  doc.text(`${isEn ? 'By:' : 'Édité par :'} ${currentUser.name} (${currentUser.role})`, pageWidth - margin, 28, { align: 'right' });
 
   // Divider
   doc.setDrawColor(203, 213, 225);
-  doc.line(margin, 36.5, pageWidth - margin, 36.5);
+  doc.line(margin, 37.5, pageWidth - margin, 37.5);
 
   // Title & Period Box
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12.5);
+  doc.setFontSize(12);
   doc.setTextColor(...SECONDARY_COLOR);
-  doc.text(title, margin, 43.5);
+  doc.text(title, margin, 44.5);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(...PRIMARY_COLOR);
   const periodText = formatHumanDateRange(startDate, endDate, language);
-  doc.text(`${isEn ? 'Selected Period:' : 'Période d\'analyse :'} ${periodText}`, margin, 48.5);
+  doc.text(`${isEn ? 'Selected Period:' : 'Période d\'analyse :'} ${periodText}`, margin, 49.5);
 
-  return 53; // Return next Y position
+  return 54; // Return next Y position
 }
 
 function addSignaturesToDoc(doc: jsPDF, startY: number, language: 'fr' | 'en' = 'fr') {
@@ -382,8 +384,14 @@ export function generateSalesReportPDF(
       [
         ``,
         ``,
+        ``,
+        `${isEn ? 'Credit / Balance due' : 'Crédits / Solde dû'} : -${formatFCFA(remainingCredit)}`,
+      ],
+      [
+        ``,
+        ``,
         `${isEn ? 'Period Expenses' : 'Dépenses Période'} : -${formatFCFA(totalExpenses)}`,
-        `${isEn ? 'Credit / Balance due' : 'Crédits / Solde dû'} : ${formatFCFA(remainingCredit)}`,
+        `${isEn ? 'Period Expenses' : 'Dépenses Période'} : -${formatFCFA(totalExpenses)}`,
       ],
       [
         ``,
