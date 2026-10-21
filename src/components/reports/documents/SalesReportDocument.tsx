@@ -65,9 +65,10 @@ export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
 
   filteredInvoices.forEach(inv => {
     (inv.payments || []).forEach(p => {
-      if (p.method === 'espèces') cashSales += p.amount;
+      if (p.method === 'espèces' || p.method === 'crédit client') cashSales += p.amount;
       else if (p.method === 'paiement mobile') mobileSales += p.amount;
       else if (p.method === 'virement') bankSales += p.amount;
+      else cashSales += p.amount;
     });
     if (inv.remainingBalance > 0) {
       remainingCredit += inv.remainingBalance;

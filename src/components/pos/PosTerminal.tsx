@@ -327,7 +327,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
         : undefined,
       {
         amount: paymentMethod === 'crédit client' ? amountReceived : netTotal,
-        method: paymentMethod,
+        method: paymentMethod === 'crédit client' ? 'espèces' : paymentMethod,
         reference: paymentReference,
       },
       saleNotes,

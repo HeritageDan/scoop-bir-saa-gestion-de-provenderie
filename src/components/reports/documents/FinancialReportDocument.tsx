@@ -51,9 +51,10 @@ export const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = (
 
   validInvoices.forEach(inv => {
     (inv.payments || []).forEach(p => {
-      if (p.method === 'espèces') cashRevenue += p.amount;
+      if (p.method === 'espèces' || p.method === 'crédit client') cashRevenue += p.amount;
       else if (p.method === 'paiement mobile') mobileRevenue += p.amount;
       else if (p.method === 'virement') bankRevenue += p.amount;
+      else cashRevenue += p.amount;
     });
     if (inv.remainingBalance > 0) {
       unpaidDebtRevenue += inv.remainingBalance;

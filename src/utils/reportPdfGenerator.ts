@@ -250,9 +250,10 @@ export function generateSalesReportPDF(
 
   filtered.forEach(inv => {
     (inv.payments || []).forEach(p => {
-      if (p.method === 'espèces') cashSales += p.amount;
+      if (p.method === 'espèces' || p.method === 'crédit client') cashSales += p.amount;
       else if (p.method === 'paiement mobile') mobileSales += p.amount;
       else if (p.method === 'virement') bankSales += p.amount;
+      else cashSales += p.amount;
     });
     if (inv.remainingBalance > 0) {
       remainingCredit += inv.remainingBalance;
@@ -274,9 +275,10 @@ export function generateSalesReportPDF(
     let paymentMethod = isEn ? 'Credit' : 'Crédit';
     if (inv.payments && inv.payments.length > 0) {
       const pm = inv.payments[0].method;
-      if (pm === 'espèces') paymentMethod = isEn ? 'Cash' : 'Espèces';
+      if (pm === 'espèces' || (pm === 'crédit client' && inv.status === 'payée')) paymentMethod = isEn ? 'Cash' : 'Espèces';
       else if (pm === 'paiement mobile') paymentMethod = isEn ? 'Mobile' : 'Mobile';
       else if (pm === 'virement') paymentMethod = isEn ? 'Transfer' : 'Virement';
+      else if (pm === 'crédit client') paymentMethod = isEn ? 'Credit' : 'Crédit';
       else paymentMethod = pm;
     }
 
