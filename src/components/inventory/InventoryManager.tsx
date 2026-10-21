@@ -185,14 +185,14 @@ export const InventoryManager: React.FC = () => {
                       ? 'bg-slate-900/90 border-slate-800 text-slate-400'
                       : 'bg-slate-50/80 border-slate-200 text-slate-600'
                   }`}>
-                    <th className="py-3 px-3">Réf. Session</th>
-                    <th className="py-3 px-3">Période / Date</th>
-                    <th className="py-3 px-3">Périmètre</th>
-                    <th className="py-3 px-3 text-right">Valeur Théorique</th>
-                    <th className="py-3 px-3 text-right">Valeur Physique</th>
-                    <th className="py-3 px-3 text-right">Écart Financier</th>
-                    <th className="py-3 px-3 text-center">Statut</th>
-                    <th className="py-3 px-3 text-right">Action</th>
+                    <th className="py-3 px-3">{language === 'fr' ? 'Réf. Session' : 'Session Ref'}</th>
+                    <th className="py-3 px-3">{language === 'fr' ? 'Période / Date' : 'Period / Date'}</th>
+                    <th className="py-3 px-3">{language === 'fr' ? 'Périmètre' : 'Scope'}</th>
+                    <th className="py-3 px-3 text-right">{language === 'fr' ? 'Valeur Théorique' : 'Theoretical Value'}</th>
+                    <th className="py-3 px-3 text-right">{language === 'fr' ? 'Valeur Physique' : 'Counted Value'}</th>
+                    <th className="py-3 px-3 text-right">{language === 'fr' ? 'Écart Financier' : 'Financial Variance'}</th>
+                    <th className="py-3 px-3 text-center">{language === 'fr' ? 'Statut' : 'Status'}</th>
+                    <th className="py-3 px-3 text-right">{language === 'fr' ? 'Action' : 'Action'}</th>
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${theme === 'dark' ? 'divide-slate-800' : 'divide-slate-100'}`}>

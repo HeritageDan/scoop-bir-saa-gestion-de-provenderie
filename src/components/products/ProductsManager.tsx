@@ -529,15 +529,15 @@ export const ProductsManager: React.FC = () => {
               <tr className={`border-b text-[10px] uppercase font-bold tracking-wider ${
                 theme === 'dark' ? 'bg-slate-850 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'
               }`}>
-                <th className="py-3.5 px-3.5">Code / Réf</th>
-                <th className="py-3.5 px-3.5">Désignation</th>
-                <th className="py-3.5 px-3.5">Conditionnement & Unités</th>
-                <th className="py-3.5 px-3.5 text-right">Prix Achat</th>
-                <th className="py-3.5 px-3.5 text-right">Prix Vente</th>
-                <th className="py-3.5 px-3.5 text-right">Marge Brute</th>
-                <th className="py-3.5 px-3.5 text-right">Stock Actuel</th>
-                <th className="py-3.5 px-3.5 text-center">Statut</th>
-                <th className="py-3.5 px-3.5 text-center">Actions</th>
+                <th className="py-3.5 px-3.5">{language === 'fr' ? 'Code / Réf' : 'Code / Ref'}</th>
+                <th className="py-3.5 px-3.5">{language === 'fr' ? 'Désignation' : 'Product Name'}</th>
+                <th className="py-3.5 px-3.5">{language === 'fr' ? 'Conditionnement & Unités' : 'Packaging & Units'}</th>
+                <th className="py-3.5 px-3.5 text-right">{language === 'fr' ? 'Prix Achat' : 'Purchase Price'}</th>
+                <th className="py-3.5 px-3.5 text-right">{language === 'fr' ? 'Prix Vente' : 'Sale Price'}</th>
+                <th className="py-3.5 px-3.5 text-right">{language === 'fr' ? 'Marge Brute' : 'Gross Margin'}</th>
+                <th className="py-3.5 px-3.5 text-right">{language === 'fr' ? 'Stock Actuel' : 'Current Stock'}</th>
+                <th className="py-3.5 px-3.5 text-center">{language === 'fr' ? 'Statut' : 'Status'}</th>
+                <th className="py-3.5 px-3.5 text-center">{language === 'fr' ? 'Actions' : 'Actions'}</th>
               </tr>
             </thead>
             <tbody className={`divide-y ${theme === 'dark' ? 'divide-slate-800' : 'divide-slate-100'}`}>

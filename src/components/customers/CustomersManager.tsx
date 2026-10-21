@@ -314,7 +314,7 @@ export const CustomersManager: React.FC<CustomersManagerProps> = ({
                 <th className="py-3 px-3">{language === 'fr' ? 'Contact Téléphonique' : 'Phone Contact'}</th>
                 <th className="py-3 px-3 text-right">{language === 'fr' ? 'Plafond Crédit' : 'Credit Limit'}</th>
                 <th className="py-3 px-3 text-right">{language === 'fr' ? 'Créance Actuelle' : 'Current Debt'}</th>
-                <th className="py-3 px-3 text-right">Actions</th>
+                <th className="py-3 px-3 text-right">{language === 'fr' ? 'Actions' : 'Actions'}</th>
               </tr>
             </thead>
             <tbody className={`divide-y ${theme === 'dark' ? 'divide-slate-800' : 'divide-slate-200'}`}>

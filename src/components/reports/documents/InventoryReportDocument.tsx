@@ -68,24 +68,34 @@ export const InventoryReportDocument: React.FC<InventoryReportDocumentProps> = (
         {/* Inventory Summary Dashboard */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 p-3 bg-slate-50 border border-slate-300 rounded-xl text-xs">
           <div>
-            <span className="text-[10px] uppercase font-bold text-slate-500 block">Total Articles Référencés</span>
-            <span className="text-base font-bold font-mono text-slate-900">{totalProductsCount} références</span>
+            <span className="text-[10px] uppercase font-bold text-slate-500 block">
+              {isEn ? 'Total Referenced Items' : 'Total Articles Référencés'}
+            </span>
+            <span className="text-base font-bold font-mono text-slate-900">
+              {totalProductsCount} {isEn ? 'items' : 'références'}
+            </span>
           </div>
 
           <div>
-            <span className="text-[10px] uppercase font-bold text-slate-500 block">Valeur Actif Stock (CMP)</span>
+            <span className="text-[10px] uppercase font-bold text-slate-500 block">
+              {isEn ? 'WAC Stock Valuation' : 'Valeur Actif Stock (CMP)'}
+            </span>
             <span className="text-base font-bold font-mono text-emerald-800">{formatFCFA(totalStockValuation)}</span>
           </div>
 
           <div>
-            <span className="text-[10px] uppercase font-bold text-slate-500 block">Valeur Vente Estimée</span>
+            <span className="text-[10px] uppercase font-bold text-slate-500 block">
+              {isEn ? 'Estimated Sales Value' : 'Valeur Vente Estimée'}
+            </span>
             <span className="text-base font-bold font-mono text-slate-800">{formatFCFA(totalSaleValue)}</span>
           </div>
 
           <div>
-            <span className="text-[10px] uppercase font-bold text-slate-500 block">Alertes & Ruptures</span>
+            <span className="text-[10px] uppercase font-bold text-slate-500 block">
+              {isEn ? 'Alerts & Shortages' : 'Alertes & Ruptures'}
+            </span>
             <span className="text-xs font-bold font-mono">
-              <span className="text-amber-700">{lowStockCount} alerte(s)</span> • <span className="text-rose-700">{outOfStockCount} rupture(s)</span>
+              <span className="text-amber-700">{lowStockCount} {isEn ? 'alert(s)' : 'alerte(s)'}</span> • <span className="text-rose-700">{outOfStockCount} {isEn ? 'out of stock' : 'rupture(s)'}</span>
             </span>
           </div>
         </div>
@@ -96,15 +106,15 @@ export const InventoryReportDocument: React.FC<InventoryReportDocumentProps> = (
             <thead>
               <tr className="bg-slate-100 text-slate-800 font-bold uppercase text-[9px] border-b border-slate-300">
                 <th className="p-2 border-r border-slate-300 whitespace-nowrap">Code</th>
-                <th className="p-2 border-r border-slate-300">Désignation Produit</th>
-                <th className="p-2 border-r border-slate-300">Catégorie</th>
-                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">Stock Dispo</th>
-                <th className="p-2 border-r border-slate-300 whitespace-nowrap">Condit.</th>
-                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">CMP Unitaire</th>
-                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">Prix Vente</th>
-                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap font-bold">Valeur CMP (FCFA)</th>
-                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">Seuil Mini</th>
-                <th className="p-2 text-center whitespace-nowrap">État</th>
+                <th className="p-2 border-r border-slate-300">{isEn ? 'Product Description' : 'Désignation Produit'}</th>
+                <th className="p-2 border-r border-slate-300">{isEn ? 'Category' : 'Catégorie'}</th>
+                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">{isEn ? 'Avail. Stock' : 'Stock Dispo'}</th>
+                <th className="p-2 border-r border-slate-300 whitespace-nowrap">{isEn ? 'Pack.' : 'Condit.'}</th>
+                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">{isEn ? 'Unit WAC' : 'CMP Unitaire'}</th>
+                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">{isEn ? 'Sale Price' : 'Prix Vente'}</th>
+                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap font-bold">{isEn ? 'WAC Value (FCFA)' : 'Valeur CMP (FCFA)'}</th>
+                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">{isEn ? 'Min Alert' : 'Seuil Mini'}</th>
+                <th className="p-2 text-center whitespace-nowrap">{isEn ? 'State' : 'État'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -149,15 +159,15 @@ export const InventoryReportDocument: React.FC<InventoryReportDocumentProps> = (
                     <td className="p-2 text-center whitespace-nowrap">
                       {isOutOfStock ? (
                         <span className="px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase bg-rose-100 text-rose-800 border border-rose-300">
-                          Rupture
+                          {isEn ? 'Out of stock' : 'Rupture'}
                         </span>
                       ) : isLowStock ? (
                         <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold uppercase bg-amber-100 text-amber-800 border border-amber-300">
-                          Alerte
+                          {isEn ? 'Alert' : 'Alerte'}
                         </span>
                       ) : (
                         <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
-                          Normal
+                          {isEn ? 'Normal' : 'Normal'}
                         </span>
                       )}
                     </td>
@@ -168,7 +178,7 @@ export const InventoryReportDocument: React.FC<InventoryReportDocumentProps> = (
             <tfoot>
               <tr className="bg-slate-200 text-slate-900 font-bold border-t-2 border-slate-400">
                 <td colSpan={3} className="p-2.5 uppercase tracking-wider text-right border-r border-slate-300">
-                  TOTAUX GLOBAUX DU STOCK :
+                  {isEn ? 'GLOBAL STOCK TOTALS:' : 'TOTAUX GLOBAUX DU STOCK :'}
                 </td>
                 <td className="p-2.5 text-right font-mono border-r border-slate-300 whitespace-nowrap">
                   {formatNumber(totalStockQtyBase)} kg/L
@@ -178,7 +188,7 @@ export const InventoryReportDocument: React.FC<InventoryReportDocumentProps> = (
                   {formatFCFA(totalStockValuation)}
                 </td>
                 <td colSpan={2} className="p-2.5 text-right text-[10px] text-slate-600 font-mono">
-                  Marge potentielle: {formatFCFA(potentialGrossMargin)}
+                  {isEn ? 'Potential margin:' : 'Marge potentielle:'} {formatFCFA(potentialGrossMargin)}
                 </td>
               </tr>
             </tfoot>

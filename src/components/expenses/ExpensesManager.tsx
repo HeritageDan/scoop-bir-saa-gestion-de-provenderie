@@ -473,22 +473,22 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ onOpenReport }
               theme === 'dark' ? 'bg-slate-800/80 text-slate-400 border-slate-800' : 'bg-slate-50 text-slate-600 border-slate-200'
             }`}>
               <tr>
-                <th className="py-3 px-4">Réf.</th>
-                <th className="py-3 px-4">Date</th>
-                <th className="py-3 px-4">Catégorie</th>
-                <th className="py-3 px-4">Description / Motif</th>
-                <th className="py-3 px-4 text-right">Montant</th>
-                <th className="py-3 px-4">Règlement</th>
-                <th className="py-3 px-4">Enregistré par</th>
-                <th className="py-3 px-4">Réf. Justif</th>
-                {canManage && <th className="py-3 px-4 text-center">Action</th>}
+                <th className="py-3 px-4">{language === 'fr' ? 'Réf.' : 'Ref'}</th>
+                <th className="py-3 px-4">{language === 'fr' ? 'Date' : 'Date'}</th>
+                <th className="py-3 px-4">{language === 'fr' ? 'Catégorie' : 'Category'}</th>
+                <th className="py-3 px-4">{language === 'fr' ? 'Description / Motif' : 'Description / Purpose'}</th>
+                <th className="py-3 px-4 text-right">{language === 'fr' ? 'Montant' : 'Amount'}</th>
+                <th className="py-3 px-4">{language === 'fr' ? 'Règlement' : 'Payment'}</th>
+                <th className="py-3 px-4">{language === 'fr' ? 'Enregistré par' : 'Recorded by'}</th>
+                <th className="py-3 px-4">{language === 'fr' ? 'Réf. Justif' : 'Receipt Ref'}</th>
+                {canManage && <th className="py-3 px-4 text-center">{language === 'fr' ? 'Action' : 'Action'}</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/40">
               {filteredExpenses.length === 0 ? (
                 <tr>
                   <td colSpan={canManage ? 9 : 8} className="py-12 text-center text-slate-400">
-                    Aucune dépense ne correspond aux critères de recherche.
+                    {language === 'fr' ? 'Aucune dépense ne correspond aux critères de recherche.' : 'No expenses match the search criteria.'}
                   </td>
                 </tr>
               ) : (

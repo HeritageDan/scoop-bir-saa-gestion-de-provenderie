@@ -430,6 +430,19 @@ export const translations: Record<Language, Record<string, string>> = {
     'sidebar.unlimited': 'Illimité',
     'sidebar.rules_active': 'Règles CMP & Stock non négatif actives',
     'sidebar.operational_nav': 'Navigation Opérationnelle',
+
+    // Reports module
+    'reports.title': 'Centre de Rapports & États de Gestion',
+    'reports.subtitle': 'Édition de rapports certifiés multi-pages avec pagination, en-têtes récurrents et export PDF pour l\'audit et la direction.',
+    'reports.tab_sales': '1. Ventes & Encaissements',
+    'reports.tab_financial': '2. Compte de Résultat & Finances',
+    'reports.tab_inventory': '3. Stock & Valorisation CMP',
+    'reports.tab_purchases': '4. Approvisionnements Achats',
+    'reports.tab_expenses': '5. Dépenses d\'Exploitation',
+    'reports.kpi_net_sales': 'CA Net Ventes',
+    'reports.kpi_gross_margin': 'Marge Brute (CMP)',
+    'reports.kpi_expenses': 'Dépenses Exploitation',
+    'reports.kpi_net_profit': 'Résultat Net d\'Exploitation',
   },
   en: {
     // Navigation
@@ -860,6 +873,19 @@ export const translations: Record<Language, Record<string, string>> = {
     'sidebar.unlimited': 'Unlimited',
     'sidebar.rules_active': 'WAC & Non-negative stock rules active',
     'sidebar.operational_nav': 'Operational Navigation',
+
+    // Reports module
+    'reports.title': 'Reports & Management Statements Center',
+    'reports.subtitle': 'Certified multi-page report publishing with pagination, recurring headers and PDF export for audit and executive management.',
+    'reports.tab_sales': '1. Sales & Cash Receipts',
+    'reports.tab_financial': '2. Income Statement & Profitability',
+    'reports.tab_inventory': '3. Inventory & WAC Valuation',
+    'reports.tab_purchases': '4. Purchases & Supplies',
+    'reports.tab_expenses': '5. Operating Expenses',
+    'reports.kpi_net_sales': 'Net Turnover',
+    'reports.kpi_gross_margin': 'Gross Margin (WAC)',
+    'reports.kpi_expenses': 'Operating Expenses',
+    'reports.kpi_net_profit': 'Net Operating Income',
   },
 };
 

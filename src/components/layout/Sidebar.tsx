@@ -352,9 +352,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
 
           {/* Language Toggle Pill */}
-          <div className={`flex rounded-xl border p-0.5 shrink-0 ${
+          <div className={`flex items-center gap-0.5 rounded-xl border p-1 shrink-0 ${
             theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-200/80 border-slate-300'
           }`}>
+            <Globe className="w-3.5 h-3.5 text-blue-400 ml-1 mr-0.5 shrink-0" />
             <button
               onClick={() => setLanguage('fr')}
               className={`px-2 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer ${

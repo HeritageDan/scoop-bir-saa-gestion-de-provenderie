@@ -132,10 +132,12 @@ export const ReportsManager: React.FC = () => {
       .reduce((sum, p) => sum + p.stockCurrentBaseUnit * p.cmp, 0);
   }, [products]);
 
+  const isEn = language === 'en';
+
   // Direct PDF Download Handler
   const handleDirectDownloadPDF = () => {
     if (activeReportTab === 'sales') {
-      generateSalesReportPDF(invoices, startDate, endDate, settings, currentSalesPoint, currentUser, language);
+      generateSalesReportPDF(invoices, startDate, endDate, settings, currentSalesPoint, currentUser, language, expenses);
     } else if (activeReportTab === 'financial') {
       generateFinancialReportPDF(invoices, purchases, expenses, products, startDate, endDate, settings, currentSalesPoint, currentUser, language);
     } else if (activeReportTab === 'inventory') {
@@ -234,10 +236,12 @@ export const ReportsManager: React.FC = () => {
             theme === 'dark' ? 'text-white' : 'text-slate-900'
           }`}>
             <BarChart3 className="w-6 h-6 text-emerald-500" />
-            <span>Centre de Rapports & États de Gestion</span>
+            <span>{isEn ? 'Reports & Management Statements Center' : 'Centre de Rapports & États de Gestion'}</span>
           </h1>
           <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-            Édition de rapports certifiés multi-pages avec pagination, en-têtes récurrents et export PDF pour l'audit et la direction.
+            {isEn
+              ? 'Certified multi-page report publishing with pagination, recurring headers and PDF export for audit and executive management.'
+              : 'Édition de rapports certifiés multi-pages avec pagination, en-têtes récurrents et export PDF pour l\'audit et la direction.'}
           </p>
         </div>
 
@@ -250,10 +254,10 @@ export const ReportsManager: React.FC = () => {
                 ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
                 : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-2xs'
             }`}
-            title="Exporter les données au format Excel / CSV"
+            title={isEn ? 'Export data to Excel / CSV format' : 'Exporter les données au format Excel / CSV'}
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-            <span className="hidden sm:inline">Exporter CSV</span>
+            <span className="hidden sm:inline">{isEn ? 'Export CSV' : 'Exporter CSV'}</span>
           </button>
 
           <button
@@ -263,19 +267,19 @@ export const ReportsManager: React.FC = () => {
                 ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
                 : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-2xs'
             }`}
-            title="Télécharger directement le rapport PDF A4"
+            title={isEn ? 'Download A4 PDF report directly' : 'Télécharger directement le rapport PDF A4'}
           >
             <Download className="w-4 h-4 text-emerald-500" />
-            <span>Télécharger PDF</span>
+            <span>{isEn ? 'Download PDF' : 'Télécharger PDF'}</span>
           </button>
 
           <button
             onClick={() => setIsPrintModalOpen(true)}
             className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-md shadow-emerald-600/25 transition cursor-pointer"
-            title="Prévisualiser le document A4 et lancer l'impression"
+            title={isEn ? 'Preview A4 document and print' : 'Prévisualiser le document A4 et lancer l\'impression'}
           >
             <Printer className="w-4 h-4" />
-            <span>Prévisualiser & Imprimer</span>
+            <span>{isEn ? 'Preview & Print' : 'Prévisualiser & Imprimer'}</span>
           </button>
         </div>
       </div>
@@ -287,15 +291,15 @@ export const ReportsManager: React.FC = () => {
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-bold text-slate-400 mr-2 flex items-center gap-1">
             <Clock className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Période :</span>
+            <span>{isEn ? 'Period :' : 'Période :'}</span>
           </span>
 
           {[
-            { id: 'today', label: "Aujourd'hui" },
-            { id: 'yesterday', label: 'Hier' },
-            { id: 'this_week', label: 'Cette semaine' },
-            { id: 'this_month', label: 'Ce mois' },
-            { id: 'custom', label: 'Personnalisée...' },
+            { id: 'today', label: isEn ? 'Today' : "Aujourd'hui" },
+            { id: 'yesterday', label: isEn ? 'Yesterday' : 'Hier' },
+            { id: 'this_week', label: isEn ? 'This week' : 'Cette semaine' },
+            { id: 'this_month', label: isEn ? 'This month' : 'Ce mois' },
+            { id: 'custom', label: isEn ? 'Custom...' : 'Personnalisée...' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -317,7 +321,7 @@ export const ReportsManager: React.FC = () => {
         {datePreset === 'custom' ? (
           <div className="flex items-center gap-2 text-xs">
             <div>
-              <span className="text-[10px] text-slate-400 font-bold block mb-0.5">Du :</span>
+              <span className="text-[10px] text-slate-400 font-bold block mb-0.5">{isEn ? 'From :' : 'Du :'}</span>
               <input
                 type="date"
                 value={customRange.startDate}
@@ -328,7 +332,7 @@ export const ReportsManager: React.FC = () => {
               />
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 font-bold block mb-0.5">Au :</span>
+              <span className="text-[10px] text-slate-400 font-bold block mb-0.5">{isEn ? 'To :' : 'Au :'}</span>
               <input
                 type="date"
                 value={customRange.endDate}
@@ -351,50 +355,58 @@ export const ReportsManager: React.FC = () => {
         <div className={`p-4 rounded-2xl border ${
           theme === 'dark' ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
         }`}>
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CA Net Ventes</span>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+            {isEn ? 'Net Turnover' : 'CA Net Ventes'}
+          </span>
           <div className="text-xl sm:text-2xl font-bold text-emerald-500 font-mono mt-1">
             {formatFCFA(netSales)}
           </div>
           <span className="text-[10px] text-slate-400">
-            {filteredInvoices.length} facture(s) émise(s)
+            {isEn ? `${filteredInvoices.length} invoice(s) issued` : `${filteredInvoices.length} facture(s) émise(s)`}
           </span>
         </div>
 
         <div className={`p-4 rounded-2xl border ${
           theme === 'dark' ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
         }`}>
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Marge Brute (CMP)</span>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+            {isEn ? 'Gross Margin (WAC)' : 'Marge Brute (CMP)'}
+          </span>
           <div className="text-xl sm:text-2xl font-bold text-emerald-400 font-mono mt-1">
             +{formatFCFA(grossProfit)}
           </div>
           <span className="text-[10px] text-slate-400">
-            Taux de marque : <strong className="text-white">{marginRateSales.toFixed(1)}%</strong>
+            {isEn ? 'Markup rate :' : 'Taux de marque :'} <strong className="text-white">{marginRateSales.toFixed(1)}%</strong>
           </span>
         </div>
 
         <div className={`p-4 rounded-2xl border ${
           theme === 'dark' ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
         }`}>
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Dépenses Exploitation</span>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+            {isEn ? 'Operating Expenses' : 'Dépenses Exploitation'}
+          </span>
           <div className="text-xl sm:text-2xl font-bold text-rose-500 font-mono mt-1">
             -{formatFCFA(totalExpensesAmount)}
           </div>
           <span className="text-[10px] text-slate-400">
-            {filteredExpenses.length} charge(s) décaissée(s)
+            {isEn ? `${filteredExpenses.length} charge(s) paid` : `${filteredExpenses.length} charge(s) décaissée(s)`}
           </span>
         </div>
 
         <div className={`p-4 rounded-2xl border ${
           theme === 'dark' ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
         }`}>
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Résultat Net d'Exploitation</span>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+            {isEn ? 'Net Operating Income' : "Résultat Net d'Exploitation"}
+          </span>
           <div className={`text-xl sm:text-2xl font-bold font-mono mt-1 ${
             netOperatingProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
           }`}>
             {netOperatingProfit >= 0 ? `+${formatFCFA(netOperatingProfit)}` : formatFCFA(netOperatingProfit)}
           </div>
           <span className="text-[10px] text-slate-400">
-            Bénéfice net après charges
+            {isEn ? 'Net profit after overhead' : 'Bénéfice net après charges'}
           </span>
         </div>
       </div>
@@ -404,11 +416,11 @@ export const ReportsManager: React.FC = () => {
         theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
       }`}>
         {[
-          { id: 'sales', label: '1. Ventes & Encaissements', icon: DollarSign },
-          { id: 'financial', label: '2. Compte de Résultat & Finances', icon: TrendingUp },
-          { id: 'inventory', label: '3. Stock & Valorisation CMP', icon: Package },
-          { id: 'purchases', label: '4. Approvisionnements Achats', icon: Truck },
-          { id: 'expenses', label: '5. Dépenses d\'Exploitation', icon: Wallet },
+          { id: 'sales', label: isEn ? '1. Sales & Cash Receipts' : '1. Ventes & Encaissements', icon: DollarSign },
+          { id: 'financial', label: isEn ? '2. Income Statement & Profitability' : '2. Compte de Résultat & Finances', icon: TrendingUp },
+          { id: 'inventory', label: isEn ? '3. Inventory & WAC Valuation' : '3. Stock & Valorisation CMP', icon: Package },
+          { id: 'purchases', label: isEn ? '4. Purchases & Supplies' : '4. Approvisionnements Achats', icon: Truck },
+          { id: 'expenses', label: isEn ? '5. Operating Expenses' : '5. Dépenses d\'Exploitation', icon: Wallet },
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = activeReportTab === tab.id;
@@ -437,7 +449,9 @@ export const ReportsManager: React.FC = () => {
       }`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <span className="text-xs uppercase font-bold text-slate-400">Aperçu interactif :</span>
+            <span className="text-xs uppercase font-bold text-slate-400">
+              {isEn ? 'Interactive preview :' : 'Aperçu interactif :'}
+            </span>
             <span className="text-xs font-mono font-bold text-white bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-700">
               {startDate} → {endDate}
             </span>
@@ -447,7 +461,7 @@ export const ReportsManager: React.FC = () => {
             onClick={() => setIsPrintModalOpen(true)}
             className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer"
           >
-            <span>Ouvrir l'éditeur de mise en page</span>
+            <span>{isEn ? 'Open layout editor' : 'Ouvrir l\'éditeur de mise en page'}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -460,22 +474,22 @@ export const ReportsManager: React.FC = () => {
                 theme === 'dark' ? 'text-slate-400 bg-slate-800/60 border-slate-800' : 'text-slate-600 bg-slate-50 border-slate-200'
               }`}>
                 <tr>
-                  <th className="py-2.5 px-3">Date</th>
-                  <th className="py-2.5 px-3">N° Facture</th>
-                  <th className="py-2.5 px-3">Client</th>
-                  <th className="py-2.5 px-3">Articles</th>
-                  <th className="py-2.5 px-3 text-right">Brut</th>
-                  <th className="py-2.5 px-3 text-right">Remise</th>
-                  <th className="py-2.5 px-3 text-right">Net</th>
-                  <th className="py-2.5 px-3 text-right">Marge</th>
-                  <th className="py-2.5 px-3">Statut</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Date' : 'Date'}</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Invoice #' : 'N° Facture'}</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Customer' : 'Client'}</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Items' : 'Articles'}</th>
+                  <th className="py-2.5 px-3 text-right">{isEn ? 'Gross' : 'Brut'}</th>
+                  <th className="py-2.5 px-3 text-right">{isEn ? 'Discount' : 'Remise'}</th>
+                  <th className="py-2.5 px-3 text-right">{isEn ? 'Net' : 'Net'}</th>
+                  <th className="py-2.5 px-3 text-right">{isEn ? 'Margin' : 'Marge'}</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Status' : 'Statut'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/40 font-mono">
                 {filteredInvoices.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-8 text-center text-slate-400 font-sans">
-                      Aucune vente enregistrée sur cette période.
+                      {isEn ? 'No sales recorded for this period.' : 'Aucune vente enregistrée sur cette période.'}
                     </td>
                   </tr>
                 ) : (
@@ -491,7 +505,9 @@ export const ReportsManager: React.FC = () => {
                       <td className="py-2.5 px-3 text-right text-amber-400">{inv.totalDiscount > 0 ? `-${formatNumber(inv.totalDiscount)}` : '0'}</td>
                       <td className="py-2.5 px-3 text-right font-bold text-emerald-400">{formatNumber(inv.totalNet)}</td>
                       <td className="py-2.5 px-3 text-right text-slate-300">+{formatNumber(inv.grossMargin)}</td>
-                      <td className="py-2.5 px-3 font-sans capitalize text-slate-400">{inv.status}</td>
+                      <td className="py-2.5 px-3 font-sans capitalize text-slate-400">
+                        {inv.status === 'payée' ? (isEn ? 'Paid' : 'payée') : inv.status === 'partielle' ? (isEn ? 'Partial' : 'partielle') : (isEn ? 'Pending' : 'en attente')}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -499,7 +515,9 @@ export const ReportsManager: React.FC = () => {
             </table>
             {filteredInvoices.length > 15 && (
               <div className="text-center py-3 text-xs text-slate-400 font-sans border-t border-slate-800">
-                Affichage des 15 premières transactions sur {filteredInvoices.length}. Cliquez sur <strong>Prévisualiser & Imprimer</strong> pour voir et imprimer l'intégralité du rapport.
+                {isEn
+                  ? `Showing first 15 transactions out of ${filteredInvoices.length}. Click Preview & Print to view and print the complete report.`
+                  : `Affichage des 15 premières transactions sur ${filteredInvoices.length}. Cliquez sur Prévisualiser & Imprimer pour voir et imprimer l'intégralité du rapport.`}
               </div>
             )}
           </div>
@@ -510,31 +528,31 @@ export const ReportsManager: React.FC = () => {
           <div className="space-y-4 max-w-3xl mx-auto font-sans text-xs">
             <div className={`p-4 rounded-xl border ${theme === 'dark' ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
               <div className="flex justify-between py-1.5 border-b border-slate-700/50">
-                <span className="font-semibold">Chiffre d'Affaires Brut :</span>
+                <span className="font-semibold">{isEn ? 'Gross Sales Revenue :' : "Chiffre d'Affaires Brut :"}</span>
                 <span className="font-mono font-bold">{formatFCFA(grossSales)}</span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-slate-700/50 text-amber-400">
-                <span>Remises commerciales déduites :</span>
+                <span>{isEn ? 'Commercial discounts deducted :' : 'Remises commerciales déduites :'}</span>
                 <span className="font-mono">-{formatFCFA(totalDiscounts)}</span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-slate-700/50 font-bold text-emerald-400 text-sm">
-                <span>Chiffre d'Affaires Net :</span>
+                <span>{isEn ? 'Net Sales Revenue :' : "Chiffre d'Affaires Net :"}</span>
                 <span className="font-mono">{formatFCFA(netSales)}</span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-slate-700/50 text-slate-400">
-                <span>Coût des Marchandises Vendues (CMP) :</span>
+                <span>{isEn ? 'Cost of Goods Sold (CMP / WAC) :' : 'Coût des Marchandises Vendues (CMP) :'}</span>
                 <span className="font-mono">-{formatFCFA(totalCOGS)}</span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-slate-700/50 font-bold text-slate-200">
-                <span>Marge Commerciale Brute :</span>
+                <span>{isEn ? 'Gross Commercial Margin :' : 'Marge Commerciale Brute :'}</span>
                 <span className="font-mono text-emerald-400">+{formatFCFA(grossProfit)}</span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-slate-700/50 text-rose-400">
-                <span>Charges et Dépenses d'Exploitation :</span>
+                <span>{isEn ? 'Operating Charges & Expenses :' : "Charges et Dépenses d'Exploitation :"}</span>
                 <span className="font-mono">-{formatFCFA(totalExpensesAmount)}</span>
               </div>
               <div className="flex justify-between py-2 text-base font-black text-white pt-2">
-                <span>Résultat Net Réel (Bénéfice) :</span>
+                <span>{isEn ? 'Net Operating Profit / (Loss) :' : 'Résultat Net Réel (Bénéfice) :'}</span>
                 <span className={`font-mono ${netOperatingProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {netOperatingProfit >= 0 ? `+${formatFCFA(netOperatingProfit)}` : formatFCFA(netOperatingProfit)}
                 </span>
@@ -547,7 +565,7 @@ export const ReportsManager: React.FC = () => {
         {activeReportTab === 'inventory' && (
           <div className="overflow-x-auto">
             <div className="flex items-center gap-3 mb-3">
-              <span className="text-xs text-slate-400">Filtrer par catégorie :</span>
+              <span className="text-xs text-slate-400">{isEn ? 'Filter by category :' : 'Filtrer par catégorie :'}</span>
               <select
                 value={categoryFilter}
                 onChange={e => setCategoryFilter(e.target.value)}
@@ -555,11 +573,11 @@ export const ReportsManager: React.FC = () => {
                   theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'
                 }`}
               >
-                <option value="all">Toutes les catégories</option>
-                <option value="Matières premières">Matières premières</option>
-                <option value="Concentrés, prémix et compléments">Concentrés, prémix et compléments</option>
-                <option value="Aliments finis">Aliments finis</option>
-                <option value="Autres fournitures">Autres fournitures</option>
+                <option value="all">{isEn ? 'All categories' : 'Toutes les catégories'}</option>
+                <option value="Matières premières">{isEn ? 'Raw materials' : 'Matières premières'}</option>
+                <option value="Concentrés, prémix et compléments">{isEn ? 'Concentrates, premix & supplements' : 'Concentrés, prémix et compléments'}</option>
+                <option value="Aliments finis">{isEn ? 'Finished feeds' : 'Aliments finis'}</option>
+                <option value="Autres fournitures">{isEn ? 'Other supplies' : 'Autres fournitures'}</option>
               </select>
             </div>
             <table className="w-full text-left text-xs">
@@ -568,13 +586,13 @@ export const ReportsManager: React.FC = () => {
               }`}>
                 <tr>
                   <th className="py-2.5 px-3">Code</th>
-                  <th className="py-2.5 px-3">Produit</th>
-                  <th className="py-2.5 px-3">Catégorie</th>
-                  <th className="py-2.5 px-3 text-right">Stock</th>
-                  <th className="py-2.5 px-3 text-right">CMP (U)</th>
-                  <th className="py-2.5 px-3 text-right">Prix Vente</th>
-                  <th className="py-2.5 px-3 text-right">Valeur Stock (CMP)</th>
-                  <th className="py-2.5 px-3 text-center">État</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Product' : 'Produit'}</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Category' : 'Catégorie'}</th>
+                  <th className="py-2.5 px-3 text-right">{isEn ? 'Stock' : 'Stock'}</th>
+                  <th className="py-2.5 px-3 text-right">{isEn ? 'WAC (U)' : 'CMP (U)'}</th>
+                  <th className="py-2.5 px-3 text-right">{isEn ? 'Sale Price' : 'Prix Vente'}</th>
+                  <th className="py-2.5 px-3 text-right">{isEn ? 'Stock Value (CMP)' : 'Valeur Stock (CMP)'}</th>
+                  <th className="py-2.5 px-3 text-center">{isEn ? 'Status' : 'État'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/40 font-mono">
@@ -594,7 +612,11 @@ export const ReportsManager: React.FC = () => {
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                           p.stockCurrentBaseUnit <= 0 ? 'bg-rose-500/20 text-rose-400' : p.stockCurrentBaseUnit <= p.minAlertThresholdBaseUnit ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'
                         }`}>
-                          {p.stockCurrentBaseUnit <= 0 ? 'Rupture' : p.stockCurrentBaseUnit <= p.minAlertThresholdBaseUnit ? 'Alerte' : 'Normal'}
+                          {p.stockCurrentBaseUnit <= 0
+                            ? (isEn ? 'Out of stock' : 'Rupture')
+                            : p.stockCurrentBaseUnit <= p.minAlertThresholdBaseUnit
+                            ? (isEn ? 'Low stock' : 'Alerte')
+                            : (isEn ? 'Normal' : 'Normal')}
                         </span>
                       </td>
                     </tr>
@@ -612,20 +634,20 @@ export const ReportsManager: React.FC = () => {
                 theme === 'dark' ? 'text-slate-400 bg-slate-800/60 border-slate-800' : 'text-slate-600 bg-slate-50 border-slate-200'
               }`}>
                 <tr>
-                  <th className="py-2.5 px-3">Réf Bon</th>
-                  <th className="py-2.5 px-3">Date</th>
-                  <th className="py-2.5 px-3">Fournisseur</th>
-                  <th className="py-2.5 px-3 text-right">Sous-total</th>
-                  <th className="py-2.5 px-3 text-right">Transport</th>
-                  <th className="py-2.5 px-3 text-right">Total TTC</th>
-                  <th className="py-2.5 px-3">Statut</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Order Ref' : 'Réf Bon'}</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Date' : 'Date'}</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Supplier' : 'Fournisseur'}</th>
+                  <th className="py-2.5 px-3 text-right">{isEn ? 'Subtotal' : 'Sous-total'}</th>
+                  <th className="py-2.5 px-3 text-right">{isEn ? 'Transport' : 'Transport'}</th>
+                  <th className="py-2.5 px-3 text-right">{isEn ? 'Total (FCFA)' : 'Total TTC'}</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Status' : 'Statut'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/40 font-mono">
                 {filteredPurchases.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-slate-400 font-sans">
-                      Aucun approvisionnement enregistré sur cette période.
+                      {isEn ? 'No purchases or supplies recorded for this period.' : 'Aucun approvisionnement enregistré sur cette période.'}
                     </td>
                   </tr>
                 ) : (
@@ -637,7 +659,9 @@ export const ReportsManager: React.FC = () => {
                       <td className="py-2.5 px-3 text-right text-slate-400">{formatNumber(p.subtotal)}</td>
                       <td className="py-2.5 px-3 text-right text-amber-400">{p.transportFees > 0 ? `+${formatNumber(p.transportFees)}` : '0'}</td>
                       <td className="py-2.5 px-3 text-right font-bold text-emerald-400">{formatFCFA(p.totalAmount)}</td>
-                      <td className="py-2.5 px-3 font-sans capitalize text-slate-400">{p.status}</td>
+                      <td className="py-2.5 px-3 font-sans capitalize text-slate-400">
+                        {p.status === 'validé' ? (isEn ? 'Validated' : 'validé') : (isEn ? 'Draft' : 'brouillon')}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -654,20 +678,20 @@ export const ReportsManager: React.FC = () => {
                 theme === 'dark' ? 'text-slate-400 bg-slate-800/60 border-slate-800' : 'text-slate-600 bg-slate-50 border-slate-200'
               }`}>
                 <tr>
-                  <th className="py-2.5 px-3">Réf</th>
-                  <th className="py-2.5 px-3">Date</th>
-                  <th className="py-2.5 px-3">Catégorie</th>
-                  <th className="py-2.5 px-3">Description</th>
-                  <th className="py-2.5 px-3 text-right">Montant</th>
-                  <th className="py-2.5 px-3">Règlement</th>
-                  <th className="py-2.5 px-3">Auteur</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Ref' : 'Réf'}</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Date' : 'Date'}</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Category' : 'Catégorie'}</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Description' : 'Description'}</th>
+                  <th className="py-2.5 px-3 text-right">{isEn ? 'Amount' : 'Montant'}</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Payment Method' : 'Règlement'}</th>
+                  <th className="py-2.5 px-3">{isEn ? 'Author' : 'Auteur'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/40 font-mono">
                 {filteredExpenses.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-slate-400 font-sans">
-                      Aucune dépense enregistrée sur cette période.
+                      {isEn ? 'No expenses recorded for this period.' : 'Aucune dépense enregistrée sur cette période.'}
                     </td>
                   </tr>
                 ) : (
@@ -678,7 +702,9 @@ export const ReportsManager: React.FC = () => {
                       <td className="py-2.5 px-3 font-sans text-slate-300">{e.category}</td>
                       <td className="py-2.5 px-3 font-sans text-slate-400 max-w-xs truncate">{e.description}</td>
                       <td className="py-2.5 px-3 text-right font-bold text-rose-500">{formatFCFA(e.amount)}</td>
-                      <td className="py-2.5 px-3 font-sans text-slate-400 capitalize">{e.paymentMethod}</td>
+                      <td className="py-2.5 px-3 font-sans text-slate-400 capitalize">
+                        {e.paymentMethod === 'espèces' ? (isEn ? 'Cash' : 'espèces') : e.paymentMethod === 'paiement mobile' ? (isEn ? 'Mobile' : 'paiement mobile') : e.paymentMethod === 'virement' ? (isEn ? 'Transfer' : 'virement') : e.paymentMethod}
+                      </td>
                       <td className="py-2.5 px-3 font-sans text-slate-400">{e.recordedBy}</td>
                     </tr>
                   ))

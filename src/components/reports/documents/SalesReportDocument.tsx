@@ -1,5 +1,5 @@
 import React from 'react';
-import { CompanySettings, Invoice, SalesPoint, User } from '../../../types';
+import { CompanySettings, Expense, Invoice, SalesPoint, User } from '../../../types';
 import { isDateInRange } from '../../../utils/dateFilterUtils';
 import { formatFCFA, formatDate, formatNumber } from '../../../utils/formatters';
 import { ReportHeader } from './ReportHeader';
@@ -13,6 +13,7 @@ interface SalesReportDocumentProps {
   salesPoint: SalesPoint | null;
   currentUser: User;
   language?: 'fr' | 'en';
+  expenses?: Expense[];
 }
 
 export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
@@ -23,6 +24,7 @@ export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
   salesPoint,
   currentUser,
   language = 'fr',
+  expenses = [],
 }) => {
   const isEn = language === 'en';
 
@@ -72,6 +74,12 @@ export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
     }
   });
 
+  // Period Expenses accounting
+  const validExpenses = (expenses || []).filter(e => isDateInRange(e.date, startDate, endDate));
+  const totalExpenses = validExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const netOperatingIncome = totalGrossMargin - totalExpenses;
+  const netCashInTill = cashSales - totalExpenses;
+
   return (
     <div className="bg-white text-slate-900 font-sans p-6 sm:p-10 max-w-[210mm] mx-auto min-h-[297mm] flex flex-col justify-between print:p-0 print:m-0 print:max-w-none">
       <div>
@@ -96,16 +104,16 @@ export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
           <table className="w-full text-left text-[11px] border-collapse border border-slate-300">
             <thead>
               <tr className="bg-slate-100 text-slate-800 font-bold uppercase text-[9.5px] border-b border-slate-300">
-                <th className="p-2 border-r border-slate-300 whitespace-nowrap">Date / Heure</th>
-                <th className="p-2 border-r border-slate-300 whitespace-nowrap">N° Facture</th>
-                <th className="p-2 border-r border-slate-300">Client</th>
-                <th className="p-2 border-r border-slate-300">Articles & Qté</th>
-                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">Brut (FCFA)</th>
-                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">Remise</th>
-                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap font-bold">Net (FCFA)</th>
-                <th className="p-2 border-r border-slate-300 whitespace-nowrap">Règlement</th>
-                <th className="p-2 border-r border-slate-300 whitespace-nowrap">Caissier</th>
-                <th className="p-2 text-center whitespace-nowrap">Statut</th>
+                <th className="p-2 border-r border-slate-300 whitespace-nowrap">{isEn ? 'Date / Time' : 'Date / Heure'}</th>
+                <th className="p-2 border-r border-slate-300 whitespace-nowrap">{isEn ? 'Invoice #' : 'N° Facture'}</th>
+                <th className="p-2 border-r border-slate-300">{isEn ? 'Customer' : 'Client'}</th>
+                <th className="p-2 border-r border-slate-300">{isEn ? 'Items & Qty' : 'Articles & Qté'}</th>
+                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">{isEn ? 'Gross (FCFA)' : 'Brut (FCFA)'}</th>
+                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">{isEn ? 'Discount' : 'Remise'}</th>
+                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap font-bold">{isEn ? 'Net (FCFA)' : 'Net (FCFA)'}</th>
+                <th className="p-2 border-r border-slate-300 whitespace-nowrap">{isEn ? 'Tender / Payment' : 'Règlement'}</th>
+                <th className="p-2 border-r border-slate-300 whitespace-nowrap">{isEn ? 'Cashier' : 'Caissier'}</th>
+                <th className="p-2 text-center whitespace-nowrap">{isEn ? 'Status' : 'Statut'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -157,11 +165,13 @@ export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
                       {inv.payments && inv.payments.length > 0 ? (
                         inv.payments.map((p, pi) => (
                           <div key={pi}>
-                            <span className="font-medium">{p.method}</span> ({formatNumber(p.amount)})
+                            <span className="font-medium">
+                              {p.method === 'espèces' ? (isEn ? 'Cash' : 'espèces') : p.method === 'paiement mobile' ? (isEn ? 'Mobile' : 'paiement mobile') : p.method === 'virement' ? (isEn ? 'Transfer' : 'virement') : p.method}
+                            </span> ({formatNumber(p.amount)})
                           </div>
                         ))
                       ) : (
-                        <span className="text-rose-700 font-semibold">À crédit</span>
+                        <span className="text-rose-700 font-semibold">{isEn ? 'On Credit' : 'À crédit'}</span>
                       )}
                     </td>
                     <td className="p-2 border-r border-slate-200 text-[10px] whitespace-nowrap text-slate-600">
@@ -177,7 +187,7 @@ export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
                             : 'bg-rose-100 text-rose-800 border border-rose-300'
                         }`}
                       >
-                        {inv.status}
+                        {inv.status === 'payée' ? (isEn ? 'Paid' : 'payée') : inv.status === 'partielle' ? (isEn ? 'Partial' : 'partielle') : (isEn ? 'Pending' : 'en attente')}
                       </span>
                     </td>
                   </tr>
@@ -208,82 +218,108 @@ export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
           </table>
         </div>
 
-        {/* Section 6 Summary Card: SALES SUMMARY */}
+        {/* Section 6 Summary Card: SALES SUMMARY & CASH RECONCILIATION */}
         <div className="mt-8 p-4 bg-slate-50 border border-slate-300 rounded-xl break-inside-avoid">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 border-b border-slate-200 pb-2 mb-3">
-            {isEn ? 'SALES & FINANCIAL PERFORMANCE SUMMARY' : 'SYNTHÈSE COMMERCIALE & RÉCAPITULATIF DE CAISSE'}
+            {isEn ? 'COMMERCIAL SUMMARY & CASH RECONCILIATION' : 'SYNTHÈSE COMMERCIALE & RÉCAPITULATIF DE CAISSE'}
           </h3>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
             {/* Column 1: Volumes */}
             <div className="space-y-1.5 border-r border-slate-200 pr-3">
-              <div className="text-slate-500 text-[10px] uppercase font-bold">Volumes d'Activité</div>
+              <div className="text-slate-500 text-[10px] uppercase font-bold">
+                {isEn ? 'Activity Volumes' : "Volumes d'Activité"}
+              </div>
               <div className="flex justify-between">
-                <span>Transactions :</span>
+                <span>{isEn ? 'Transactions :' : 'Transactions :'}</span>
                 <span className="font-bold font-mono">{transactionCount}</span>
               </div>
               <div className="flex justify-between">
-                <span>Total unités vendues :</span>
+                <span>{isEn ? 'Total units sold :' : 'Total unités vendues :'}</span>
                 <span className="font-bold font-mono">{formatNumber(totalQtySold)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Panier moyen :</span>
+                <span>{isEn ? 'Average basket :' : 'Panier moyen :'}</span>
                 <span className="font-bold font-mono text-emerald-800">{formatFCFA(avgBasket)}</span>
               </div>
             </div>
 
             {/* Column 2: CA & Marges */}
             <div className="space-y-1.5 border-r border-slate-200 pr-3">
-              <div className="text-slate-500 text-[10px] uppercase font-bold">Chiffre d'Affaires</div>
+              <div className="text-slate-500 text-[10px] uppercase font-bold">
+                {isEn ? 'Turnover / Sales' : "Chiffre d'Affaires"}
+              </div>
               <div className="flex justify-between">
-                <span>Total Brut :</span>
+                <span>{isEn ? 'Gross Total :' : 'Total Brut :'}</span>
                 <span className="font-mono">{formatFCFA(grossSales)}</span>
               </div>
               <div className="flex justify-between text-amber-700">
-                <span>Total Remises :</span>
+                <span>{isEn ? 'Total Discounts :' : 'Total Remises :'}</span>
                 <span className="font-mono">-{formatFCFA(totalDiscounts)}</span>
               </div>
               <div className="flex justify-between font-bold text-emerald-900 border-t pt-1">
-                <span>Net Commercial :</span>
+                <span>{isEn ? 'Net Commercial :' : 'Net Commercial :'}</span>
                 <span className="font-mono">{formatFCFA(netSales)}</span>
               </div>
             </div>
 
-            {/* Column 3: Rentabilité Brute */}
+            {/* Column 3: Rentabilité & Exploitation */}
             <div className="space-y-1.5 border-r border-slate-200 pr-3">
-              <div className="text-slate-500 text-[10px] uppercase font-bold">Rentabilité Marchandises</div>
+              <div className="text-slate-500 text-[10px] uppercase font-bold">
+                {isEn ? 'Profitability & Income' : 'Rentabilité & Exploitation'}
+              </div>
               <div className="flex justify-between">
-                <span>Coût revient (CMV) :</span>
+                <span>{isEn ? 'Cost of Goods (CMP) :' : 'Coût revient (CMV) :'}</span>
                 <span className="font-mono">{formatFCFA(totalCOGS)}</span>
               </div>
               <div className="flex justify-between font-bold text-emerald-800">
-                <span>Marge Brute :</span>
+                <span>{isEn ? 'Gross Margin :' : 'Marge Brute :'}</span>
                 <span className="font-mono">+{formatFCFA(totalGrossMargin)}</span>
               </div>
               <div className="flex justify-between text-slate-600">
-                <span>Taux de marque :</span>
+                <span>{isEn ? 'Markup Rate :' : 'Taux de marque :'}</span>
                 <span className="font-mono font-bold">{marginRateSales.toFixed(1)}%</span>
+              </div>
+              <div className="flex justify-between text-rose-600 border-t pt-1">
+                <span>{isEn ? 'Period Expenses :' : 'Dépenses Période :'}</span>
+                <span className="font-mono">-{formatFCFA(totalExpenses)}</span>
+              </div>
+              <div className={`flex justify-between font-bold ${netOperatingIncome >= 0 ? 'text-emerald-900' : 'text-rose-700'}`}>
+                <span>{isEn ? 'Net Operating Income :' : "Résultat Net d'Exploitation :"}</span>
+                <span className="font-mono font-bold">
+                  {netOperatingIncome >= 0 ? `+${formatFCFA(netOperatingIncome)}` : formatFCFA(netOperatingIncome)}
+                </span>
               </div>
             </div>
 
-            {/* Column 4: Encaissements */}
+            {/* Column 4: Encaissements & Caisse */}
             <div className="space-y-1.5">
-              <div className="text-slate-500 text-[10px] uppercase font-bold">Encaissements Effectifs</div>
+              <div className="text-slate-500 text-[10px] uppercase font-bold">
+                {isEn ? 'Cash Receipts & Till' : 'Encaissements Effectifs & Caisse'}
+              </div>
               <div className="flex justify-between">
-                <span>Espèces :</span>
+                <span>{isEn ? 'Cash :' : 'Espèces :'}</span>
                 <span className="font-mono font-bold">{formatFCFA(cashSales)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Paiement Mobile :</span>
+                <span>{isEn ? 'Mobile Money :' : 'Paiement Mobile :'}</span>
                 <span className="font-mono font-bold text-amber-800">{formatFCFA(mobileSales)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Virements :</span>
+                <span>{isEn ? 'Bank Transfers :' : 'Virements :'}</span>
                 <span className="font-mono">{formatFCFA(bankSales)}</span>
               </div>
               <div className="flex justify-between text-rose-700 font-semibold border-t pt-1">
-                <span>Crédits / Solde dû :</span>
+                <span>{isEn ? 'Customer Credit / Due :' : 'Crédits / Solde dû :'}</span>
                 <span className="font-mono">{formatFCFA(remainingCredit)}</span>
+              </div>
+              <div className="flex justify-between text-rose-600 border-t pt-1">
+                <span>{isEn ? 'Less Cash Expenses :' : 'Moins Dépenses décaissées :'}</span>
+                <span className="font-mono">-{formatFCFA(totalExpenses)}</span>
+              </div>
+              <div className={`flex justify-between font-bold ${netCashInTill >= 0 ? 'text-emerald-900' : 'text-rose-700'} border-t pt-1`}>
+                <span>{isEn ? 'Net Cash in Till :' : 'Solde Net Caisse :'}</span>
+                <span className="font-mono font-bold">{formatFCFA(netCashInTill)}</span>
               </div>
             </div>
           </div>

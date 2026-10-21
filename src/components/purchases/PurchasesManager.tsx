@@ -547,7 +547,7 @@ export const PurchasesManager: React.FC = () => {
                 <th className="py-3 px-3 text-right">{language === 'fr' ? 'Frais Transport' : 'Transport Fees'}</th>
                 <th className="py-3 px-3 text-right">{language === 'fr' ? 'Montant Total' : 'Total Amount'}</th>
                 <th className="py-3 px-3 text-center">{language === 'fr' ? 'Statut' : 'Status'}</th>
-                <th className="py-3 px-3 text-right">Actions</th>
+                <th className="py-3 px-3 text-right">{language === 'fr' ? 'Actions' : 'Actions'}</th>
               </tr>
             </thead>
             <tbody className={`divide-y ${theme === 'dark' ? 'divide-slate-800' : 'divide-slate-200'}`}>

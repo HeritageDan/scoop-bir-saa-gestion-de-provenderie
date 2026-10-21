@@ -17,7 +17,6 @@ import {
   BookOpen,
   Sun,
   Moon,
-  Globe,
   MonitorDown,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -43,7 +42,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
     theme,
     toggleTheme,
     language,
-    setLanguage,
     t,
     salesPoints,
     currentSalesPointId,
@@ -280,6 +278,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
           )}
         </button>
 
+
         {/* Notifications Dropdown */}
         <div className="relative shrink-0" ref={notifRef}>
           <button
@@ -484,24 +483,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
                     <span>{theme === 'dark' ? (language === 'fr' ? 'Mode Clair' : 'Light Mode') : (language === 'fr' ? 'Mode Sombre' : 'Dark Mode')}</span>
                   </div>
                   <span className="text-[10px] text-slate-400 font-semibold">{theme === 'dark' ? 'Sombre' : 'Clair'}</span>
-                </button>
-
-                {/* Language Toggle row in dropdown */}
-                <button
-                  onClick={() => {
-                    setLanguage(language === 'fr' ? 'en' : 'fr');
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition flex items-center justify-between cursor-pointer ${
-                    theme === 'dark'
-                      ? 'hover:bg-slate-700/60 text-slate-200'
-                      : 'hover:bg-slate-100 text-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-3.5 h-3.5 text-blue-400" />
-                    <span>{language === 'fr' ? 'Langue' : 'Language'}</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-emerald-500 uppercase">{language === 'fr' ? 'FR (Français)' : 'EN (English)'}</span>
                 </button>
               </div>
 

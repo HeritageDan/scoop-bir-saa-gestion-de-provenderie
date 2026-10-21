@@ -66,22 +66,22 @@ export const PurchaseReportDocument: React.FC<PurchaseReportDocumentProps> = ({
           <table className="w-full text-left text-[11px] border-collapse border border-slate-300">
             <thead>
               <tr className="bg-slate-100 text-slate-800 font-bold uppercase text-[9px] border-b border-slate-300">
-                <th className="p-2 border-r border-slate-300 whitespace-nowrap">Réf. Bon</th>
-                <th className="p-2 border-r border-slate-300 whitespace-nowrap">Date Réception</th>
-                <th className="p-2 border-r border-slate-300">Fournisseur & Réf BL</th>
-                <th className="p-2 border-r border-slate-300">Articles Réceptionnés</th>
-                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">Sous-total (FCFA)</th>
-                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">Transport (Frais)</th>
-                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap font-bold">Total TTC (FCFA)</th>
-                <th className="p-2 border-r border-slate-300 whitespace-nowrap">Réceptionné par</th>
-                <th className="p-2 text-center whitespace-nowrap">Statut</th>
+                <th className="p-2 border-r border-slate-300 whitespace-nowrap">{isEn ? 'Order Ref' : 'Réf. Bon'}</th>
+                <th className="p-2 border-r border-slate-300 whitespace-nowrap">{isEn ? 'Receipt Date' : 'Date Réception'}</th>
+                <th className="p-2 border-r border-slate-300">{isEn ? 'Supplier & Delivery Ref' : 'Fournisseur & Réf BL'}</th>
+                <th className="p-2 border-r border-slate-300">{isEn ? 'Received Items' : 'Articles Réceptionnés'}</th>
+                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">{isEn ? 'Subtotal (FCFA)' : 'Sous-total (FCFA)'}</th>
+                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap">{isEn ? 'Freight Fees' : 'Transport (Frais)'}</th>
+                <th className="p-2 border-r border-slate-300 text-right whitespace-nowrap font-bold">{isEn ? 'Total Incl. (FCFA)' : 'Total TTC (FCFA)'}</th>
+                <th className="p-2 border-r border-slate-300 whitespace-nowrap">{isEn ? 'Received by' : 'Réceptionné par'}</th>
+                <th className="p-2 text-center whitespace-nowrap">{isEn ? 'Status' : 'Statut'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {filteredPurchases.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="p-6 text-center text-slate-500 italic">
-                    Aucun achat ou approvisionnement sur cette période.
+                    {isEn ? 'No purchases or supplies recorded for this period.' : 'Aucun achat ou approvisionnement sur cette période.'}
                   </td>
                 </tr>
               ) : (
@@ -97,7 +97,7 @@ export const PurchaseReportDocument: React.FC<PurchaseReportDocumentProps> = ({
                       <span className="text-slate-900">{p.supplierName}</span>
                       {p.supplierDocumentRef && (
                         <span className="block text-[9.5px] font-mono text-slate-500">
-                          BL: {p.supplierDocumentRef}
+                          {isEn ? 'DN:' : 'BL:'} {p.supplierDocumentRef}
                         </span>
                       )}
                     </td>
@@ -135,7 +135,7 @@ export const PurchaseReportDocument: React.FC<PurchaseReportDocumentProps> = ({
                             : 'bg-rose-100 text-rose-800 border border-rose-300'
                         }`}
                       >
-                        {p.status}
+                        {p.status === 'validé' ? (isEn ? 'Validated' : 'validé') : (isEn ? 'Draft' : 'brouillon')}
                       </span>
                     </td>
                   </tr>
@@ -146,7 +146,7 @@ export const PurchaseReportDocument: React.FC<PurchaseReportDocumentProps> = ({
               <tfoot>
                 <tr className="bg-slate-200 text-slate-900 font-bold border-t-2 border-slate-400">
                   <td colSpan={4} className="p-2.5 uppercase tracking-wider text-right border-r border-slate-300">
-                    TOTAUX ACHATS DE LA PÉRIODE :
+                    {isEn ? 'PERIOD PURCHASES TOTALS:' : 'TOTAUX ACHATS DE LA PÉRIODE :'}
                   </td>
                   <td className="p-2.5 text-right font-mono border-r border-slate-300 whitespace-nowrap">
                     {formatFCFA(totalLinesValue)}
@@ -158,7 +158,7 @@ export const PurchaseReportDocument: React.FC<PurchaseReportDocumentProps> = ({
                     {formatFCFA(grandTotal)}
                   </td>
                   <td colSpan={2} className="p-2.5 text-right text-[10px] text-slate-600 font-mono">
-                    {filteredPurchases.length} bon(s) d'achat
+                    {filteredPurchases.length} {isEn ? 'purchase order(s)' : 'bon(s) d\'achat'}
                   </td>
                 </tr>
               </tfoot>

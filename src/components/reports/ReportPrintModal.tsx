@@ -58,6 +58,8 @@ export const ReportPrintModal: React.FC<ReportPrintModalProps> = ({
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [isExporting, setIsExporting] = useState(false);
 
+  const isEn = language === 'en';
+
   if (!isOpen) return null;
 
   const handlePrint = () => {
@@ -69,7 +71,7 @@ export const ReportPrintModal: React.FC<ReportPrintModalProps> = ({
     setIsExporting(true);
     try {
       if (reportType === 'sales') {
-        generateSalesReportPDF(invoices, startDate, endDate, settings, currentSalesPoint, currentUser, language);
+        generateSalesReportPDF(invoices, startDate, endDate, settings, currentSalesPoint, currentUser, language, expenses);
       } else if (reportType === 'financial') {
         generateFinancialReportPDF(invoices, purchases, expenses, products, startDate, endDate, settings, currentSalesPoint, currentUser, language);
       } else if (reportType === 'inventory') {
@@ -89,15 +91,15 @@ export const ReportPrintModal: React.FC<ReportPrintModalProps> = ({
   const getReportTitle = () => {
     switch (reportType) {
       case 'sales':
-        return 'Journal Détaillé des Ventes & Encaissements';
+        return isEn ? 'Detailed Sales & Cash Receipts Journal' : 'Journal Détaillé des Ventes & Encaissements';
       case 'financial':
-        return 'État Financier & Compte d\'Exploitation Analytique';
+        return isEn ? 'Financial Statement & Analytical Income Report' : 'État Financier & Compte d\'Exploitation Analytique';
       case 'inventory':
-        return 'État du Stock Physique & Valorisation CMP';
+        return isEn ? 'Physical Inventory & WAC Asset Valuation' : 'État du Stock Physique & Valorisation CMP';
       case 'purchases':
-        return 'Journal des Approvisionnements & Achats';
+        return isEn ? 'Purchases & Supplies Journal' : 'Journal des Approvisionnements & Achats';
       case 'expenses':
-        return 'Journal Détaillé des Dépenses d\'Exploitation';
+        return isEn ? 'Detailed Operating Expenses Journal' : 'Journal Détaillé des Dépenses d\'Exploitation';
     }
   };
 
@@ -109,7 +111,7 @@ export const ReportPrintModal: React.FC<ReportPrintModalProps> = ({
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
-            title="Fermer la prévisualisation"
+            title={isEn ? 'Close preview' : 'Fermer la prévisualisation'}
           >
             <X className="w-5 h-5" />
           </button>
@@ -121,7 +123,7 @@ export const ReportPrintModal: React.FC<ReportPrintModalProps> = ({
               </span>
             </div>
             <span className="text-[11px] text-slate-400 font-mono">
-              Période du {startDate} au {endDate}
+              {isEn ? `Period: ${startDate} to ${endDate}` : `Période du ${startDate} au ${endDate}`}
             </span>
           </div>
         </div>
@@ -133,7 +135,7 @@ export const ReportPrintModal: React.FC<ReportPrintModalProps> = ({
             <button
               onClick={() => setZoomLevel(prev => Math.max(60, prev - 10))}
               className="p-1.5 hover:text-white text-slate-400 transition"
-              title="Réduire"
+              title={isEn ? 'Zoom out' : 'Réduire'}
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
@@ -143,14 +145,14 @@ export const ReportPrintModal: React.FC<ReportPrintModalProps> = ({
             <button
               onClick={() => setZoomLevel(prev => Math.min(140, prev + 10))}
               className="p-1.5 hover:text-white text-slate-400 transition"
-              title="Agrandir"
+              title={isEn ? 'Zoom in' : 'Agrandir'}
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setZoomLevel(100)}
               className="p-1.5 hover:text-white text-slate-400 transition border-l border-slate-700 ml-0.5"
-              title="Taille réelle (100%)"
+              title={isEn ? 'Actual size (100%)' : 'Taille réelle (100%)'}
             >
               <Maximize2 className="w-3.5 h-3.5" />
             </button>
@@ -163,7 +165,11 @@ export const ReportPrintModal: React.FC<ReportPrintModalProps> = ({
             className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition cursor-pointer shadow-xs"
           >
             <Download className="w-4 h-4 text-emerald-400" />
-            <span>{isExporting ? 'Génération...' : 'Télécharger PDF'}</span>
+            <span>
+              {isExporting
+                ? (isEn ? 'Generating...' : 'Génération...')
+                : (isEn ? 'Download PDF' : 'Télécharger PDF')}
+            </span>
           </button>
 
           {/* Native Print Button */}
@@ -172,7 +178,7 @@ export const ReportPrintModal: React.FC<ReportPrintModalProps> = ({
             className="px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-emerald-600/30"
           >
             <Printer className="w-4 h-4" />
-            <span>Imprimer le Rapport</span>
+            <span>{isEn ? 'Print Report' : 'Imprimer le Rapport'}</span>
           </button>
         </div>
       </div>
@@ -196,6 +202,7 @@ export const ReportPrintModal: React.FC<ReportPrintModalProps> = ({
               salesPoint={currentSalesPoint}
               currentUser={currentUser}
               language={language}
+              expenses={expenses}
             />
           )}
 

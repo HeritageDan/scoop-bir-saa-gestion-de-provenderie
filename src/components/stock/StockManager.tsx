@@ -404,19 +404,19 @@ export const StockManager: React.FC = () => {
                   <tr className={`border-b text-[10px] uppercase font-bold text-slate-400 tracking-wider ${
                     theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
                   }`}>
-                    <th className="py-3 px-3">Réf / Code</th>
-                    <th className="py-3 px-3">Désignation</th>
-                    <th className="py-3 px-3">Conditionnement</th>
-                    <th className="py-3 px-3 text-right">Stock Base</th>
-                    <th className="py-3 px-3 text-right">Équiv. Commercial</th>
-                    <th className="py-3 px-3 text-right">CMP Unitaire</th>
-                    <th className="py-3 px-3 text-right">Valeur Stock</th>
-                    <th className="py-3 px-3 text-center">État Stock</th>
+                    <th className="py-3 px-3">{language === 'fr' ? 'Réf / Code' : 'Ref / Code'}</th>
+                    <th className="py-3 px-3">{language === 'fr' ? 'Désignation' : 'Product Name'}</th>
+                    <th className="py-3 px-3">{language === 'fr' ? 'Conditionnement' : 'Packaging'}</th>
+                    <th className="py-3 px-3 text-right">{language === 'fr' ? 'Stock Base' : 'Base Stock'}</th>
+                    <th className="py-3 px-3 text-right">{language === 'fr' ? 'Équiv. Commercial' : 'Commercial Equiv.'}</th>
+                    <th className="py-3 px-3 text-right">{language === 'fr' ? 'CMP Unitaire' : 'Unit WAC'}</th>
+                    <th className="py-3 px-3 text-right">{language === 'fr' ? 'Valeur Stock' : 'Stock Value'}</th>
+                    <th className="py-3 px-3 text-center">{language === 'fr' ? 'État Stock' : 'Stock State'}</th>
                     {(currentUser.role === 'administrateur' ||
                       currentUser.role === 'responsable' ||
                       currentUser.role === 'magasinier' ||
                       currentUser.role === 'developpeur') && (
-                      <th className="py-3 px-3 text-center">Actions</th>
+                      <th className="py-3 px-3 text-center">{language === 'fr' ? 'Actions' : 'Actions'}</th>
                     )}
                   </tr>
                 </thead>
