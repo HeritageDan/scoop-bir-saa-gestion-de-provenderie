@@ -749,9 +749,11 @@ export const ProductsManager: React.FC = () => {
       {showNewModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
           <div className={`w-full max-w-2xl rounded-2xl border shadow-2xl p-6 my-8 ${
-            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+            theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
           }`}>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
+            <div className={`flex items-center justify-between pb-4 border-b ${
+              theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
+            }`}>
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
                   <Package className="w-5 h-5" />
@@ -760,14 +762,16 @@ export const ProductsManager: React.FC = () => {
                   <h3 className={`text-base font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                     {language === 'fr' ? 'Créer un Nouveau Produit' : 'Create New Product'}
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                     {language === 'fr' ? 'Définition des caractéristiques, tarifs et unités de vente' : 'Define specifications, prices and sales units'}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowNewModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg cursor-pointer"
+                className={`p-1.5 rounded-lg transition cursor-pointer ${
+                  theme === 'dark' ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                }`}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -784,7 +788,7 @@ export const ProductsManager: React.FC = () => {
               {/* Grid 2 Cols */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                  <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
                     {language === 'fr' ? 'Code / Référence unique *' : 'Unique Code *'}
                   </label>
                   <input
@@ -794,32 +798,33 @@ export const ProductsManager: React.FC = () => {
                     required
                     placeholder="ex: PRD-001"
                     className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                      theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                      theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                     }`}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                  <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
                     {language === 'fr' ? 'Famille de produit *' : 'Product Category *'}
                   </label>
                   <select
                     value={newCategory}
                     onChange={e => setNewCategory(e.target.value as any)}
+                    style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
                     className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${
-                      theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                      theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   >
-                    <option value="Aliments finis">{language === 'fr' ? 'Aliments finis' : 'Finished feeds'}</option>
-                    <option value="Matières premières">{language === 'fr' ? 'Matières premières' : 'Raw materials'}</option>
-                    <option value="Concentrés, prémix et compléments">{language === 'fr' ? 'Concentrés, prémix & compléments' : 'Concentrates & premixes'}</option>
-                    <option value="Autres fournitures">{language === 'fr' ? 'Autres fournitures' : 'Other supplies'}</option>
+                    <option value="Aliments finis" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>{language === 'fr' ? 'Aliments finis' : 'Finished feeds'}</option>
+                    <option value="Matières premières" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>{language === 'fr' ? 'Matières premières' : 'Raw materials'}</option>
+                    <option value="Concentrés, prémix et compléments" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>{language === 'fr' ? 'Concentrés, prémix & compléments' : 'Concentrates & premixes'}</option>
+                    <option value="Autres fournitures" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>{language === 'fr' ? 'Autres fournitures' : 'Other supplies'}</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
                   {language === 'fr' ? 'Désignation commerciale complète *' : 'Full Commercial Name *'}
                 </label>
                 <input
@@ -829,61 +834,65 @@ export const ProductsManager: React.FC = () => {
                   required
                   placeholder="ex: Aliment Démarrage Poussin 50kg"
                   className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                    theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                    theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                   }`}
                 />
               </div>
 
               {/* Units & Packaging */}
-              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-100">
+              <div className={`p-4 rounded-xl border space-y-3 ${
+                theme === 'dark' ? 'bg-slate-800/40 border-slate-700/80' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className={`flex items-center gap-2 text-xs font-bold ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>
                   <Layers className="w-4 h-4 text-emerald-500" />
                   <span>{language === 'fr' ? 'Unités & Conditionnement' : 'Units & Packaging'}</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
                       {language === 'fr' ? 'Unité de Vente' : 'Sales Unit'}
                     </label>
                     <select
                       value={newSaleUnit}
                       onChange={e => setNewSaleUnit(e.target.value as any)}
+                      style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
                       className={`w-full px-3 py-2 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                        theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                        theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                       }`}
                     >
-                      <option value="sac">Sac</option>
-                      <option value="kilogramme">Kilogramme (kg)</option>
-                      <option value="litre">Litre (L)</option>
-                      <option value="boîte">Boîte</option>
-                      <option value="unité">Unité</option>
-                      <option value="tonne">Tonne</option>
+                      <option value="sac" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Sac</option>
+                      <option value="kilogramme" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Kilogramme (kg)</option>
+                      <option value="litre" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Litre (L)</option>
+                      <option value="boîte" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Boîte</option>
+                      <option value="unité" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Unité</option>
+                      <option value="tonne" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Tonne</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
                       {language === 'fr' ? 'Unité de Stock (Base)' : 'Base Stock Unit'}
                     </label>
                     <select
                       value={newBaseUnit}
                       onChange={e => setNewBaseUnit(e.target.value as any)}
+                      style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
                       className={`w-full px-3 py-2 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                        theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                        theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                       }`}
                     >
-                      <option value="kilogramme">Kilogramme (kg)</option>
-                      <option value="litre">Litre (L)</option>
-                      <option value="sac">Sac</option>
-                      <option value="boîte">Boîte</option>
-                      <option value="unité">Unité</option>
-                      <option value="tonne">Tonne</option>
+                      <option value="kilogramme" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Kilogramme (kg)</option>
+                      <option value="litre" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Litre (L)</option>
+                      <option value="sac" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Sac</option>
+                      <option value="boîte" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Boîte</option>
+                      <option value="unité" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Unité</option>
+                      <option value="tonne" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Tonne</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
                       {language === 'fr' ? 'Facteur de conversion' : 'Conversion Factor'}
                     </label>
                     <input
@@ -893,30 +902,34 @@ export const ProductsManager: React.FC = () => {
                       value={newConversionFactor}
                       onChange={e => setNewConversionFactor(parseFloat(e.target.value) || 1)}
                       className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                        theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                        theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                       }`}
                     />
                   </div>
                 </div>
 
-                <div className="text-xs text-slate-700 dark:text-slate-300 bg-blue-500/10 border border-blue-500/20 p-2.5 rounded-xl flex items-center gap-2.5">
+                <div className={`text-xs p-2.5 rounded-xl flex items-center gap-2.5 border ${
+                  theme === 'dark' ? 'bg-blue-500/10 border-blue-500/30 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-900'
+                }`}>
                   <Info className="w-4 h-4 text-blue-400 shrink-0" />
                   <span>
-                    Règle de conversion : <strong className="text-slate-900 dark:text-white">1 {newSaleUnit}</strong> contiendra <strong className="text-slate-900 dark:text-white">{newConversionFactor} {newBaseUnit}(s)</strong> lors de la facturation et du décompte stock.
+                    Règle de conversion : <strong>1 {newSaleUnit}</strong> contiendra <strong>{newConversionFactor} {newBaseUnit}(s)</strong> lors de la facturation et du décompte stock.
                   </span>
                 </div>
               </div>
 
               {/* Pricing & Margins */}
-              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-100">
+              <div className={`p-4 rounded-xl border space-y-3 ${
+                theme === 'dark' ? 'bg-slate-800/40 border-slate-700/80' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className={`flex items-center gap-2 text-xs font-bold ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>
                   <DollarSign className="w-4 h-4 text-emerald-500" />
                   <span>{language === 'fr' ? 'Tarification & Marge Commerciale' : 'Pricing & Margins'}</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
                       {language === 'fr' ? 'Prix d\'Achat Catalogue (FCFA) *' : 'Purchase Price (FCFA) *'}
                     </label>
                     <input
@@ -925,13 +938,13 @@ export const ProductsManager: React.FC = () => {
                       value={newPurchasePrice}
                       onChange={e => setNewPurchasePrice(parseFloat(e.target.value) || 0)}
                       className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                        theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                        theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                       }`}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
                       {language === 'fr' ? 'Prix de Vente Unitaire (FCFA) *' : 'Sales Price (FCFA) *'}
                     </label>
                     <input
@@ -940,21 +953,23 @@ export const ProductsManager: React.FC = () => {
                       value={newSalePrice}
                       onChange={e => setNewSalePrice(parseFloat(e.target.value) || 0)}
                       className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                        theme === 'dark' ? 'bg-slate-950 border-slate-700 text-emerald-400' : 'bg-white border-slate-300 text-emerald-700'
+                        theme === 'dark' ? 'bg-slate-800 border-slate-700 text-emerald-400' : 'bg-white border-slate-300 text-emerald-700'
                       }`}
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-xs p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">Marge brute unitaire estimée :</span>
-                  <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400 text-xs">
+                <div className={`flex items-center justify-between text-xs p-3 rounded-xl border ${
+                  theme === 'dark' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                }`}>
+                  <span className="font-semibold">Marge brute unitaire estimée :</span>
+                  <span className="font-bold font-mono text-xs">
                     {formatFCFA(newSalePrice - newPurchasePrice)} / {newSaleUnit} ({newSalePrice > 0 ? (((newSalePrice - newPurchasePrice) / newSalePrice) * 100).toFixed(1) : 0}%)
                   </span>
                 </div>
 
                 {/* Vente au détail (au kg) */}
-                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
+                <div className={`pt-2 border-t space-y-2.5 ${theme === 'dark' ? 'border-slate-700/80' : 'border-slate-200'}`}>
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
@@ -963,7 +978,7 @@ export const ProductsManager: React.FC = () => {
                         onChange={e => setNewAllowDetailSale(e.target.checked)}
                         className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
                       />
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                      <span className={`text-xs font-bold ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>
                         {language === 'fr'
                           ? `Autoriser la vente au détail (au ${newBaseUnit})`
                           : `Enable detail / retail sale (by ${newBaseUnit})`}
@@ -977,10 +992,12 @@ export const ProductsManager: React.FC = () => {
                   </div>
 
                   {newAllowDetailSale && (
-                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
+                    <div className={`p-3 rounded-xl border space-y-2 ${
+                      theme === 'dark' ? 'bg-amber-500/10 border-amber-500/30 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-900'
+                    }`}>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                         <div>
-                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-amber-200' : 'text-amber-900'}`}>
                             {language === 'fr'
                               ? `Prix de vente au détail (FCFA / ${newBaseUnit}) *`
                               : `Detail Sale Price (FCFA / ${newBaseUnit}) *`}
@@ -991,12 +1008,12 @@ export const ProductsManager: React.FC = () => {
                             value={newDetailPrice}
                             onChange={e => setNewDetailPrice(parseFloat(e.target.value) || 0)}
                             className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                              theme === 'dark' ? 'bg-slate-950 border-slate-700 text-amber-400' : 'bg-white border-slate-300 text-amber-700'
+                              theme === 'dark' ? 'bg-slate-800 border-slate-700 text-amber-300' : 'bg-white border-slate-300 text-amber-800'
                             }`}
                           />
                         </div>
 
-                        <div className="text-[11px] space-y-0.5 text-slate-600 dark:text-slate-300">
+                        <div className={`text-[11px] space-y-0.5 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
                           <div>
                             {language === 'fr' ? 'Équivalent au sac :' : 'Bag equivalent:'}{' '}
                             <span className="font-mono font-semibold">
@@ -1020,7 +1037,7 @@ export const ProductsManager: React.FC = () => {
               {/* Stock Initial & Seuil */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                  <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
                     {language === 'fr' ? `Stock Initial (${newBaseUnit})` : `Initial Stock (${newBaseUnit})`}
                   </label>
                   <input
@@ -1029,13 +1046,13 @@ export const ProductsManager: React.FC = () => {
                     value={newInitialStock}
                     onChange={e => setNewInitialStock(parseFloat(e.target.value) || 0)}
                     className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                      theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                      theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                  <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
                     {language === 'fr' ? `Seuil Alerte Stock Bas (${newBaseUnit})` : `Min Alert Threshold (${newBaseUnit})`}
                   </label>
                   <input
@@ -1044,14 +1061,14 @@ export const ProductsManager: React.FC = () => {
                     value={newMinAlert}
                     onChange={e => setNewMinAlert(parseFloat(e.target.value) || 0)}
                     className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                      theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                      theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
                   {language === 'fr' ? 'Fiche technique / Description (Optionnel)' : 'Description (Optional)'}
                 </label>
                 <textarea
@@ -1060,16 +1077,20 @@ export const ProductsManager: React.FC = () => {
                   onChange={e => setNewDescription(e.target.value)}
                   placeholder="Composition nutritionnelle, recommandations d'élevage..."
                   className={`w-full px-3.5 py-2.5 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                    theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                    theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                   }`}
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <div className={`flex items-center justify-end gap-3 pt-4 border-t ${
+                theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
+              }`}>
                 <button
                   type="button"
                   onClick={() => setShowNewModal(false)}
-                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                  className={`px-4 py-2.5 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+                    theme === 'dark' ? 'border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
                 >
                   {language === 'fr' ? 'Annuler' : 'Cancel'}
                 </button>
@@ -1124,7 +1145,7 @@ export const ProductsManager: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                  <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
                     {language === 'fr' ? 'Désignation Produit *' : 'Product Name *'}
                   </label>
                   <input
@@ -1133,45 +1154,48 @@ export const ProductsManager: React.FC = () => {
                     onChange={e => setEditName(e.target.value)}
                     required
                     className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                      theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                      theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                     }`}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                  <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
                     {language === 'fr' ? 'Catégorie *' : 'Category *'}
                   </label>
                   <select
                     value={editCategory}
                     onChange={e => setEditCategory(e.target.value as any)}
+                    style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
                     className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${
-                      theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                      theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   >
-                    <option value="Aliments finis">{language === 'fr' ? 'Aliments finis' : 'Finished feeds'}</option>
-                    <option value="Matières premières">{language === 'fr' ? 'Matières premières' : 'Raw materials'}</option>
-                    <option value="Concentrés, prémix et compléments">{language === 'fr' ? 'Concentrés, prémix & compléments' : 'Concentrates & premixes'}</option>
-                    <option value="Autres fournitures">{language === 'fr' ? 'Autres fournitures' : 'Other supplies'}</option>
+                    <option className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'} value="Aliments finis">{language === 'fr' ? 'Aliments finis' : 'Finished feeds'}</option>
+                    <option className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'} value="Matières premières">{language === 'fr' ? 'Matières premières' : 'Raw materials'}</option>
+                    <option className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'} value="Concentrés, prémix et compléments">{language === 'fr' ? 'Concentrés, prémix & compléments' : 'Concentrates & premixes'}</option>
+                    <option className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'} value="Autres fournitures">{language === 'fr' ? 'Autres fournitures' : 'Other supplies'}</option>
                   </select>
                 </div>
               </div>
 
               {/* Tarifs Achat & Vente */}
-              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 space-y-3">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-100">
+              <div className={`p-4 rounded-xl border space-y-3 ${
+                theme === 'dark' ? 'bg-slate-800/40 border-slate-700/80' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className={`flex items-center justify-between text-xs font-bold ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>
                   <div className="flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-emerald-500" />
                     <span>{language === 'fr' ? 'Révision Tarifaire (FCFA)' : 'Price Revision (FCFA)'}</span>
                   </div>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                  <span className={`text-[11px] font-mono ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                     CMP Actuel : {formatFCFA(editingProduct.cmp)}/{editingProduct.baseUnit}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
                       {language === 'fr' ? 'Prix d\'Achat Catalogue (FCFA)' : 'Purchase Price (FCFA)'}
                     </label>
                     <input
@@ -1180,13 +1204,13 @@ export const ProductsManager: React.FC = () => {
                       value={editPurchasePrice}
                       onChange={e => setEditPurchasePrice(parseFloat(e.target.value) || 0)}
                       className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                        theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                        theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                       }`}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
                       {language === 'fr' ? 'Prix de Vente Unitaire (FCFA)' : 'Sales Price (FCFA)'}
                     </label>
                     <input
@@ -1195,14 +1219,14 @@ export const ProductsManager: React.FC = () => {
                       value={editSalePrice}
                       onChange={e => setEditSalePrice(parseFloat(e.target.value) || 0)}
                       className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                        theme === 'dark' ? 'bg-slate-950 border-slate-700 text-emerald-400' : 'bg-white border-slate-300 text-emerald-700'
+                        theme === 'dark' ? 'bg-slate-800 border-slate-700 text-emerald-400' : 'bg-white border-slate-300 text-emerald-700'
                       }`}
                     />
                   </div>
                 </div>
 
                 {/* Vente au détail (au kg) */}
-                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
+                <div className={`pt-2 border-t space-y-2.5 ${theme === 'dark' ? 'border-slate-700/80' : 'border-slate-200'}`}>
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
@@ -1211,7 +1235,7 @@ export const ProductsManager: React.FC = () => {
                         onChange={e => setEditAllowDetailSale(e.target.checked)}
                         className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
                       />
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                      <span className={`text-xs font-bold ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>
                         {language === 'fr'
                           ? `Autoriser la vente au détail (au ${editBaseUnit})`
                           : `Enable detail / retail sale (by ${editBaseUnit})`}
@@ -1225,10 +1249,12 @@ export const ProductsManager: React.FC = () => {
                   </div>
 
                   {editAllowDetailSale && (
-                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
+                    <div className={`p-3 rounded-xl border space-y-2 ${
+                      theme === 'dark' ? 'bg-amber-500/10 border-amber-500/30 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-900'
+                    }`}>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                         <div>
-                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-amber-200' : 'text-amber-900'}`}>
                             {language === 'fr'
                               ? `Prix de vente au détail (FCFA / ${editBaseUnit}) *`
                               : `Detail Sale Price (FCFA / ${editBaseUnit}) *`}
@@ -1239,12 +1265,12 @@ export const ProductsManager: React.FC = () => {
                             value={editDetailPrice}
                             onChange={e => setEditDetailPrice(parseFloat(e.target.value) || 0)}
                             className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                              theme === 'dark' ? 'bg-slate-950 border-slate-700 text-amber-400' : 'bg-white border-slate-300 text-amber-700'
+                              theme === 'dark' ? 'bg-slate-800 border-slate-700 text-amber-400' : 'bg-white border-slate-300 text-amber-700'
                             }`}
                           />
                         </div>
 
-                        <div className="text-[11px] space-y-0.5 text-slate-600 dark:text-slate-300">
+                        <div className={`text-[11px] space-y-0.5 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
                           <div>
                             {language === 'fr' ? 'Équivalent au sac :' : 'Bag equivalent:'}{' '}
                             <span className="font-mono font-semibold">
@@ -1252,7 +1278,7 @@ export const ProductsManager: React.FC = () => {
                             </span>
                           </div>
                           {editDetailPrice > 0 && editConversionFactor > 0 && (
-                            <div className="font-semibold text-emerald-600 dark:text-emerald-400">
+                            <div className={`font-semibold ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>
                               {language === 'fr' ? 'Majoration détail :' : 'Retail premium:'}{' '}
                               +{editDetailPrice - Math.round(editSalePrice / editConversionFactor)} FCFA / {editBaseUnit}
                               {' '}(+{(((editDetailPrice - (editSalePrice / editConversionFactor)) / (editSalePrice / editConversionFactor)) * 100).toFixed(1)}%)
@@ -1266,7 +1292,7 @@ export const ProductsManager: React.FC = () => {
 
                 {/* Justification de prix */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
                     {language === 'fr' ? 'Motif de révision tarifaire (Piste d\'audit) *' : 'Reason for price revision (Audit trail) *'}
                   </label>
                   <input
@@ -1275,7 +1301,7 @@ export const ProductsManager: React.FC = () => {
                     onChange={e => setEditPriceReason(e.target.value)}
                     placeholder="ex: Ajustement cours des intrants, négociation volume..."
                     className={`w-full px-3 py-2 rounded-lg text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                      theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                      theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                     }`}
                   />
                 </div>
@@ -1284,7 +1310,7 @@ export const ProductsManager: React.FC = () => {
               {/* Conditionnement */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                  <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
                     {language === 'fr' ? 'Libellé Conditionnement' : 'Packaging'}
                   </label>
                   <input
@@ -1293,13 +1319,13 @@ export const ProductsManager: React.FC = () => {
                     onChange={e => setEditPackaging(e.target.value)}
                     placeholder="ex: Sac de 50 kg"
                     className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                      theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                      theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                     }`}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                  <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
                     {language === 'fr' ? `Seuil Alerte Stock Bas (${editingProduct.baseUnit})` : `Min Alert (${editingProduct.baseUnit})`}
                   </label>
                   <input
@@ -1308,14 +1334,14 @@ export const ProductsManager: React.FC = () => {
                     value={editMinAlert}
                     onChange={e => setEditMinAlert(parseFloat(e.target.value) || 0)}
                     className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                      theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                      theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
                   {language === 'fr' ? 'Description' : 'Description'}
                 </label>
                 <textarea
@@ -1323,16 +1349,18 @@ export const ProductsManager: React.FC = () => {
                   value={editDescription}
                   onChange={e => setEditDescription(e.target.value)}
                   className={`w-full px-3.5 py-2.5 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                    theme === 'dark' ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                    theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                   }`}
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <div className={`flex items-center justify-end gap-3 pt-4 border-t ${theme === 'dark' ? 'border-slate-800' : 'border-slate-200'}`}>
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                  className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                    theme === 'dark' ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
                 >
                   {language === 'fr' ? 'Annuler' : 'Cancel'}
                 </button>
