@@ -32,7 +32,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   onClose,
   onOpenPaymentModal,
 }) => {
-  const { settings, currentUser, cancelInvoiceWithCreditNote, theme, language } = useApp();
+  const { settings, salesPoints, currentUser, cancelInvoiceWithCreditNote, theme, language } = useApp();
   const [printFormat, setPrintFormat] = useState<'a4' | 'ticket'>('a4');
   const [showReceiptThermalModal, setShowReceiptThermalModal] = useState(false);
   const [showCancelPrompt, setShowCancelPrompt] = useState(false);
@@ -40,6 +40,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const [cancelError, setCancelError] = useState('');
 
   if (!invoice) return null;
+
+  const matchedSp = salesPoints.find(sp => sp.id === invoice.salesPointId);
+  const displaySalesPointName = matchedSp?.name || (salesPoints.length === 1 ? salesPoints[0].name : invoice.salesPointName);
+  const companyFullAddress = [settings.address, settings.city, settings.country].filter(Boolean).join(', ');
 
   const handlePrint = () => {
     window.print();
@@ -281,7 +285,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                       {settings.name}
                     </h1>
                     <p className="text-slate-600 text-[11px] font-medium">{settings.legalStatus}</p>
-                    <p className="text-slate-600 text-[11px] mt-1">{settings.address}, {settings.city}</p>
+                    <p className="text-slate-600 text-[11px] mt-1">{companyFullAddress}</p>
                     <p className="text-slate-600 text-[11px]">
                       {language === 'fr' ? 'Tél :' : 'Tel:'} {settings.phone1} {settings.phone2 ? `/ ${settings.phone2}` : ''}
                     </p>
@@ -303,9 +307,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                   <div className="text-slate-600 text-[11px]">
                     {language === 'fr' ? 'Caissier :' : 'Cashier:'} <span className="font-semibold text-slate-800">{invoice.userName}</span>
                   </div>
-                  {invoice.salesPointName && (
+                  {displaySalesPointName && (
                     <div className="text-emerald-700 text-[11px] font-semibold">
-                      {language === 'fr' ? 'Point de vente :' : 'Sales Point:'} {invoice.salesPointName}
+                      {language === 'fr' ? 'Point de vente :' : 'Sales Point:'} {displaySalesPointName}
                     </div>
                   )}
                 </div>
@@ -483,12 +487,12 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             >
               <div className="text-center pb-2 border-b border-dashed border-slate-400">
                 <div className="font-black text-sm uppercase">{settings.name}</div>
-                <div className="text-[10px]">{settings.address}</div>
-                <div className="text-[10px]">{language === 'fr' ? 'Tél :' : 'Tel:'} {settings.phone1}</div>
-                <div className="text-[9px] mt-0.5">NIF: {settings.taxId}</div>
-                {invoice.salesPointName && (
+                {companyFullAddress && <div className="text-[10px]">{companyFullAddress}</div>}
+                <div className="text-[10px]">{language === 'fr' ? 'Tél :' : 'Tel:'} {settings.phone1} {settings.phone2 ? `/ ${settings.phone2}` : ''}</div>
+                <div className="text-[9px] mt-0.5">NIF: {settings.taxId} | RCCM: {settings.tradeRegisterNumber}</div>
+                {displaySalesPointName && (
                   <div className="text-[9px] font-bold text-emerald-800 mt-0.5">
-                    {invoice.salesPointName}
+                    {language === 'fr' ? 'Point de vente :' : 'Sales Point:'} {displaySalesPointName}
                   </div>
                 )}
               </div>

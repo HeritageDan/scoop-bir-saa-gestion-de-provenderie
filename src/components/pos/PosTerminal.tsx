@@ -75,11 +75,22 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
 
   // Cart
   interface CartItem {
+    id: string; // `${productId}_${saleMode}`
     product: Product;
-    quantity: number; // in saleUnit (e.g. sacs)
+    quantity: number; // in sale unit or base unit
     unitPrice: number;
+    saleMode: 'gros' | 'detail';
+    unit: UnitType;
+    conversionFactor: number;
   }
   const [cart, setCart] = useState<CartItem[]>([]);
+
+  // Calculate base quantity consumed in cart for a specific product
+  const getBaseQtyInCartForProduct = (productId: string, excludeItemId?: string) => {
+    return cart
+      .filter(item => item.product.id === productId && item.id !== excludeItemId)
+      .reduce((sum, item) => sum + item.quantity * item.conversionFactor, 0);
+  };
 
   // Discount
   const [applyDiscount, setApplyDiscount] = useState(false);
@@ -152,64 +163,88 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
       ? settings.maxDiscountResponsable
       : settings.maxDiscountAdmin;
 
-  // Add product to cart with strict stock availability checking
-  const handleAddToCart = (product: Product) => {
+  // Add product to cart with support for Wholesale (Sac) and Detail (kg)
+  const handleAddToCart = (product: Product, mode: 'gros' | 'detail' = 'gros') => {
     setErrorMsg('');
-    const existingIndex = cart.findIndex(item => item.product.id === product.id);
-    const currentQtyInCart = existingIndex >= 0 ? cart[existingIndex].quantity : 0;
-    const nextQty = currentQtyInCart + 1;
+    const lineId = `${product.id}_${mode}`;
+    const existingIndex = cart.findIndex(item => item.id === lineId);
+    const currentQtyInLine = existingIndex >= 0 ? cart[existingIndex].quantity : 0;
+    const nextQty = currentQtyInLine + 1;
+    const factor = mode === 'detail' ? 1 : (product.conversionFactor || 1);
+    const neededBaseForThisLine = nextQty * factor;
+    const baseInOtherLines = getBaseQtyInCartForProduct(product.id, lineId);
 
-    // Check availability in base stock
-    const nextQtyBase = nextQty * product.conversionFactor;
-    if (nextQtyBase > product.stockCurrentBaseUnit) {
+    if (baseInOtherLines + neededBaseForThisLine > product.stockCurrentBaseUnit) {
+      const remainingBase = Math.max(0, product.stockCurrentBaseUnit - baseInOtherLines);
+      const remainingInUnit = mode === 'detail'
+        ? `${remainingBase} ${product.baseUnit}`
+        : `${Math.floor(remainingBase / (product.conversionFactor || 1))} ${product.saleUnit}`;
       setErrorMsg(
-        `Impossible d'ajouter plus d'unités pour "${product.name}". Stock total disponible: ${
-          product.stockCurrentBaseUnit
-        } ${product.baseUnit} (~${(
-          product.stockCurrentBaseUnit / product.conversionFactor
-        ).toFixed(1)} ${product.saleUnit}).`
+        language === 'fr'
+          ? `Stock insuffisant pour "${product.name}". Disponible pour ce mode : ${remainingInUnit} (Stock total restant : ${remainingBase} ${product.baseUnit}).`
+          : `Insufficient stock for "${product.name}". Available: ${remainingInUnit} (Total stock left: ${remainingBase} ${product.baseUnit}).`
       );
       return;
     }
+
+    const unitPrice = mode === 'detail'
+      ? (product.detailPrice || Math.round(product.salePrice / (product.conversionFactor || 1)))
+      : product.salePrice;
+    const unit = mode === 'detail' ? product.baseUnit : product.saleUnit;
 
     if (existingIndex >= 0) {
       setCart(prev =>
         prev.map((item, idx) => (idx === existingIndex ? { ...item, quantity: nextQty } : item))
       );
     } else {
-      setCart(prev => [...prev, { product, quantity: 1, unitPrice: product.salePrice }]);
+      setCart(prev => [
+        ...prev,
+        {
+          id: lineId,
+          product,
+          quantity: 1,
+          unitPrice,
+          saleMode: mode,
+          unit,
+          conversionFactor: factor,
+        },
+      ]);
     }
   };
 
-  const handleUpdateQty = (productId: string, newQty: number) => {
+  const handleUpdateQty = (lineId: string, newQty: number) => {
     setErrorMsg('');
     if (newQty <= 0) {
-      handleRemoveItem(productId);
+      handleRemoveItem(lineId);
       return;
     }
 
-    const item = cart.find(i => i.product.id === productId);
+    const item = cart.find(i => i.id === lineId);
     if (!item) return;
 
-    const requestedBaseQty = newQty * item.product.conversionFactor;
-    if (requestedBaseQty > item.product.stockCurrentBaseUnit) {
+    const baseNeededForThisLine = newQty * item.conversionFactor;
+    const baseInOtherLines = getBaseQtyInCartForProduct(item.product.id, lineId);
+
+    if (baseInOtherLines + baseNeededForThisLine > item.product.stockCurrentBaseUnit) {
+      const maxAvailableBase = Math.max(0, item.product.stockCurrentBaseUnit - baseInOtherLines);
+      const maxUnits = item.saleMode === 'detail'
+        ? maxAvailableBase
+        : Math.floor(maxAvailableBase / (item.product.conversionFactor || 1));
       setErrorMsg(
-        `Quantité supérieure au stock disponible pour "${item.product.name}". Stock max: ${
-          item.product.stockCurrentBaseUnit
-        } ${item.product.baseUnit} (~${(
-          item.product.stockCurrentBaseUnit / item.product.conversionFactor
-        ).toFixed(1)} ${item.product.saleUnit}).`
+        language === 'fr'
+          ? `Quantité supérieure au stock disponible pour "${item.product.name}". Max disponible : ${maxUnits} ${item.unit}.`
+          : `Quantity exceeds available stock for "${item.product.name}". Max available: ${maxUnits} ${item.unit}.`
       );
       return;
     }
 
     setCart(prev =>
-      prev.map(i => (i.product.id === productId ? { ...i, quantity: newQty } : i))
+      prev.map(i => (i.id === lineId ? { ...i, quantity: newQty } : i))
     );
   };
 
-  const handleRemoveItem = (productId: string) => {
-    setCart(prev => prev.filter(i => i.product.id !== productId));
+  const handleRemoveItem = (lineId: string) => {
+    setCart(prev => prev.filter(i => i.id !== lineId));
   };
 
   const handleClearCart = () => {
@@ -313,6 +348,9 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
       productId: item.product.id,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
+      saleMode: item.saleMode,
+      unit: item.unit,
+      conversionFactor: item.conversionFactor,
     }));
 
     const result = createSale(
@@ -540,19 +578,21 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
               const unitsAvailable = Math.floor(
                 product.stockCurrentBaseUnit / (product.conversionFactor || 1)
               );
+              const allowDetail = Boolean(product.allowDetailSale && (product.conversionFactor || 1) > 1);
+              const detailPrice = product.detailPrice || Math.round(product.salePrice / (product.conversionFactor || 1));
 
               return (
                 <div
                   key={product.id}
-                  onClick={() => !isOutOfStock && handleAddToCart(product)}
+                  onClick={() => !isOutOfStock && handleAddToCart(product, 'gros')}
                   className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all select-none ${
                     isOutOfStock
                       ? theme === 'dark'
                         ? 'bg-slate-900/40 border-slate-800 opacity-60 cursor-not-allowed'
                         : 'bg-slate-100 border-slate-200 opacity-60 cursor-not-allowed'
                       : theme === 'dark'
-                      ? 'bg-slate-900 border-slate-800 hover:border-emerald-600 hover:bg-slate-850 cursor-pointer shadow-xs active:scale-[0.98]'
-                      : 'bg-white border-slate-200 hover:border-emerald-500 hover:bg-slate-50 cursor-pointer shadow-xs active:scale-[0.98]'
+                      ? 'bg-slate-900 border-slate-800 hover:border-emerald-600 hover:bg-slate-850 cursor-pointer shadow-xs active:scale-[0.99]'
+                      : 'bg-white border-slate-200 hover:border-emerald-500 hover:bg-slate-50 cursor-pointer shadow-xs active:scale-[0.99]'
                   }`}
                 >
                   <div>
@@ -573,38 +613,86 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
                     </div>
                   </div>
 
-                  <div className={`pt-2 border-t flex items-end justify-between ${
-                    theme === 'dark' ? 'border-slate-800/80' : 'border-slate-100'
-                  }`}>
-                    <div>
-                      <div className="text-[10px] text-slate-400">
-                        {language === 'fr' ? 'Stock dispo :' : 'Available:'}{' '}
-                        <span
-                          className={`font-semibold ${
-                            isOutOfStock
-                              ? 'text-rose-500'
-                              : isLowStock
-                              ? 'text-amber-500'
-                              : 'text-emerald-500'
-                          }`}
-                        >
-                          {isOutOfStock
-                            ? (language === 'fr' ? 'RUPTURE' : 'OUT OF STOCK')
-                            : `${unitsAvailable} ${product.saleUnit}s (${formatNumber(
-                                product.stockCurrentBaseUnit
-                              )} ${product.baseUnit})`}
-                        </span>
+                  <div>
+                    <div className={`pt-2 border-t flex items-end justify-between ${
+                      theme === 'dark' ? 'border-slate-800/80' : 'border-slate-100'
+                    }`}>
+                      <div>
+                        <div className="text-[10px] text-slate-400">
+                          {language === 'fr' ? 'Stock dispo :' : 'Available:'}{' '}
+                          <span
+                            className={`font-semibold ${
+                              isOutOfStock
+                                ? 'text-rose-500'
+                                : isLowStock
+                                ? 'text-amber-500'
+                                : 'text-emerald-500'
+                            }`}
+                          >
+                            {isOutOfStock
+                              ? (language === 'fr' ? 'RUPTURE' : 'OUT OF STOCK')
+                              : `${unitsAvailable} ${product.saleUnit}s (${formatNumber(
+                                  product.stockCurrentBaseUnit
+                                )} ${product.baseUnit})`}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          {language === 'fr' ? 'CMP réf :' : 'Ref MAC:'} {formatFCFA(product.cmp)}/{product.baseUnit}
+                        </div>
                       </div>
-                      <div className="text-[10px] text-slate-400">
-                        {language === 'fr' ? 'CMP réf :' : 'Ref MAC:'} {formatFCFA(product.cmp)}/{product.baseUnit}
+
+                      <div className="text-right">
+                        <div className="font-extrabold text-emerald-500 text-sm">
+                          {formatFCFA(product.salePrice)}
+                        </div>
+                        <div className="text-[10px] text-slate-400">/{product.saleUnit}</div>
+                        {allowDetail && (
+                          <div className="text-[10px] text-amber-500 font-semibold mt-0.5">
+                            {language === 'fr' ? 'Détail :' : 'Retail:'} {formatFCFA(detailPrice)}/{product.baseUnit}
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <div className="font-extrabold text-emerald-500 text-sm">
-                        {formatFCFA(product.salePrice)}
-                      </div>
-                      <span className="text-[10px] text-slate-400">/{product.saleUnit}</span>
+                    {/* Quick Add Action Buttons */}
+                    <div className="mt-2.5 pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={isOutOfStock}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          !isOutOfStock && handleAddToCart(product, 'gros');
+                        }}
+                        className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 shadow-xs cursor-pointer ${
+                          isOutOfStock
+                            ? 'bg-slate-700/50 text-slate-400 cursor-not-allowed'
+                            : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                        }`}
+                        title={`Ajouter 1 ${product.saleUnit}`}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>+ {product.saleUnit}</span>
+                      </button>
+
+                      {allowDetail && (
+                        <button
+                          type="button"
+                          disabled={isOutOfStock}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            !isOutOfStock && handleAddToCart(product, 'detail');
+                          }}
+                          className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 shadow-xs cursor-pointer ${
+                            isOutOfStock
+                              ? 'bg-slate-700/50 text-slate-400 cursor-not-allowed'
+                              : 'bg-amber-600 hover:bg-amber-500 text-white'
+                          }`}
+                          title={`Ajouter 1 ${product.baseUnit} au détail`}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>+ Détail ({product.baseUnit})</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -788,36 +876,49 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
           ) : (
             cart.map(item => {
               const lineTotal = item.quantity * item.unitPrice;
-              const maxUnits = Math.floor(
-                item.product.stockCurrentBaseUnit / item.product.conversionFactor
-              );
+              const baseInOtherLines = getBaseQtyInCartForProduct(item.product.id, item.id);
+              const remainingBaseForThisItem = Math.max(0, item.product.stockCurrentBaseUnit - baseInOtherLines);
+              const maxUnitsAvailable = item.saleMode === 'detail'
+                ? remainingBaseForThisItem
+                : Math.floor(remainingBaseForThisItem / (item.conversionFactor || 1));
 
               return (
                 <div
-                  key={item.product.id}
+                  key={item.id}
                   className={`border rounded-xl p-2.5 flex items-center justify-between gap-2 text-xs ${
                     theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
                   }`}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className={`font-semibold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                      {item.product.name}
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className={`font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                        {item.product.name}
+                      </span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
+                        item.saleMode === 'detail'
+                          ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                          : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
+                      }`}>
+                        {item.saleMode === 'detail' ? (language === 'fr' ? 'Détail' : 'Retail') : (language === 'fr' ? 'Gros' : 'Bulk')}
+                      </span>
                     </div>
                     <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                      <span>{formatFCFA(item.unitPrice)}</span>
+                      <span className="font-semibold text-emerald-500">{formatFCFA(item.unitPrice)}</span>
+                      <span className="text-[10px]">/{item.unit}</span>
                       <span>·</span>
-                      <span>
-                        {language === 'fr' ? 'Stock dispo :' : 'Available:'} {maxUnits} {item.product.saleUnit}
+                      <span className="text-[10px]">
+                        {language === 'fr' ? 'Dispo :' : 'Avail:'} {maxUnitsAvailable} {item.unit}
                       </span>
                     </div>
                   </div>
 
                   {/* Quantity Stepper */}
-                  <div className={`flex items-center gap-1.5 border rounded-lg p-1 ${
+                  <div className={`flex items-center gap-1 border rounded-lg p-1 ${
                     theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300'
                   }`}>
                     <button
-                      onClick={() => handleUpdateQty(item.product.id, item.quantity - 1)}
+                      type="button"
+                      onClick={() => handleUpdateQty(item.id, item.quantity - 1)}
                       className={`p-1 rounded cursor-pointer transition ${
                         theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                       }`}
@@ -826,16 +927,17 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
                     </button>
                     <input
                       type="number"
-                      min="1"
-                      max={maxUnits}
+                      min="0.1"
+                      step={item.saleMode === 'detail' ? 'any' : '1'}
                       value={item.quantity}
-                      onChange={e => handleUpdateQty(item.product.id, Number(e.target.value))}
-                      className={`w-10 text-center font-bold text-xs focus:outline-none ${
+                      onChange={e => handleUpdateQty(item.id, parseFloat(e.target.value) || 0)}
+                      className={`w-12 text-center font-bold text-xs focus:outline-none ${
                         theme === 'dark' ? 'text-white' : 'text-slate-900'
                       }`}
                     />
                     <button
-                      onClick={() => handleUpdateQty(item.product.id, item.quantity + 1)}
+                      type="button"
+                      onClick={() => handleUpdateQty(item.id, item.quantity + 1)}
                       className={`p-1 rounded cursor-pointer transition ${
                         theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                       }`}
@@ -846,11 +948,12 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
 
                   {/* Line Total & Remove */}
                   <div className="text-right min-w-[75px]">
-                    <div className={`font-bold text-xs ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                    <div className={`font-bold text-xs font-mono ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                       {formatFCFA(lineTotal)}
                     </div>
                     <button
-                      onClick={() => handleRemoveItem(item.product.id)}
+                      type="button"
+                      onClick={() => handleRemoveItem(item.id)}
                       className="text-slate-400 hover:text-rose-500 transition p-0.5 cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

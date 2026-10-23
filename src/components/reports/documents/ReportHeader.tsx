@@ -54,7 +54,7 @@ export const ReportHeader: React.FC<ReportHeaderProps> = ({
             </div>
           <p className="text-xs text-slate-600 font-medium mt-0.5">
             {salesPoint?.name ? `${salesPoint.name} — ` : ''}
-            {salesPoint?.address || settings.address || 'Zone Industrielle Bassa, Douala'}
+            {salesPoint?.address || [settings.address, settings.city, settings.country].filter(Boolean).join(', ')}
           </p>
             <div className="text-[11px] text-slate-500 flex flex-wrap gap-x-3 mt-1">
               <span>Tél: {salesPoint?.phone || settings.phone1}</span>

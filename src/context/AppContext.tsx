@@ -109,7 +109,15 @@ interface AppContextType {
   creditNotes: CreditNote[];
   createSale: (
     customerId: string,
-    items: { productId: string; quantity: number; unitPrice: number; discountAmount?: number }[],
+    items: {
+      productId: string;
+      quantity: number;
+      unitPrice: number;
+      discountAmount?: number;
+      saleMode?: 'gros' | 'detail';
+      unit?: UnitType;
+      conversionFactor?: number;
+    }[],
     discount?: { type: 'pourcentage' | 'montant'; value: number; reason: string },
     payment?: { amount: number; method: 'espèces' | 'virement' | 'paiement mobile' | 'crédit client'; reference?: string },
     notes?: string,
@@ -394,7 +402,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [products, setProducts] = useState<Product[]>(() => {
     const saved = localStorage.getItem('provenda_products');
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+    const rawList: Product[] = saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+    return rawList.map(p => {
+      if (p.conversionFactor && p.conversionFactor > 1) {
+        const allowDetail = p.allowDetailSale !== undefined ? p.allowDetailSale : true;
+        const detailPrice = p.detailPrice || Math.round(((p.salePrice / p.conversionFactor) * 1.15) / 10) * 10;
+        return { ...p, allowDetailSale: allowDetail, detailPrice };
+      }
+      return p;
+    });
   });
 
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
@@ -1273,6 +1289,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newProduct: Product = {
       ...productData,
       id: `prd-${Date.now()}`,
+      allowDetailSale: productData.allowDetailSale ?? false,
+      detailPrice: productData.detailPrice,
       stockCurrentBaseUnit: initialStock,
       cmp: initialCmp ?? (productData.purchasePrice / (productData.conversionFactor || 1)),
       priceHistory: [
@@ -1280,6 +1298,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           date: now,
           purchasePrice: productData.purchasePrice,
           salePrice: productData.salePrice,
+          detailPrice: productData.detailPrice,
           changedBy: currentUser.name,
           reason: 'Création initiale du produit au catalogue',
         },
@@ -1340,7 +1359,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const now = new Date().toISOString().replace('T', ' ').slice(0, 16);
     const priceChanged =
       oldProduct.purchasePrice !== updatedProduct.purchasePrice ||
-      oldProduct.salePrice !== updatedProduct.salePrice;
+      oldProduct.salePrice !== updatedProduct.salePrice ||
+      oldProduct.detailPrice !== updatedProduct.detailPrice;
 
     const newHistory = [...oldProduct.priceHistory];
     if (priceChanged) {
@@ -1348,6 +1368,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         date: now,
         purchasePrice: updatedProduct.purchasePrice,
         salePrice: updatedProduct.salePrice,
+        detailPrice: updatedProduct.detailPrice,
         changedBy: currentUser.name,
         reason: reason || 'Modification de tarif catalogue',
       });
@@ -1907,7 +1928,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Sales & POS Engine (Atomic Stock Verification & CMP Snapshot)
   const createSale = (
     customerId: string,
-    itemsToSell: { productId: string; quantity: number; unitPrice: number; discountAmount?: number }[],
+    itemsToSell: {
+      productId: string;
+      quantity: number;
+      unitPrice: number;
+      discountAmount?: number;
+      saleMode?: 'gros' | 'detail';
+      unit?: UnitType;
+      conversionFactor?: number;
+    }[],
     discount?: { type: 'pourcentage' | 'montant'; value: number; reason: string },
     payment?: { amount: number; method: 'espèces' | 'virement' | 'paiement mobile' | 'crédit client'; reference?: string },
     notes?: string,
@@ -1931,6 +1960,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const chosenSp = salesPoints.find(s => s.id === chosenSpId) || salesPoints[0];
 
     // 2. Strict Negative Stock Verification (Section 7 & Acceptation Criterion #4)
+    // Support multi-line items (wholesale + detail) of the same product
+    const totalRequestedBaseByProduct: Record<string, number> = {};
+
     for (const item of itemsToSell) {
       const product = products.find(p => p.id === item.productId);
       if (!product) {
@@ -1940,11 +1972,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { success: false, error: `Le produit "${product.name}" n'est pas actif dans le catalogue.` };
       }
 
-      const requestedBaseQty = item.quantity * product.conversionFactor;
-      if (product.stockCurrentBaseUnit < requestedBaseQty) {
+      const factor = item.conversionFactor !== undefined
+        ? item.conversionFactor
+        : (item.saleMode === 'detail' ? 1 : (product.conversionFactor || 1));
+      const requestedBaseQty = item.quantity * factor;
+      totalRequestedBaseByProduct[item.productId] = (totalRequestedBaseByProduct[item.productId] || 0) + requestedBaseQty;
+    }
+
+    for (const [prodId, totalRequested] of Object.entries(totalRequestedBaseByProduct)) {
+      const product = products.find(p => p.id === prodId)!;
+      if (product.stockCurrentBaseUnit < totalRequested) {
         return {
           success: false,
-          error: `Stock insuffisant pour "${product.name}". Stock disponible: ${product.stockCurrentBaseUnit} ${product.baseUnit} (soit ~${(product.stockCurrentBaseUnit / product.conversionFactor).toFixed(1)} ${product.saleUnit}), demandé: ${requestedBaseQty} ${product.baseUnit} (${item.quantity} ${product.saleUnit}). La vente ne peut créer un stock négatif.`,
+          error: `Stock insuffisant pour "${product.name}". Stock disponible: ${product.stockCurrentBaseUnit} ${product.baseUnit} (soit ~${(product.stockCurrentBaseUnit / (product.conversionFactor || 1)).toFixed(1)} ${product.saleUnit}), demandé au total: ${totalRequested} ${product.baseUnit}. La vente ne peut créer un stock négatif.`,
         };
       }
     }
@@ -2032,7 +2072,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     itemsToSell.forEach((item, idx) => {
       const prodIdx = updatedProducts.findIndex(p => p.id === item.productId);
       const product = updatedProducts[prodIdx];
-      const qtyBase = item.quantity * product.conversionFactor;
+      const factor = item.conversionFactor !== undefined
+        ? item.conversionFactor
+        : (item.saleMode === 'detail' ? 1 : (product.conversionFactor || 1));
+      const itemUnit = item.unit || (item.saleMode === 'detail' ? product.baseUnit : product.saleUnit);
+      const saleMode = item.saleMode || (itemUnit === product.baseUnit && factor === 1 ? 'detail' : 'gros');
+      const qtyBase = item.quantity * factor;
 
       // Distribute global discount proportionally across items
       const itemGross = item.quantity * item.unitPrice;
@@ -2051,8 +2096,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         productId: product.id,
         productCode: product.code,
         productName: product.name,
-        unit: product.saleUnit,
-        conversionFactor: product.conversionFactor,
+        unit: itemUnit,
+        conversionFactor: factor,
         quantity: item.quantity,
         quantityBaseUnit: qtyBase,
         unitPrice: item.unitPrice,
@@ -2062,9 +2107,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cmpAtSale: product.cmp,
         costOfGoodsSold: cogs,
         grossMargin,
+        saleMode,
       });
 
-      // Update product stock
+      // Update product stock (decrementing current working stock in updatedProducts)
       const stockBefore = product.stockCurrentBaseUnit;
       const stockAfter = stockBefore - qtyBase;
 
@@ -2092,7 +2138,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         referenceDocument: invoiceNumber,
         userId: currentUser.id,
         userName: currentUser.name,
-        justification: `Vente client ${customer.name} - Facture ${invoiceNumber}`,
+        justification: saleMode === 'detail'
+          ? `Vente au détail client ${customer.name} - Facture ${invoiceNumber}`
+          : `Vente client ${customer.name} - Facture ${invoiceNumber}`,
         timestamp: `${dateStr} ${timeStr}`,
       });
     });
@@ -2879,6 +2927,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateSettings = (newSettings: CompanySettings) => {
     const old = { ...settings };
     setSettings(newSettings);
+    localStorage.setItem('provenda_settings', JSON.stringify(newSettings));
+    saveMetadata('settings', newSettings);
     upsertRecordToSupabase('company_settings', { id: 'company-settings-1', ...newSettings }).catch(() => {});
     addAuditLog(
       'MODIFICATION_PARAMETRES',

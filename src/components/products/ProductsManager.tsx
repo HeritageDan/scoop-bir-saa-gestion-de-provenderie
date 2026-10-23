@@ -56,6 +56,8 @@ export const ProductsManager: React.FC = () => {
   const [newConversionFactor, setNewConversionFactor] = useState<number>(50);
   const [newPurchasePrice, setNewPurchasePrice] = useState<number>(15000);
   const [newSalePrice, setNewSalePrice] = useState<number>(19000);
+  const [newAllowDetailSale, setNewAllowDetailSale] = useState<boolean>(true);
+  const [newDetailPrice, setNewDetailPrice] = useState<number>(450);
   const [newInitialStock, setNewInitialStock] = useState<number>(0);
   const [newInitialCmp, setNewInitialCmp] = useState<number>(300);
   const [newMinAlert, setNewMinAlert] = useState<number>(500);
@@ -73,6 +75,8 @@ export const ProductsManager: React.FC = () => {
   const [editConversionFactor, setEditConversionFactor] = useState<number>(50);
   const [editPurchasePrice, setEditPurchasePrice] = useState<number>(0);
   const [editSalePrice, setEditSalePrice] = useState<number>(0);
+  const [editAllowDetailSale, setEditAllowDetailSale] = useState<boolean>(false);
+  const [editDetailPrice, setEditDetailPrice] = useState<number>(0);
   const [editMinAlert, setEditMinAlert] = useState<number>(0);
   const [editDescription, setEditDescription] = useState('');
   const [editPriceReason, setEditPriceReason] = useState('');
@@ -132,6 +136,8 @@ export const ProductsManager: React.FC = () => {
     setNewConversionFactor(50);
     setNewPurchasePrice(15000);
     setNewSalePrice(19000);
+    setNewAllowDetailSale(true);
+    setNewDetailPrice(440);
     setNewInitialStock(0);
     setNewInitialCmp(300);
     setNewMinAlert(500);
@@ -159,6 +165,11 @@ export const ProductsManager: React.FC = () => {
       return;
     }
 
+    if (newAllowDetailSale && newDetailPrice <= 0) {
+      setNewError(language === 'fr' ? 'Le prix de vente au détail doit être supérieur à zéro.' : 'Detail sale price must be > 0.');
+      return;
+    }
+
     if (newConversionFactor <= 0) {
       setNewError(language === 'fr' ? 'Le facteur de conversion doit être supérieur à zéro.' : 'Conversion factor must be > 0.');
       return;
@@ -179,6 +190,8 @@ export const ProductsManager: React.FC = () => {
         conversionFactor: newConversionFactor,
         purchasePrice: newPurchasePrice,
         salePrice: newSalePrice,
+        allowDetailSale: newAllowDetailSale,
+        detailPrice: newAllowDetailSale ? newDetailPrice : undefined,
         minAlertThresholdBaseUnit: newMinAlert,
         status: 'actif',
         description: newDescription.trim() || undefined,
@@ -200,6 +213,11 @@ export const ProductsManager: React.FC = () => {
     setEditConversionFactor(product.conversionFactor || 1);
     setEditPurchasePrice(product.purchasePrice);
     setEditSalePrice(product.salePrice);
+    setEditAllowDetailSale(product.allowDetailSale ?? ((product.conversionFactor || 1) > 1));
+    setEditDetailPrice(
+      product.detailPrice ??
+      Math.round(((product.salePrice / (product.conversionFactor || 1)) * 1.15) / 10) * 10
+    );
     setEditMinAlert(product.minAlertThresholdBaseUnit);
     setEditDescription(product.description || '');
     setEditPriceReason('');
@@ -222,6 +240,11 @@ export const ProductsManager: React.FC = () => {
       return;
     }
 
+    if (editAllowDetailSale && editDetailPrice <= 0) {
+      setEditError(language === 'fr' ? 'Le prix de vente au détail doit être supérieur à zéro.' : 'Detail sale price must be > 0.');
+      return;
+    }
+
     if (editConversionFactor <= 0) {
       setEditError(language === 'fr' ? 'Le facteur de conversion doit être supérieur à 0.' : 'Conversion factor must be > 0.');
       return;
@@ -229,7 +252,8 @@ export const ProductsManager: React.FC = () => {
 
     const priceChanged =
       editingProduct.purchasePrice !== editPurchasePrice ||
-      editingProduct.salePrice !== editSalePrice;
+      editingProduct.salePrice !== editSalePrice ||
+      editingProduct.detailPrice !== (editAllowDetailSale ? editDetailPrice : undefined);
 
     if (priceChanged && !editPriceReason.trim()) {
       setEditError(
@@ -251,6 +275,8 @@ export const ProductsManager: React.FC = () => {
         conversionFactor: editConversionFactor,
         purchasePrice: editPurchasePrice,
         salePrice: editSalePrice,
+        allowDetailSale: editAllowDetailSale,
+        detailPrice: editAllowDetailSale ? editDetailPrice : undefined,
         minAlertThresholdBaseUnit: editMinAlert,
         description: editDescription.trim() || undefined,
       },
@@ -596,6 +622,13 @@ export const ProductsManager: React.FC = () => {
                         <div className="text-[10px] text-slate-400 mt-0.5">
                           1 {prod.saleUnit} = {prod.conversionFactor} {formatUnit(prod.baseUnit)}
                         </div>
+                        {prod.allowDetailSale && (
+                          <div className="mt-1">
+                            <span className="inline-block px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                              {language === 'fr' ? 'Détail autorisé' : 'Retail enabled'}
+                            </span>
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-3 px-3.5 text-right font-mono">
@@ -614,6 +647,11 @@ export const ProductsManager: React.FC = () => {
                         <div className="text-[10px] text-slate-400">
                           /{prod.saleUnit}
                         </div>
+                        {prod.allowDetailSale && prod.detailPrice && (
+                          <div className="text-[10px] text-amber-500 font-semibold mt-0.5">
+                            {language === 'fr' ? 'Détail :' : 'Detail:'} {formatFCFA(prod.detailPrice)}/{formatUnit(prod.baseUnit)}
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-3 px-3.5 text-right font-mono">
@@ -914,6 +952,69 @@ export const ProductsManager: React.FC = () => {
                     {formatFCFA(newSalePrice - newPurchasePrice)} / {newSaleUnit} ({newSalePrice > 0 ? (((newSalePrice - newPurchasePrice) / newSalePrice) * 100).toFixed(1) : 0}%)
                   </span>
                 </div>
+
+                {/* Vente au détail (au kg) */}
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newAllowDetailSale}
+                        onChange={e => setNewAllowDetailSale(e.target.checked)}
+                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                        {language === 'fr'
+                          ? `Autoriser la vente au détail (au ${newBaseUnit})`
+                          : `Enable detail / retail sale (by ${newBaseUnit})`}
+                      </span>
+                    </label>
+                    {newAllowDetailSale && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                        {language === 'fr' ? 'Actif' : 'Enabled'}
+                      </span>
+                    )}
+                  </div>
+
+                  {newAllowDetailSale && (
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            {language === 'fr'
+                              ? `Prix de vente au détail (FCFA / ${newBaseUnit}) *`
+                              : `Detail Sale Price (FCFA / ${newBaseUnit}) *`}
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={newDetailPrice}
+                            onChange={e => setNewDetailPrice(parseFloat(e.target.value) || 0)}
+                            className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                              theme === 'dark' ? 'bg-slate-950 border-slate-700 text-amber-400' : 'bg-white border-slate-300 text-amber-700'
+                            }`}
+                          />
+                        </div>
+
+                        <div className="text-[11px] space-y-0.5 text-slate-600 dark:text-slate-300">
+                          <div>
+                            {language === 'fr' ? 'Équivalent au sac :' : 'Bag equivalent:'}{' '}
+                            <span className="font-mono font-semibold">
+                              {newConversionFactor > 0 ? Math.round(newSalePrice / newConversionFactor) : 0} FCFA / {newBaseUnit}
+                            </span>
+                          </div>
+                          {newDetailPrice > 0 && newConversionFactor > 0 && (
+                            <div className="font-semibold text-emerald-600 dark:text-emerald-400">
+                              {language === 'fr' ? 'Majoration détail :' : 'Retail premium:'}{' '}
+                              +{newDetailPrice - Math.round(newSalePrice / newConversionFactor)} FCFA / {newBaseUnit}
+                              {' '}(+{(((newDetailPrice - (newSalePrice / newConversionFactor)) / (newSalePrice / newConversionFactor)) * 100).toFixed(1)}%)
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Stock Initial & Seuil */}
@@ -1100,6 +1201,69 @@ export const ProductsManager: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Vente au détail (au kg) */}
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editAllowDetailSale}
+                        onChange={e => setEditAllowDetailSale(e.target.checked)}
+                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                        {language === 'fr'
+                          ? `Autoriser la vente au détail (au ${editBaseUnit})`
+                          : `Enable detail / retail sale (by ${editBaseUnit})`}
+                      </span>
+                    </label>
+                    {editAllowDetailSale && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                        {language === 'fr' ? 'Actif' : 'Enabled'}
+                      </span>
+                    )}
+                  </div>
+
+                  {editAllowDetailSale && (
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            {language === 'fr'
+                              ? `Prix de vente au détail (FCFA / ${editBaseUnit}) *`
+                              : `Detail Sale Price (FCFA / ${editBaseUnit}) *`}
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={editDetailPrice}
+                            onChange={e => setEditDetailPrice(parseFloat(e.target.value) || 0)}
+                            className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                              theme === 'dark' ? 'bg-slate-950 border-slate-700 text-amber-400' : 'bg-white border-slate-300 text-amber-700'
+                            }`}
+                          />
+                        </div>
+
+                        <div className="text-[11px] space-y-0.5 text-slate-600 dark:text-slate-300">
+                          <div>
+                            {language === 'fr' ? 'Équivalent au sac :' : 'Bag equivalent:'}{' '}
+                            <span className="font-mono font-semibold">
+                              {editConversionFactor > 0 ? Math.round(editSalePrice / editConversionFactor) : 0} FCFA / {editBaseUnit}
+                            </span>
+                          </div>
+                          {editDetailPrice > 0 && editConversionFactor > 0 && (
+                            <div className="font-semibold text-emerald-600 dark:text-emerald-400">
+                              {language === 'fr' ? 'Majoration détail :' : 'Retail premium:'}{' '}
+                              +{editDetailPrice - Math.round(editSalePrice / editConversionFactor)} FCFA / {editBaseUnit}
+                              {' '}(+{(((editDetailPrice - (editSalePrice / editConversionFactor)) / (editSalePrice / editConversionFactor)) * 100).toFixed(1)}%)
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Justification de prix */}
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -1238,10 +1402,15 @@ export const ProductsManager: React.FC = () => {
 
                     <div className="text-right font-mono shrink-0">
                       <div className="text-xs font-bold text-emerald-500 dark:text-emerald-400">
-                        Vente : {formatFCFA(h.salePrice)}
+                        {language === 'fr' ? 'Gros :' : 'Wholesale:'} {formatFCFA(h.salePrice)}
                       </div>
+                      {h.detailPrice ? (
+                        <div className="text-[11px] font-semibold text-amber-500 dark:text-amber-400">
+                          {language === 'fr' ? 'Détail :' : 'Detail:'} {formatFCFA(h.detailPrice)}
+                        </div>
+                      ) : null}
                       <div className="text-[11px] text-slate-500 dark:text-slate-300">
-                        Achat : {formatFCFA(h.purchasePrice)}
+                        {language === 'fr' ? 'Achat :' : 'Purchase:'} {formatFCFA(h.purchasePrice)}
                       </div>
                     </div>
                   </div>

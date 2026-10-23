@@ -31,9 +31,15 @@ import {
   Laptop,
   FileCode,
   Clock,
+  Store,
+  Edit2,
+  MapPin,
+  Phone,
+  Mail,
+  UserCheck,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { CompanySettings, Role, ReceiptPrinterConfig, ReceiptPaperWidth } from '../../types';
+import { CompanySettings, Role, ReceiptPrinterConfig, ReceiptPaperWidth, SalesPoint } from '../../types';
 import {
   getPrinterConfig,
   savePrinterConfig,
@@ -81,6 +87,9 @@ export const SettingsManager: React.FC = () => {
     expenses,
     auditLogs,
     salesPoints,
+    addSalesPoint,
+    updateSalesPoint,
+    deleteSalesPoint,
     theme,
     language,
     t,
@@ -89,7 +98,7 @@ export const SettingsManager: React.FC = () => {
     canInstallPwa,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'company' | 'users' | 'security' | 'database' | 'printer'>('company');
+  const [activeTab, setActiveTab] = useState<'company' | 'sales_points' | 'users' | 'security' | 'database' | 'printer'>('company');
 
   // Filter out the developer system account for non-developers
   const visibleUsers = users.filter(u => currentUser.role === 'developpeur' || u.role !== 'developpeur');
@@ -107,6 +116,23 @@ export const SettingsManager: React.FC = () => {
     });
   }, [settings]);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Sales points modal & state
+  const [editingSalesPoint, setEditingSalesPoint] = useState<SalesPoint | null>(null);
+  const [showAddSalesPointModal, setShowAddSalesPointModal] = useState(false);
+  const [salesPointForm, setSalesPointForm] = useState({
+    code: '',
+    name: '',
+    address: '',
+    city: '',
+    phone: '',
+    email: '',
+    managerName: '',
+    isMain: false,
+    active: true,
+  });
+  const [salesPointSuccess, setSalesPointSuccess] = useState<string | null>(null);
+  const [salesPointError, setSalesPointError] = useState<string | null>(null);
   const [backupJson, setBackupJson] = useState('');
   const [restoreError, setRestoreError] = useState('');
   const [restoreSuccess, setRestoreSuccess] = useState('');
@@ -267,7 +293,7 @@ export const SettingsManager: React.FC = () => {
       role: initialRole,
       phone: '',
       discountLimitPercent: initialRole === 'administrateur' ? 100 : 0,
-      assignedSalesPointId: 'pos-1',
+      assignedSalesPointId: newUserForm.assignedSalesPointId || salesPoints[0]?.id || 'pos-1',
     });
     setUserCreationError(null);
     setUserCreationSuccess(null);
@@ -289,7 +315,7 @@ export const SettingsManager: React.FC = () => {
       role: newUserForm.role,
       phone: newUserForm.phone.trim(),
       discountLimitPercent: Number(newUserForm.discountLimitPercent) || 0,
-      assignedSalesPointId: 'pos-1',
+      assignedSalesPointId: newUserForm.assignedSalesPointId || salesPoints[0]?.id || 'pos-1',
       active: true,
       lastLogin: '',
     });
@@ -305,7 +331,7 @@ export const SettingsManager: React.FC = () => {
           role: 'caissier',
           phone: '',
           discountLimitPercent: 0,
-          assignedSalesPointId: 'pos-1',
+          assignedSalesPointId: newUserForm.assignedSalesPointId || salesPoints[0]?.id || 'pos-1',
         });
       }, 1000);
     } else {
@@ -321,8 +347,140 @@ export const SettingsManager: React.FC = () => {
       logoUrl: finalLogo,
     });
     updateAppIconEverywhere(finalLogo);
+
+    // If there is a single sales point, keep its address, city, and phone synchronized with company settings
+    if (salesPoints.length === 1) {
+      const sp = salesPoints[0];
+      updateSalesPoint({
+        ...sp,
+        address: companyForm.address || sp.address,
+        city: companyForm.city || sp.city,
+        phone: companyForm.phone1 || sp.phone,
+      });
+    }
+
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);
+  };
+
+  const handleOpenAddSalesPoint = () => {
+    const nextNum = salesPoints.length + 1;
+    const nextCode = `POS-0${nextNum}`;
+    setSalesPointForm({
+      code: nextCode,
+      name: '',
+      address: companyForm.address || '',
+      city: companyForm.city || '',
+      phone: companyForm.phone1 || '',
+      email: companyForm.email || '',
+      managerName: '',
+      isMain: salesPoints.length === 0,
+      active: true,
+    });
+    setSalesPointError(null);
+    setSalesPointSuccess(null);
+    setShowAddSalesPointModal(true);
+  };
+
+  const handleOpenEditSalesPoint = (sp: SalesPoint) => {
+    setEditingSalesPoint(sp);
+    setSalesPointForm({
+      code: sp.code,
+      name: sp.name,
+      address: sp.address,
+      city: sp.city || '',
+      phone: sp.phone,
+      email: sp.email || '',
+      managerName: sp.managerName || '',
+      isMain: sp.isMain,
+      active: sp.active,
+    });
+    setSalesPointError(null);
+    setSalesPointSuccess(null);
+  };
+
+  const handleSaveEditSalesPoint = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSalesPoint) return;
+    if (!salesPointForm.name.trim() || !salesPointForm.code.trim()) {
+      setSalesPointError(language === 'fr' ? 'Le nom et le code du site sont obligatoires.' : 'Site name and code are required.');
+      return;
+    }
+
+    // If making this main, unset others
+    if (salesPointForm.isMain && !editingSalesPoint.isMain) {
+      salesPoints.forEach(otherSp => {
+        if (otherSp.id !== editingSalesPoint.id && otherSp.isMain) {
+          updateSalesPoint({ ...otherSp, isMain: false });
+        }
+      });
+    }
+
+    updateSalesPoint({
+      ...editingSalesPoint,
+      code: salesPointForm.code.trim(),
+      name: salesPointForm.name.trim(),
+      address: salesPointForm.address.trim(),
+      city: salesPointForm.city.trim(),
+      phone: salesPointForm.phone.trim(),
+      email: salesPointForm.email.trim(),
+      managerName: salesPointForm.managerName.trim(),
+      isMain: salesPointForm.isMain,
+      active: salesPointForm.active,
+    });
+
+    setSalesPointSuccess(language === 'fr' ? 'Point de vente mis à jour avec succès !' : 'Sales point updated successfully!');
+    setTimeout(() => {
+      setEditingSalesPoint(null);
+      setSalesPointSuccess(null);
+    }, 1000);
+  };
+
+  const handleCreateSalesPoint = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!salesPointForm.name.trim() || !salesPointForm.code.trim()) {
+      setSalesPointError(language === 'fr' ? 'Le nom et le code du site sont obligatoires.' : 'Site name and code are required.');
+      return;
+    }
+
+    if (salesPointForm.isMain) {
+      salesPoints.forEach(otherSp => {
+        if (otherSp.isMain) {
+          updateSalesPoint({ ...otherSp, isMain: false });
+        }
+      });
+    }
+
+    addSalesPoint({
+      code: salesPointForm.code.trim(),
+      name: salesPointForm.name.trim(),
+      address: salesPointForm.address.trim(),
+      city: salesPointForm.city.trim(),
+      phone: salesPointForm.phone.trim(),
+      email: salesPointForm.email.trim(),
+      managerName: salesPointForm.managerName.trim(),
+      isMain: salesPointForm.isMain,
+      active: salesPointForm.active,
+    });
+
+    setSalesPointSuccess(language === 'fr' ? 'Nouveau point de vente ajouté avec succès !' : 'New sales point added successfully!');
+    setTimeout(() => {
+      setShowAddSalesPointModal(false);
+      setSalesPointSuccess(null);
+    }, 1000);
+  };
+
+  const handleDeleteSalesPoint = (sp: SalesPoint) => {
+    if (sp.isMain) {
+      alert(language === 'fr' ? 'Impossible de supprimer le site principal de l\'entreprise.' : 'Cannot delete the main site of the company.');
+      return;
+    }
+    const confirmMsg = language === 'fr'
+      ? `Êtes-vous sûr de vouloir supprimer le point de vente "${sp.name}" ?`
+      : `Are you sure you want to delete the sales point "${sp.name}"?`;
+    if (window.confirm(confirmMsg)) {
+      deleteSalesPoint(sp.id);
+    }
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -588,6 +746,20 @@ export const SettingsManager: React.FC = () => {
         >
           <Building className="w-4 h-4" />
           <span>{t('settings.tab_company')}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('sales_points')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+            activeTab === 'sales_points'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : theme === 'dark'
+              ? 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+          }`}
+        >
+          <Store className="w-4 h-4" />
+          <span>{language === 'fr' ? 'Points de Vente & Dépôts' : 'Sales Points & Depots'} ({salesPoints.length})</span>
         </button>
 
         <button
@@ -859,6 +1031,42 @@ export const SettingsManager: React.FC = () => {
 
             <div>
               <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
+                {t('settings.city')}
+              </label>
+              <input
+                type="text"
+                value={companyForm.city}
+                onChange={e => setCompanyForm({ ...companyForm, city: e.target.value })}
+                placeholder="ex. Douala, Bafoussam, Yaoundé..."
+                className={`w-full rounded-lg p-2 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                  theme === 'dark'
+                    ? 'bg-slate-800 border-slate-700 text-white'
+                    : 'bg-white border-slate-300 text-slate-900 shadow-2xs'
+                }`}
+                required
+              />
+            </div>
+
+            <div>
+              <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
+                {language === 'fr' ? 'Pays :' : 'Country:'}
+              </label>
+              <input
+                type="text"
+                value={companyForm.country}
+                onChange={e => setCompanyForm({ ...companyForm, country: e.target.value })}
+                placeholder="ex. Cameroun"
+                className={`w-full rounded-lg p-2 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                  theme === 'dark'
+                    ? 'bg-slate-800 border-slate-700 text-white'
+                    : 'bg-white border-slate-300 text-slate-900 shadow-2xs'
+                }`}
+                required
+              />
+            </div>
+
+            <div>
+              <label className={`block mb-1 font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
                 {t('settings.tax_id')}
               </label>
               <input
@@ -947,6 +1155,540 @@ export const SettingsManager: React.FC = () => {
             </button>
           </div>
         </form>
+      )}
+
+      {/* TAB: SALES POINTS & DEPOTS */}
+      {activeTab === 'sales_points' && (
+        <div className="space-y-4">
+          <div className={`border rounded-xl p-5 shadow-xs ${
+            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <h2 className={`text-base font-bold flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  <Store className="w-5 h-5 text-emerald-500" />
+                  <span>{language === 'fr' ? 'Points de Vente, Boutiques & Dépôts' : 'Sales Points, Shops & Warehouses'}</span>
+                </h2>
+                <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                  {language === 'fr'
+                    ? 'Configurez les noms, adresses, téléphones et responsables des points de vente physiques. Ces informations s\'affichent sur les factures et tickets imprimés.'
+                    : 'Configure names, addresses, phone numbers, and managers for physical sales points. These details appear on printed invoices and receipts.'}
+                </p>
+              </div>
+
+              {(currentUser.role === 'administrateur' || currentUser.role === 'developpeur') && (
+                <button
+                  type="button"
+                  onClick={handleOpenAddSalesPoint}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-xs transition cursor-pointer shrink-0 self-start sm:self-auto"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{language === 'fr' ? 'Ajouter un Site' : 'Add New Site'}</span>
+                </button>
+              )}
+            </div>
+
+            {/* List / Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+              {salesPoints.map((sp) => (
+                <div
+                  key={sp.id}
+                  className={`rounded-xl border p-4 flex flex-col justify-between transition relative overflow-hidden ${
+                    sp.isMain
+                      ? theme === 'dark'
+                        ? 'bg-emerald-950/20 border-emerald-500/40 ring-1 ring-emerald-500/20'
+                        : 'bg-emerald-50/50 border-emerald-200 ring-1 ring-emerald-300'
+                      : theme === 'dark'
+                      ? 'bg-slate-800/60 border-slate-700/80 hover:border-slate-600'
+                      : 'bg-slate-50/80 border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-200">
+                        {sp.code}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {sp.isMain && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-300/40">
+                            ★ {language === 'fr' ? 'Site Principal' : 'Main Site'}
+                          </span>
+                        )}
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          sp.active
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                            : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                        }`}>
+                          {sp.active ? (language === 'fr' ? 'Actif' : 'Active') : (language === 'fr' ? 'Inactif' : 'Inactive')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <h3 className={`font-bold text-sm leading-snug ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                      {sp.name}
+                    </h3>
+
+                    <div className="mt-3 space-y-1.5 text-xs">
+                      <div className={`flex items-start gap-2 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                        <MapPin className="w-3.5 h-3.5 mt-0.5 text-emerald-500 shrink-0" />
+                        <span className="line-clamp-2">
+                          {sp.address}{sp.city ? ` (${sp.city})` : ''}
+                        </span>
+                      </div>
+
+                      {sp.phone && (
+                        <div className={`flex items-center gap-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                          <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>{sp.phone}</span>
+                        </div>
+                      )}
+
+                      {sp.email && (
+                        <div className={`flex items-center gap-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                          <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{sp.email}</span>
+                        </div>
+                      )}
+
+                      {sp.managerName && (
+                        <div className={`flex items-center gap-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                          <UserCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>{language === 'fr' ? 'Resp.' : 'Mgr.'}: {sp.managerName}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {(currentUser.role === 'administrateur' || currentUser.role === 'developpeur') && (
+                    <div className="mt-4 pt-3 border-t border-slate-200/80 dark:border-slate-700/80 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditSalesPoint(sp)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
+                          theme === 'dark'
+                            ? 'border-slate-700 hover:bg-slate-700 text-slate-200'
+                            : 'border-slate-300 hover:bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>{language === 'fr' ? 'Modifier' : 'Edit'}</span>
+                      </button>
+
+                      {!sp.isMain && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSalesPoint(sp)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 ${
+                            theme === 'dark' ? 'border-red-900/50' : 'border-red-200'
+                          }`}
+                          title={language === 'fr' ? 'Supprimer ce point de vente' : 'Delete this sales point'}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* EDIT SALES POINT MODAL */}
+          {editingSalesPoint && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+              <div className={`w-full max-w-lg rounded-2xl border shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto ${
+                theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+              }`}>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-700/40">
+                  <div className="flex items-center gap-2">
+                    <Store className="w-5 h-5 text-emerald-500" />
+                    <h3 className="font-bold text-base">
+                      {language === 'fr' ? 'Modifier le Point de Vente / Site' : 'Edit Sales Point / Site'}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingSalesPoint(null);
+                      setSalesPointError(null);
+                      setSalesPointSuccess(null);
+                    }}
+                    className={`p-1.5 rounded-lg border transition ${
+                      theme === 'dark' ? 'border-slate-800 text-slate-400 hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {salesPointError && (
+                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{salesPointError}</span>
+                  </div>
+                )}
+
+                {salesPointSuccess && (
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>{salesPointSuccess}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveEditSalesPoint} className="space-y-3.5 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Code Site' : 'Site Code'} *
+                      </label>
+                      <input
+                        type="text"
+                        value={salesPointForm.code}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, code: e.target.value })}
+                        required
+                        className={`w-full rounded-xl p-2.5 font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Nom du Point de Vente / Site' : 'Sales Point / Site Name'} *
+                      </label>
+                      <input
+                        type="text"
+                        value={salesPointForm.name}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, name: e.target.value })}
+                        placeholder="ex. Siège Principal & Usine"
+                        required
+                        className={`w-full rounded-xl p-2.5 font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Adresse Géographique' : 'Physical Address'} *
+                      </label>
+                      <input
+                        type="text"
+                        value={salesPointForm.address}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, address: e.target.value })}
+                        placeholder="ex. Zone Industrielle Bassa"
+                        required
+                        className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Ville' : 'City'} *
+                      </label>
+                      <input
+                        type="text"
+                        value={salesPointForm.city}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, city: e.target.value })}
+                        placeholder="ex. Douala, Bafoussam..."
+                        required
+                        className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Téléphone du Site' : 'Site Phone'}
+                      </label>
+                      <input
+                        type="text"
+                        value={salesPointForm.phone}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, phone: e.target.value })}
+                        placeholder="+237 ..."
+                        className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Email du Site' : 'Site Email'}
+                      </label>
+                      <input
+                        type="email"
+                        value={salesPointForm.email}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, email: e.target.value })}
+                        placeholder="site@entreprise.cm"
+                        className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-medium mb-1 opacity-80">
+                      {language === 'fr' ? 'Nom du Responsable de Site' : 'Site Manager Name'}
+                    </label>
+                    <input
+                      type="text"
+                      value={salesPointForm.managerName}
+                      onChange={e => setSalesPointForm({ ...salesPointForm, managerName: e.target.value })}
+                      placeholder="ex. M. Kamdem"
+                      className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                        theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                      }`}
+                    />
+                  </div>
+
+                  <div className="pt-2 flex flex-wrap items-center gap-6">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={salesPointForm.isMain}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, isMain: e.target.checked })}
+                        className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <span className="font-semibold">{language === 'fr' ? 'Site Principal de l\'Entreprise' : 'Main Company Site'}</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={salesPointForm.active}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, active: e.target.checked })}
+                        className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <span className="font-semibold">{language === 'fr' ? 'Site Actif' : 'Active Site'}</span>
+                    </label>
+                  </div>
+
+                  <div className="pt-4 flex items-center justify-end gap-2 border-t border-slate-700/40">
+                    <button
+                      type="button"
+                      onClick={() => setEditingSalesPoint(null)}
+                      className={`px-4 py-2.5 rounded-xl border font-semibold transition cursor-pointer ${
+                        theme === 'dark' ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {language === 'fr' ? 'Annuler' : 'Cancel'}
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition cursor-pointer shadow-xs"
+                    >
+                      {language === 'fr' ? 'Enregistrer les Modifications' : 'Save Changes'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* ADD SALES POINT MODAL */}
+          {showAddSalesPointModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+              <div className={`w-full max-w-lg rounded-2xl border shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto ${
+                theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+              }`}>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-700/40">
+                  <div className="flex items-center gap-2">
+                    <Store className="w-5 h-5 text-emerald-500" />
+                    <h3 className="font-bold text-base">
+                      {language === 'fr' ? 'Nouveau Point de Vente / Site' : 'New Sales Point / Site'}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddSalesPointModal(false);
+                      setSalesPointError(null);
+                      setSalesPointSuccess(null);
+                    }}
+                    className={`p-1.5 rounded-lg border transition ${
+                      theme === 'dark' ? 'border-slate-800 text-slate-400 hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {salesPointError && (
+                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{salesPointError}</span>
+                  </div>
+                )}
+
+                {salesPointSuccess && (
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>{salesPointSuccess}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleCreateSalesPoint} className="space-y-3.5 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Code Site' : 'Site Code'} *
+                      </label>
+                      <input
+                        type="text"
+                        value={salesPointForm.code}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, code: e.target.value })}
+                        required
+                        className={`w-full rounded-xl p-2.5 font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Nom du Point de Vente / Site' : 'Sales Point / Site Name'} *
+                      </label>
+                      <input
+                        type="text"
+                        value={salesPointForm.name}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, name: e.target.value })}
+                        placeholder="ex. Boutique Ouest / Dépôt Bafoussam"
+                        required
+                        className={`w-full rounded-xl p-2.5 font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Adresse Géographique' : 'Physical Address'} *
+                      </label>
+                      <input
+                        type="text"
+                        value={salesPointForm.address}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, address: e.target.value })}
+                        placeholder="ex. Marché Central, Hangar 4"
+                        required
+                        className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Ville' : 'City'} *
+                      </label>
+                      <input
+                        type="text"
+                        value={salesPointForm.city}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, city: e.target.value })}
+                        placeholder="ex. Bafoussam, Douala..."
+                        required
+                        className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Téléphone du Site' : 'Site Phone'}
+                      </label>
+                      <input
+                        type="text"
+                        value={salesPointForm.phone}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, phone: e.target.value })}
+                        placeholder="+237 ..."
+                        className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-medium mb-1 opacity-80">
+                        {language === 'fr' ? 'Email du Site' : 'Site Email'}
+                      </label>
+                      <input
+                        type="email"
+                        value={salesPointForm.email}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, email: e.target.value })}
+                        placeholder="site@entreprise.cm"
+                        className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-medium mb-1 opacity-80">
+                      {language === 'fr' ? 'Nom du Responsable de Site' : 'Site Manager Name'}
+                    </label>
+                    <input
+                      type="text"
+                      value={salesPointForm.managerName}
+                      onChange={e => setSalesPointForm({ ...salesPointForm, managerName: e.target.value })}
+                      placeholder="ex. M. Kamdem"
+                      className={`w-full rounded-xl p-2.5 border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                        theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                      }`}
+                    />
+                  </div>
+
+                  <div className="pt-2 flex flex-wrap items-center gap-6">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={salesPointForm.isMain}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, isMain: e.target.checked })}
+                        className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <span className="font-semibold">{language === 'fr' ? 'Site Principal de l\'Entreprise' : 'Main Company Site'}</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={salesPointForm.active}
+                        onChange={e => setSalesPointForm({ ...salesPointForm, active: e.target.checked })}
+                        className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <span className="font-semibold">{language === 'fr' ? 'Site Actif' : 'Active Site'}</span>
+                    </label>
+                  </div>
+
+                  <div className="pt-4 flex items-center justify-end gap-2 border-t border-slate-700/40">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddSalesPointModal(false)}
+                      className={`px-4 py-2.5 rounded-xl border font-semibold transition cursor-pointer ${
+                        theme === 'dark' ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {language === 'fr' ? 'Annuler' : 'Cancel'}
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition cursor-pointer shadow-xs"
+                    >
+                      {language === 'fr' ? 'Créer le Site' : 'Create Site'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* TAB 2: USERS & ACTIVE SESSION */}
@@ -1280,12 +2022,19 @@ export const SettingsManager: React.FC = () => {
                       <label className="block font-medium mb-1 opacity-80">
                         {language === 'fr' ? 'Point de Vente assigné' : 'Assigned Sales Point'}
                       </label>
-                      <div className={`w-full rounded-xl p-2.5 border text-xs font-semibold flex items-center gap-1.5 ${
-                        theme === 'dark' ? 'bg-slate-800/80 border-slate-700 text-emerald-400' : 'bg-slate-100 border-slate-200 text-emerald-700'
-                      }`}>
-                        <span>📍</span>
-                        <span className="truncate">Siège Principal & Usine (Douala Bassa) — Site Unique</span>
-                      </div>
+                      <select
+                        value={newUserForm.assignedSalesPointId}
+                        onChange={e => setNewUserForm({ ...newUserForm, assignedSalesPointId: e.target.value })}
+                        className={`w-full rounded-xl p-2.5 border text-xs font-semibold ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      >
+                        {salesPoints.map(sp => (
+                          <option key={sp.id} value={sp.id}>
+                            {sp.name} {sp.city ? `(${sp.city})` : ''} {sp.isMain ? '— Principal' : ''}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 

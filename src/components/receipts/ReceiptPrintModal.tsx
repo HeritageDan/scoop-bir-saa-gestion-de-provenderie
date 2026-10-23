@@ -32,7 +32,7 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
   onClose,
   isReprint = false,
 }) => {
-  const { settings, theme, language } = useApp();
+  const { settings, salesPoints, theme, language } = useApp();
   const [config, setConfig] = useState<ReceiptPrinterConfig>(getPrinterConfig());
   const [isPrinting, setIsPrinting] = useState(false);
   const [printStatus, setPrintStatus] = useState<{
@@ -42,6 +42,10 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
   }>({});
 
   if (!invoice) return null;
+
+  const matchedSp = salesPoints.find(sp => sp.id === invoice.salesPointId);
+  const displaySalesPointName = matchedSp?.name || (salesPoints.length === 1 ? salesPoints[0].name : invoice.salesPointName);
+  const fullAddress = [settings.address, settings.city, settings.country].filter(Boolean).join(', ');
 
   const is58mm = config.paperWidth === '58mm';
   const subTotalGross = invoice.subtotalGross || invoice.totalNet;
@@ -208,12 +212,24 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
             {/* Store Header */}
             <div className="text-center space-y-0.5">
               <div className="font-black text-sm tracking-wide">{settings.name || 'SCOOPS BIR SAA'}</div>
-              <div className="text-[9px] opacity-80">{settings.legalStatus}</div>
-              <div className="text-[9.5px]">{settings.address || 'Bafoussam, Cameroun'}</div>
-              {settings.phone1 && <div className="text-[9px]">Tél : {settings.phone1}</div>}
-              {settings.taxId && <div className="text-[8.5px]">NIF : {settings.taxId}</div>}
-              {invoice.salesPointName && (
-                <div className="font-bold text-[9.5px] mt-1">{invoice.salesPointName}</div>
+              {settings.legalStatus && <div className="text-[9px] opacity-80">{settings.legalStatus}</div>}
+              {fullAddress && <div className="text-[9.5px]">{fullAddress}</div>}
+              {settings.phone1 && (
+                <div className="text-[9px]">
+                  {language === 'fr' ? 'Tél :' : 'Tel:'} {settings.phone1} {settings.phone2 ? `/ ${settings.phone2}` : ''}
+                </div>
+              )}
+              {(settings.taxId || settings.tradeRegisterNumber) && (
+                <div className="text-[8.5px]">
+                  {settings.taxId ? `NIF : ${settings.taxId}` : ''}
+                  {settings.taxId && settings.tradeRegisterNumber ? ' | ' : ''}
+                  {settings.tradeRegisterNumber ? `RCCM : ${settings.tradeRegisterNumber}` : ''}
+                </div>
+              )}
+              {displaySalesPointName && (
+                <div className="font-bold text-[9.5px] mt-1">
+                  {language === 'fr' ? 'Point de vente :' : 'Sales Point:'} {displaySalesPointName}
+                </div>
               )}
             </div>
 

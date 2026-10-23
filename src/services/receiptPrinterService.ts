@@ -111,6 +111,21 @@ export const buildThermalReceiptHtml = (
   // Primary payment method
   const mainPaymentMethod = invoice.payments?.[0]?.method || (isCredit ? 'crédit client' : 'espèces');
 
+  // Dynamically resolve sales point and company address from live system settings
+  let displaySpName = invoice.salesPointName;
+  try {
+    const savedSp = typeof localStorage !== 'undefined' ? localStorage.getItem('provenda_sales_points') : null;
+    if (savedSp) {
+      const spList = JSON.parse(savedSp);
+      if (Array.isArray(spList) && spList.length > 0) {
+        const matched = spList.find((s: any) => s.id === invoice.salesPointId);
+        displaySpName = matched?.name || (spList.length === 1 ? spList[0].name : invoice.salesPointName);
+      }
+    }
+  } catch {}
+
+  const fullAddress = [settings.address, settings.city, settings.country].filter(Boolean).join(', ');
+
   // Separator lines
   const sepChar = '-';
   const sepLine = is58mm ? sepChar.repeat(32) : sepChar.repeat(42);
@@ -150,7 +165,7 @@ export const buildThermalReceiptHtml = (
               ${item.productName}
               ${item.discountAmount > 0 ? `<br><small style="font-size: 9px;">(Rem: -${formatFCFA(item.discountAmount)})</small>` : ''}
             </td>
-            <td style="text-align: center; padding: 2px 2px;">${item.quantity}</td>
+            <td style="text-align: center; padding: 2px 2px; white-space: nowrap;">${item.quantity} ${item.unit || ''}</td>
             <td style="text-align: right; padding: 2px 2px;">${unitPriceFormatted}</td>
             <td style="text-align: right; font-weight: bold; padding: 2px 0;">${totalFormatted}</td>
           </tr>
@@ -241,10 +256,10 @@ export const buildThermalReceiptHtml = (
         <div class="text-center">
           <div style="font-size: ${titleSize}; font-weight: 900; letter-spacing: 0.5px;">${settings.name || 'SCOOPS BIR SAA'}</div>
           ${settings.legalStatus ? `<div style="font-size: 8.5px; margin-top: 1px;">${settings.legalStatus}</div>` : ''}
-          <div style="font-size: 9px; margin-top: 2px;">${settings.address || 'Bafoussam, Cameroun'}</div>
+          ${fullAddress ? `<div style="font-size: 9px; margin-top: 2px;">${fullAddress}</div>` : ''}
           ${settings.phone1 ? `<div style="font-size: 9px;">Tél: ${settings.phone1} ${settings.phone2 ? '/ ' + settings.phone2 : ''}</div>` : ''}
-          ${settings.taxId ? `<div style="font-size: 8.5px;">NIF: ${settings.taxId} | RCCM: ${settings.tradeRegisterNumber || 'RC/BFM/2026/B/452'}</div>` : ''}
-          ${invoice.salesPointName ? `<div style="font-size: 9px; font-weight: bold; margin-top: 2px;">${invoice.salesPointName}</div>` : ''}
+          ${(settings.taxId || settings.tradeRegisterNumber) ? `<div style="font-size: 8.5px;">${settings.taxId ? `NIF: ${settings.taxId}` : ''}${settings.taxId && settings.tradeRegisterNumber ? ' | ' : ''}${settings.tradeRegisterNumber ? `RCCM: ${settings.tradeRegisterNumber}` : ''}</div>` : ''}
+          ${displaySpName ? `<div style="font-size: 9px; font-weight: bold; margin-top: 2px;">Point de vente : ${displaySpName}</div>` : ''}
         </div>
 
         <div class="double-sep"></div>

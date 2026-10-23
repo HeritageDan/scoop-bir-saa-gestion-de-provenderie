@@ -77,11 +77,23 @@ function addReportHeaderToDoc(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(...SECONDARY_COLOR);
-  const locationText = `${salesPoint?.name ? salesPoint.name + ' — ' : ''}${salesPoint?.address || settings.address || 'Zone Industrielle Bassa, Douala'}`;
+  const fullCompanyAddress = [settings.address, settings.city, settings.country].filter(Boolean).join(', ');
+  const resolvedAddress = salesPoint?.address || fullCompanyAddress || settings.address || '';
+  const locationText = salesPoint?.name ? `${salesPoint.name} — ${resolvedAddress}` : resolvedAddress;
   doc.text(locationText, textX, 25.2);
 
-  const contactLine1 = `${isEn ? 'Phone' : 'Tél'}: ${salesPoint?.phone || settings.phone1 || '+237 699 00 11 22'}  |  Email: ${settings.email || 'contact@scoops-bir-saa.cm'}`;
-  const contactLine2 = `NIF: ${settings.taxId || 'M082612345678P'}  |  RCCM: ${settings.tradeRegisterNumber || 'RC/DLA/2026/B/100'}`;
+  const phoneText = salesPoint?.phone || settings.phone1 || '';
+  const emailText = salesPoint?.email || settings.email || '';
+  const contactParts: string[] = [];
+  if (phoneText) contactParts.push(`${isEn ? 'Phone' : 'Tél'}: ${phoneText}`);
+  if (emailText) contactParts.push(`Email: ${emailText}`);
+  const contactLine1 = contactParts.join('  |  ');
+
+  const legalParts: string[] = [];
+  if (settings.taxId) legalParts.push(`NIF: ${settings.taxId}`);
+  if (settings.tradeRegisterNumber) legalParts.push(`RCCM: ${settings.tradeRegisterNumber}`);
+  const contactLine2 = legalParts.join('  |  ');
+
   doc.setFontSize(7.2);
   doc.setTextColor(...TEXT_MUTED);
   doc.text(contactLine1, textX, 29.2);

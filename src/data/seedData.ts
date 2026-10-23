@@ -58,6 +58,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     conversionFactor: 50,
     purchasePrice: 17500,
     salePrice: 20500,
+    allowDetailSale: true,
+    detailPrice: 450,
     cmp: 350, // 350 FCFA / kg = 17 500 FCFA / sac 50kg
     stockCurrentBaseUnit: 7500, // 150 sacs
     minAlertThresholdBaseUnit: 1500, // 30 sacs
@@ -93,6 +95,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     conversionFactor: 50,
     purchasePrice: 19000,
     salePrice: 22500,
+    allowDetailSale: true,
+    detailPrice: 500,
     cmp: 380, // 19000 / 50
     stockCurrentBaseUnit: 5000, // 100 sacs
     minAlertThresholdBaseUnit: 1000, // 20 sacs
@@ -113,6 +117,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     conversionFactor: 50,
     purchasePrice: 21500,
     salePrice: 25000,
+    allowDetailSale: true,
+    detailPrice: 550,
     cmp: 430,
     stockCurrentBaseUnit: 3500, // 70 sacs
     minAlertThresholdBaseUnit: 1250, // 25 sacs
@@ -153,6 +159,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     conversionFactor: 50,
     purchasePrice: 6500,
     salePrice: 8500,
+    allowDetailSale: true,
+    detailPrice: 200,
     cmp: 130, // 130 FCFA / kg
     stockCurrentBaseUnit: 8000, // 160 sacs
     minAlertThresholdBaseUnit: 1500,
@@ -173,6 +181,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     conversionFactor: 50,
     purchasePrice: 9000,
     salePrice: 11500,
+    allowDetailSale: true,
+    detailPrice: 260,
     cmp: 180,
     stockCurrentBaseUnit: 400, // 8 sacs -> FAIBLE STOCK! (< seuil 1000)
     minAlertThresholdBaseUnit: 1000, // 20 sacs
@@ -195,6 +205,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     conversionFactor: 25,
     purchasePrice: 16500,
     salePrice: 19500,
+    allowDetailSale: true,
+    detailPrice: 850,
     cmp: 660, // 660 FCFA / kg
     stockCurrentBaseUnit: 1250, // 50 sacs
     minAlertThresholdBaseUnit: 250,
@@ -215,6 +227,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     conversionFactor: 25,
     purchasePrice: 22000,
     salePrice: 26000,
+    allowDetailSale: true,
+    detailPrice: 1150,
     cmp: 880,
     stockCurrentBaseUnit: 875, // 35 sacs
     minAlertThresholdBaseUnit: 200,
@@ -297,6 +311,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     conversionFactor: 50,
     purchasePrice: 18000, // Coût de fabrication/revient
     salePrice: 21500,
+    allowDetailSale: true,
+    detailPrice: 500,
     cmp: 360,
     stockCurrentBaseUnit: 6000, // 120 sacs
     minAlertThresholdBaseUnit: 1000, // 20 sacs
@@ -317,6 +333,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     conversionFactor: 50,
     purchasePrice: 17000,
     salePrice: 20000,
+    allowDetailSale: true,
+    detailPrice: 460,
     cmp: 340,
     stockCurrentBaseUnit: 4500, // 90 sacs
     minAlertThresholdBaseUnit: 1000,
@@ -337,6 +355,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     conversionFactor: 50,
     purchasePrice: 16500,
     salePrice: 19500,
+    allowDetailSale: true,
+    detailPrice: 450,
     cmp: 330,
     stockCurrentBaseUnit: 5200, // 104 sacs
     minAlertThresholdBaseUnit: 1000,
@@ -357,6 +377,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     conversionFactor: 50,
     purchasePrice: 15500,
     salePrice: 18500,
+    allowDetailSale: true,
+    detailPrice: 420,
     cmp: 310,
     stockCurrentBaseUnit: 2500, // 50 sacs
     minAlertThresholdBaseUnit: 500,
@@ -377,6 +399,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     conversionFactor: 50,
     purchasePrice: 17500,
     salePrice: 21000,
+    allowDetailSale: true,
+    detailPrice: 480,
     cmp: 350,
     stockCurrentBaseUnit: 2000, // 40 sacs
     minAlertThresholdBaseUnit: 600,

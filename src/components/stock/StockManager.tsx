@@ -427,9 +427,12 @@ export const StockManager: React.FC = () => {
                       prod.stockCurrentBaseUnit > 0 &&
                       prod.stockCurrentBaseUnit <= prod.minAlertThresholdBaseUnit;
 
-                    const commercialUnits = (
+                    const fullSacks = Math.floor(
                       prod.stockCurrentBaseUnit / (prod.conversionFactor || 1)
-                    ).toFixed(1);
+                    );
+                    const remainingBase = Math.round(
+                      (prod.stockCurrentBaseUnit % (prod.conversionFactor || 1)) * 100
+                    ) / 100;
 
                     const lineValue = prod.stockCurrentBaseUnit * prod.cmp;
 
@@ -463,7 +466,12 @@ export const StockManager: React.FC = () => {
                           </span>
                         </td>
                         <td className={`py-3 px-3 text-right ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
-                          <span className="font-semibold">{commercialUnits}</span> {prod.saleUnit}s
+                          <span className="font-semibold">{fullSacks}</span> {prod.saleUnit}s
+                          {remainingBase > 0 && (
+                            <div className="text-[10px] text-amber-500 font-medium">
+                              + {remainingBase} {prod.baseUnit}
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-3 text-right font-mono text-emerald-500 font-semibold">
                           {formatFCFA(prod.cmp)}

@@ -51,6 +51,7 @@ export interface PriceHistory {
   date: string;
   purchasePrice: number;
   salePrice: number;
+  detailPrice?: number;
   changedBy: string;
   reason?: string;
 }
@@ -66,6 +67,8 @@ export interface Product {
   conversionFactor: number; // Quantité en unité de base par unité commerciale (e.g. 50 kg/sac)
   purchasePrice: number; // Dernier prix d'achat catalogue (FCFA)
   salePrice: number; // Prix de vente unitaire catalogue (FCFA)
+  allowDetailSale?: boolean; // Autoriser la vente au détail (au kg / unité de base)
+  detailPrice?: number; // Prix de vente au détail unitaire (FCFA / kg)
   cmp: number; // Coût Moyen Pondéré unitaire en FCFA (recalculé à chaque entrée)
   stockCurrentBaseUnit: number; // Stock actuel en unité de base (ex: 5000 kg)
   minAlertThresholdBaseUnit: number; // Seuil minimum d'alerte en unité de base (ex: 500 kg)
@@ -227,6 +230,7 @@ export interface SaleItem {
   cmpAtSale: number; // Coût Moyen Pondéré au moment de la vente
   costOfGoodsSold: number; // cmpAtSale * quantityBaseUnit
   grossMargin: number; // totalNet - costOfGoodsSold
+  saleMode?: 'gros' | 'detail'; // Mode de vente : 'gros' (au sac/conditionné) ou 'detail' (au kg/vrac)
 }
 
 export type InvoiceStatus = 'émise' | 'payée' | 'partielle' | 'crédit' | 'annulée';
