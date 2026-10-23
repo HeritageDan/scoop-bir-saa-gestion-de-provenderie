@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Invoice, Product } from '../../types';
-import { formatFCFA, formatDate } from '../../utils/formatters';
+import { formatFCFA, formatDate, formatProductVolumeSold } from '../../utils/formatters';
 
 interface DashboardProps {
   onNavigateTab: (tab: string) => void;
@@ -115,6 +115,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
     let costOfGoodsSold = 0;
     let itemsSoldQty = 0;
     let matchingInvoicesCount = 0;
+    let qtyGros = 0;
+    let qtyDetail = 0;
+    let totalBaseUnit = 0;
 
     periodInvoices.forEach(inv => {
       let invMatched = false;
@@ -130,6 +133,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
           netSales += item.totalNet;
           costOfGoodsSold += item.costOfGoodsSold;
           itemsSoldQty += item.quantity;
+
+          const factor = prod?.conversionFactor || item.conversionFactor || 1;
+          const baseUnit = prod?.baseUnit || 'kg';
+          const isDetail = item.saleMode === 'detail' || (factor > 1 && item.unit === baseUnit);
+          if (isDetail) {
+            qtyDetail += item.quantity;
+          } else {
+            qtyGros += item.quantity;
+          }
+
+          const baseQty = item.quantityBaseUnit !== undefined
+            ? item.quantityBaseUnit
+            : (isDetail ? item.quantity : item.quantity * factor);
+          totalBaseUnit += baseQty;
         }
       });
       if (invMatched) {
@@ -141,6 +158,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
     const marginRateCost = costOfGoodsSold > 0 ? (grossMargin / costOfGoodsSold) * 100 : 0;
     const marginRateSales = netSales > 0 ? (grossMargin / netSales) * 100 : 0;
 
+    const focusProduct = selectedProductId !== 'all' ? products.find(p => p.id === selectedProductId) : null;
+    const volumeFormatted = focusProduct
+      ? formatProductVolumeSold(
+          qtyGros,
+          focusProduct.saleUnit,
+          qtyDetail,
+          focusProduct.baseUnit,
+          totalBaseUnit,
+          focusProduct.conversionFactor
+        )
+      : (qtyDetail > 0 && qtyGros > 0
+          ? `${qtyGros} sacs + ${qtyDetail} kg`
+          : `${itemsSoldQty} unités`);
+
     return {
       grossSales,
       totalDiscounts,
@@ -151,6 +182,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
       marginRateSales,
       salesCount: matchingInvoicesCount,
       itemsSoldQty,
+      qtyGros,
+      qtyDetail,
+      totalBaseUnit,
+      volumeFormatted,
     };
   }, [periodInvoices, selectedCategory, selectedProductId, products]);
 
@@ -174,10 +209,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
   }, [products, selectedCategory, selectedProductId]);
 
   // Top products sold in this period (filtered if category is chosen)
-  const productSalesMap: Record<
-    string,
-    { name: string; code: string; qty: number; unit: string; totalRevenue: number; margin: number }
-  > = {};
+  interface TopProductSummary {
+    productId: string;
+    name: string;
+    code: string;
+    saleUnit: string;
+    baseUnit: string;
+    conversionFactor: number;
+    qtyGros: number;
+    qtyDetail: number;
+    totalBaseUnit: number;
+    volumeFormatted: string;
+    totalRevenue: number;
+    margin: number;
+  }
+
+  const productSalesMap: Record<string, TopProductSummary> = {};
 
   periodInvoices.forEach(inv => {
     inv.items.forEach(item => {
@@ -185,20 +232,54 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
       if (selectedCategory !== 'all' && prod?.category !== selectedCategory) return;
       if (selectedProductId !== 'all' && item.productId !== selectedProductId) return;
 
+      const saleUnit = prod?.saleUnit || item.unit || 'sac';
+      const baseUnit = prod?.baseUnit || 'kg';
+      const factor = prod?.conversionFactor || item.conversionFactor || 1;
+
       if (!productSalesMap[item.productId]) {
         productSalesMap[item.productId] = {
-          name: item.productName,
-          code: item.productCode,
-          qty: 0,
-          unit: item.unit,
+          productId: item.productId,
+          name: item.productName || prod?.name || '',
+          code: item.productCode || prod?.code || '',
+          saleUnit,
+          baseUnit,
+          conversionFactor: factor,
+          qtyGros: 0,
+          qtyDetail: 0,
+          totalBaseUnit: 0,
+          volumeFormatted: '',
           totalRevenue: 0,
           margin: 0,
         };
       }
-      productSalesMap[item.productId].qty += item.quantity;
-      productSalesMap[item.productId].totalRevenue += item.totalNet;
-      productSalesMap[item.productId].margin += item.grossMargin;
+
+      const entry = productSalesMap[item.productId];
+      entry.totalRevenue += item.totalNet;
+      entry.margin += item.grossMargin;
+
+      const isDetail = item.saleMode === 'detail' || (factor > 1 && item.unit === baseUnit);
+      if (isDetail) {
+        entry.qtyDetail += item.quantity;
+      } else {
+        entry.qtyGros += item.quantity;
+      }
+
+      const baseQty = item.quantityBaseUnit !== undefined
+        ? item.quantityBaseUnit
+        : (isDetail ? item.quantity : item.quantity * factor);
+      entry.totalBaseUnit += baseQty;
     });
+  });
+
+  Object.values(productSalesMap).forEach(entry => {
+    entry.volumeFormatted = formatProductVolumeSold(
+      entry.qtyGros,
+      entry.saleUnit,
+      entry.qtyDetail,
+      entry.baseUnit,
+      entry.totalBaseUnit,
+      entry.conversionFactor
+    );
   });
 
   const topSoldProducts = Object.values(productSalesMap).sort(
@@ -527,7 +608,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
               }`}>
                 <div className="text-[11px] text-slate-400">{t('dashboard.product_focus.period_sales_qty')}</div>
                 <div className="font-bold text-sm text-emerald-500">
-                  {scopedMetrics.itemsSoldQty} {focusProduct.saleUnit}s
+                  {scopedMetrics.volumeFormatted}
                 </div>
                 <div className="text-[10px] text-slate-500">
                   {period === 'specific' && selectedSpecificDate
@@ -805,7 +886,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab, onSelectInv
                       <div className="text-[11px] text-slate-400 mt-0.5">
                         {t('dashboard.top_products.volume')} :{' '}
                         <span className={`font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
-                          {item.qty} {item.unit}s
+                          {item.volumeFormatted}
                         </span>
                       </div>
                     </div>

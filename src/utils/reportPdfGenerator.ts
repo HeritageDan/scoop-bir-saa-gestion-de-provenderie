@@ -251,9 +251,16 @@ export function generateSalesReportPDF(
   const avgBasket = transactionCount > 0 ? Math.round(netSales / transactionCount) : 0;
 
   let totalQtySold = 0;
+  let totalGrosSold = 0;
+  let totalDetailSold = 0;
   filtered.forEach(inv => {
     inv.items.forEach(item => {
       totalQtySold += item.quantity;
+      if (item.saleMode === 'detail' || (item.unit && (item.unit.toLowerCase() === 'kg' || item.unit.toLowerCase() === 'kilogramme'))) {
+        totalDetailSold += item.quantity;
+      } else {
+        totalGrosSold += item.quantity;
+      }
     });
   });
 
@@ -382,7 +389,11 @@ export function generateSalesReportPDF(
         `${isEn ? 'Cash Receipts' : 'Espèces'} : ${formatFCFA(cashSales)}`,
       ],
       [
-        `${isEn ? 'Total units sold' : 'Total unités vendues'} : ${formatNumber(totalQtySold)}`,
+        `${isEn ? 'Total units sold' : 'Total unités vendues'} : ${
+          totalDetailSold > 0 && totalGrosSold > 0
+            ? `${totalGrosSold} ${isEn ? 'bags' : 'sacs'} + ${totalDetailSold} kg`
+            : formatNumber(totalQtySold)
+        }`,
         `${isEn ? 'Total Discounts' : 'Total Remises'} : -${formatFCFA(totalDiscounts)}`,
         `${isEn ? 'Gross Margin' : 'Marge Brute'} : +${formatFCFA(totalGrossMargin)}`,
         `${isEn ? 'Mobile Money' : 'Paiement Mobile'} : ${formatFCFA(mobileSales)}`,

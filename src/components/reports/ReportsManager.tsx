@@ -499,7 +499,7 @@ export const ReportsManager: React.FC = () => {
                       <td className="py-2.5 px-3 font-bold text-white whitespace-nowrap">{inv.number}</td>
                       <td className="py-2.5 px-3 font-sans text-slate-300 font-medium">{inv.customerName}</td>
                       <td className="py-2.5 px-3 font-sans text-slate-400 text-[11px] truncate max-w-xs">
-                        {inv.items.map(it => `${it.productName} (${it.quantity})`).join(', ')}
+                        {inv.items.map(it => `${it.productName} (${it.quantity} ${it.unit})`).join(', ')}
                       </td>
                       <td className="py-2.5 px-3 text-right text-slate-400">{formatNumber(inv.subtotalGross)}</td>
                       <td className="py-2.5 px-3 text-right text-amber-400">{inv.totalDiscount > 0 ? `-${formatNumber(inv.totalDiscount)}` : '0'}</td>

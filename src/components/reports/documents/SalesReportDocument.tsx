@@ -51,9 +51,16 @@ export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
   const avgBasket = transactionCount > 0 ? Math.round(netSales / transactionCount) : 0;
 
   let totalQtySold = 0;
+  let totalGrosSold = 0;
+  let totalDetailSold = 0;
   filteredInvoices.forEach(inv => {
     inv.items.forEach(item => {
       totalQtySold += item.quantity;
+      if (item.saleMode === 'detail' || (item.unit && (item.unit.toLowerCase() === 'kg' || item.unit.toLowerCase() === 'kilogramme'))) {
+        totalDetailSold += item.quantity;
+      } else {
+        totalGrosSold += item.quantity;
+      }
     });
   });
 
@@ -237,7 +244,11 @@ export const SalesReportDocument: React.FC<SalesReportDocumentProps> = ({
               </div>
               <div className="flex justify-between">
                 <span>{isEn ? 'Total units sold :' : 'Total unités vendues :'}</span>
-                <span className="font-bold font-mono">{formatNumber(totalQtySold)}</span>
+                <span className="font-bold font-mono">
+                  {totalDetailSold > 0 && totalGrosSold > 0
+                    ? `${totalGrosSold} ${isEn ? 'bags' : 'sacs'} + ${totalDetailSold} kg`
+                    : formatNumber(totalQtySold)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>{isEn ? 'Average basket :' : 'Panier moyen :'}</span>
