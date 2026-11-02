@@ -91,16 +91,17 @@ export const StockManager: React.FC = () => {
     setAdjustSuccess('');
 
     if (!selectedProduct) return;
-    if (!justification.trim() || justification.trim().length < 5) {
-      setAdjustError('Une justification claire de 5 caractères minimum est obligatoire.');
-      return;
-    }
 
     // Convert commercial unit to base unit
     const qtyBase = adjustQtyCommercial * selectedProduct.conversionFactor;
     const finalChange = isNegativeChange ? -qtyBase : qtyBase;
 
-    const res = recordStockAdjustment(selectedProduct.id, finalChange, adjustType, justification);
+    const res = recordStockAdjustment(
+      selectedProduct.id,
+      finalChange,
+      adjustType,
+      justification.trim() || undefined
+    );
     if (!res.success) {
       setAdjustError(res.error || 'Erreur lors de l\'ajustement');
     } else {
@@ -838,19 +839,18 @@ export const StockManager: React.FC = () => {
 
               <div>
                 <label className="block text-slate-700 dark:text-slate-200 mb-1.5 font-bold text-xs">
-                  {language === 'fr' ? 'Justification détaillée (Obligatoire) :' : 'Detailed Justification (Required):'}
+                  {language === 'fr' ? 'Justification détaillée (Optionnel) :' : 'Detailed Justification (Optional):'}
                 </label>
                 <textarea
                   rows={3}
                   value={justification}
                   onChange={e => setJustification(e.target.value)}
-                  placeholder={language === 'fr' ? 'Ex: Sac déchiré lors du déchargement, perte au sol...' : 'E.g.: Bag torn during unloading...'}
+                  placeholder={language === 'fr' ? 'Ex: Sac déchiré lors du déchargement, perte au sol (Optionnel)...' : 'E.g.: Bag torn during unloading (Optional)...'}
                   className={`w-full rounded-xl p-3 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                     theme === 'dark'
                       ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500'
                       : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                   }`}
-                  required
                 />
               </div>
 

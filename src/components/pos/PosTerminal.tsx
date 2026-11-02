@@ -82,6 +82,11 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
     saleMode: 'gros' | 'detail';
     unit: UnitType;
     conversionFactor: number;
+    discountType?: 'pourcentage' | 'montant';
+    discountValue?: number;
+    discountAmount?: number;
+    discountReason?: string;
+    isDiscountOpen?: boolean;
   }
   const [cart, setCart] = useState<CartItem[]>([]);
 
@@ -91,12 +96,6 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
       .filter(item => item.product.id === productId && item.id !== excludeItemId)
       .reduce((sum, item) => sum + item.quantity * item.conversionFactor, 0);
   };
-
-  // Discount
-  const [applyDiscount, setApplyDiscount] = useState(false);
-  const [discountType, setDiscountType] = useState<'pourcentage' | 'montant'>('pourcentage');
-  const [discountValue, setDiscountValue] = useState<number>(0);
-  const [discountReason, setDiscountReason] = useState('');
 
   // Payment
   const [paymentMethod, setPaymentMethod] = useState<'espèces' | 'virement' | 'paiement mobile' | 'crédit client'>('espèces');
@@ -239,7 +238,19 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
     }
 
     setCart(prev =>
-      prev.map(i => (i.id === lineId ? { ...i, quantity: newQty } : i))
+      prev.map(i => {
+        if (i.id !== lineId) return i;
+        const lineGross = newQty * i.unitPrice;
+        let lineDiscount = 0;
+        if (i.discountValue && i.discountValue > 0) {
+          if (i.discountType === 'pourcentage') {
+            lineDiscount = Math.round((lineGross * i.discountValue) / 100);
+          } else {
+            lineDiscount = Math.min(i.discountValue, lineGross);
+          }
+        }
+        return { ...i, quantity: newQty, discountAmount: lineDiscount };
+      })
     );
   };
 
@@ -247,26 +258,89 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
     setCart(prev => prev.filter(i => i.id !== lineId));
   };
 
+  const handleToggleItemDiscount = (lineId: string) => {
+    setCart(prev =>
+      prev.map(item =>
+        item.id === lineId ? { ...item, isDiscountOpen: !item.isDiscountOpen } : item
+      )
+    );
+  };
+
+  const handleUpdateItemDiscount = (
+    lineId: string,
+    type: 'pourcentage' | 'montant',
+    val: number,
+    reason?: string
+  ) => {
+    setErrorMsg('');
+    setCart(prev =>
+      prev.map(item => {
+        if (item.id !== lineId) return item;
+        const lineGross = item.quantity * item.unitPrice;
+        let safeVal = isNaN(val) ? 0 : Math.max(0, val);
+        let calcDiscount = 0;
+
+        if (type === 'pourcentage') {
+          if (safeVal > roleDiscountLimit) {
+            setErrorMsg(
+              language === 'fr'
+                ? `Remise maximale autorisée pour votre profil (${currentUser.role}) : ${roleDiscountLimit}%`
+                : `Maximum discount allowed for your role (${currentUser.role}): ${roleDiscountLimit}%`
+            );
+            safeVal = roleDiscountLimit;
+          }
+          calcDiscount = Math.round((lineGross * safeVal) / 100);
+        } else {
+          safeVal = Math.min(safeVal, lineGross);
+          const percent = lineGross > 0 ? (safeVal / lineGross) * 100 : 0;
+          if (percent > roleDiscountLimit + 0.01) {
+            setErrorMsg(
+              language === 'fr'
+                ? `Remise maximale autorisée pour votre profil (${currentUser.role}) : ${roleDiscountLimit}% (soit ${formatFCFA(Math.round((lineGross * roleDiscountLimit) / 100))})`
+                : `Maximum discount allowed for your role (${currentUser.role}): ${roleDiscountLimit}%`
+            );
+            safeVal = Math.round((lineGross * roleDiscountLimit) / 100);
+          }
+          calcDiscount = safeVal;
+        }
+
+        return {
+          ...item,
+          discountType: type,
+          discountValue: safeVal,
+          discountAmount: calcDiscount,
+          discountReason: reason !== undefined ? reason : item.discountReason,
+        };
+      })
+    );
+  };
+
+  const handleRemoveItemDiscount = (lineId: string) => {
+    setCart(prev =>
+      prev.map(item =>
+        item.id === lineId
+          ? {
+              ...item,
+              discountType: 'pourcentage',
+              discountValue: 0,
+              discountAmount: 0,
+              discountReason: '',
+              isDiscountOpen: false,
+            }
+          : item
+      )
+    );
+  };
+
   const handleClearCart = () => {
     setCart([]);
     setErrorMsg('');
-    setDiscountValue(0);
-    setDiscountReason('');
   };
 
   // Calculations
   const grossSubtotal = cart.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-
-  let discountAmount = 0;
-  if (applyDiscount && discountValue > 0) {
-    if (discountType === 'pourcentage') {
-      discountAmount = Math.round((grossSubtotal * discountValue) / 100);
-    } else {
-      discountAmount = Math.min(discountValue, grossSubtotal);
-    }
-  }
-
-  const netTotal = Math.max(0, grossSubtotal - discountAmount);
+  const totalDiscount = cart.reduce((sum, item) => sum + (item.discountAmount || 0), 0);
+  const netTotal = Math.max(0, grossSubtotal - totalDiscount);
 
   // Set default received amount when netTotal changes or method changes
   const effectivePaidAmount =
@@ -278,6 +352,13 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
     paymentMethod === 'espèces' && amountReceived > netTotal ? amountReceived - netTotal : 0;
 
   const remainingBalance = Math.max(0, netTotal - effectivePaidAmount);
+
+  // Keep amountReceived updated when netTotal changes for cash payments
+  useEffect(() => {
+    if (paymentMethod !== 'crédit client') {
+      setAmountReceived(netTotal);
+    }
+  }, [netTotal, paymentMethod]);
 
   // Handle Quick Client Creation
   const handleCreateCustomer = (e: React.FormEvent) => {
@@ -317,19 +398,15 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
       return;
     }
 
-    // Role discount verification
-    if (applyDiscount && discountValue > 0) {
-      const discountPercent =
-        discountType === 'pourcentage' ? discountValue : (discountAmount / grossSubtotal) * 100;
-      if (discountPercent > roleDiscountLimit) {
+    // Role discount verification per item
+    for (const item of cart) {
+      const itemGross = item.quantity * item.unitPrice;
+      const itemDisc = item.discountAmount || 0;
+      const itemPercent = itemGross > 0 ? (itemDisc / itemGross) * 100 : 0;
+      if (itemPercent > roleDiscountLimit + 0.01) {
         setErrorMsg(
-          `Remise refusée : votre rôle (${currentUser.role}) ne peut pas accorder plus de ${roleDiscountLimit}%. Remise actuelle : ${discountPercent.toFixed(1)}%.`
+          `Remise refusée pour "${item.product.name}" : votre rôle (${currentUser.role}) ne peut pas accorder plus de ${roleDiscountLimit}%. Remise demandée : ${itemPercent.toFixed(1)}%.`
         );
-        setIsSubmitting(false);
-        return;
-      }
-      if (!discountReason.trim()) {
-        setErrorMsg('Veuillez renseigner le motif de la remise (obligatoire pour l\'audit).');
         setIsSubmitting(false);
         return;
       }
@@ -348,6 +425,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
       productId: item.product.id,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
+      discountAmount: item.discountAmount || 0,
       saleMode: item.saleMode,
       unit: item.unit,
       conversionFactor: item.conversionFactor,
@@ -356,11 +434,11 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
     const result = createSale(
       selectedCustomerId,
       saleItems,
-      applyDiscount && discountValue > 0
+      totalDiscount > 0
         ? {
-            type: discountType,
-            value: discountValue,
-            reason: discountReason,
+            type: 'montant',
+            value: totalDiscount,
+            reason: 'Remises par article appliquées en caisse',
           }
         : undefined,
       {
@@ -875,7 +953,9 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
             </div>
           ) : (
             cart.map(item => {
-              const lineTotal = item.quantity * item.unitPrice;
+              const lineGross = item.quantity * item.unitPrice;
+              const itemDiscount = item.discountAmount || 0;
+              const itemNet = Math.max(0, lineGross - itemDiscount);
               const baseInOtherLines = getBaseQtyInCartForProduct(item.product.id, item.id);
               const remainingBaseForThisItem = Math.max(0, item.product.stockCurrentBaseUnit - baseInOtherLines);
               const maxUnitsAvailable = item.saleMode === 'detail'
@@ -885,80 +965,205 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
               return (
                 <div
                   key={item.id}
-                  className={`border rounded-xl p-2.5 flex items-center justify-between gap-2 text-xs ${
+                  className={`border rounded-xl p-2.5 text-xs transition-colors ${
                     theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
                   }`}
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className={`font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                        {item.product.name}
-                      </span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
-                        item.saleMode === 'detail'
-                          ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
-                          : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
-                      }`}>
-                        {item.saleMode === 'detail' ? (language === 'fr' ? 'Détail' : 'Retail') : (language === 'fr' ? 'Gros' : 'Bulk')}
-                      </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className={`font-bold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                          {item.product.name}
+                        </span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
+                          item.saleMode === 'detail'
+                            ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                            : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
+                        }`}>
+                          {item.saleMode === 'detail' ? (language === 'fr' ? 'Détail' : 'Retail') : (language === 'fr' ? 'Gros' : 'Bulk')}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                        <span className="font-semibold text-emerald-500">{formatFCFA(item.unitPrice)}</span>
+                        <span className="text-[10px]">/{item.unit}</span>
+                        <span>·</span>
+                        <span className="text-[10px]">
+                          {language === 'fr' ? 'Dispo :' : 'Avail:'} {maxUnitsAvailable} {item.unit}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                      <span className="font-semibold text-emerald-500">{formatFCFA(item.unitPrice)}</span>
-                      <span className="text-[10px]">/{item.unit}</span>
-                      <span>·</span>
-                      <span className="text-[10px]">
-                        {language === 'fr' ? 'Dispo :' : 'Avail:'} {maxUnitsAvailable} {item.unit}
-                      </span>
+
+                    {/* Quantity Stepper */}
+                    <div className={`flex items-center gap-1 border rounded-lg p-1 ${
+                      theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300'
+                    }`}>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateQty(item.id, item.quantity - 1)}
+                        className={`p-1 rounded cursor-pointer transition ${
+                          theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                        }`}
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <input
+                        type="number"
+                        min="0.1"
+                        step={item.saleMode === 'detail' ? 'any' : '1'}
+                        value={item.quantity}
+                        onChange={e => handleUpdateQty(item.id, parseFloat(e.target.value) || 0)}
+                        className={`w-12 text-center font-bold text-xs focus:outline-none ${
+                          theme === 'dark' ? 'text-white' : 'text-slate-900'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateQty(item.id, item.quantity + 1)}
+                        className={`p-1 rounded cursor-pointer transition ${
+                          theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                        }`}
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    {/* Line Total & Remove */}
+                    <div className="text-right min-w-[75px]">
+                      {itemDiscount > 0 ? (
+                        <>
+                          <div className="text-[10px] text-slate-400 line-through font-mono">
+                            {formatFCFA(lineGross)}
+                          </div>
+                          <div className="font-bold text-xs font-mono text-emerald-500">
+                            {formatFCFA(itemNet)}
+                          </div>
+                          <div className="text-[10px] text-amber-500 font-semibold font-mono">
+                            -{formatFCFA(itemDiscount)}
+                          </div>
+                        </>
+                      ) : (
+                        <div className={`font-bold text-xs font-mono ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                          {formatFCFA(lineGross)}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(item.id)}
+                        className="text-slate-400 hover:text-rose-500 transition p-0.5 cursor-pointer mt-0.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 ml-auto" />
+                      </button>
                     </div>
                   </div>
 
-                  {/* Quantity Stepper */}
-                  <div className={`flex items-center gap-1 border rounded-lg p-1 ${
-                    theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300'
-                  }`}>
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateQty(item.id, item.quantity - 1)}
-                      className={`p-1 rounded cursor-pointer transition ${
-                        theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                      }`}
-                    >
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <input
-                      type="number"
-                      min="0.1"
-                      step={item.saleMode === 'detail' ? 'any' : '1'}
-                      value={item.quantity}
-                      onChange={e => handleUpdateQty(item.id, parseFloat(e.target.value) || 0)}
-                      className={`w-12 text-center font-bold text-xs focus:outline-none ${
-                        theme === 'dark' ? 'text-white' : 'text-slate-900'
-                      }`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateQty(item.id, item.quantity + 1)}
-                      className={`p-1 rounded cursor-pointer transition ${
-                        theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                      }`}
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-                  </div>
+                  {/* Per-Product Discount Section */}
+                  {!item.isDiscountOpen ? (
+                    itemDiscount > 0 ? (
+                      <div className="mt-2 pt-1.5 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-semibold">
+                          <Tag className="w-3 h-3 shrink-0" />
+                          <span>
+                            {language === 'fr' ? 'Remise :' : 'Discount:'}{' '}
+                            {item.discountType === 'pourcentage' ? `${item.discountValue}%` : `${formatFCFA(item.discountValue || 0)}`}
+                            {' '}( -{formatFCFA(itemDiscount)} )
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleItemDiscount(item.id)}
+                            className="text-[10px] text-blue-500 hover:underline font-semibold cursor-pointer"
+                          >
+                            {language === 'fr' ? 'Modifier' : 'Edit'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItemDiscount(item.id)}
+                            className="text-[10px] text-rose-500 hover:underline font-semibold cursor-pointer"
+                          >
+                            {language === 'fr' ? 'Retirer' : 'Remove'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-1.5 pt-1 border-t border-slate-200/40 dark:border-slate-800/40 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleItemDiscount(item.id)}
+                          className="text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Tag className="w-3 h-3" />
+                          <span>{language === 'fr' ? '+ Remise sur cet article' : '+ Discount on this item'}</span>
+                        </button>
+                      </div>
+                    )
+                  ) : (
+                    <div className={`mt-2 pt-2 border-t space-y-2 text-xs ${
+                      theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
+                    }`}>
+                      <div className="flex items-center justify-between text-[11px] font-bold text-amber-500">
+                        <div className="flex items-center gap-1">
+                          <Tag className="w-3 h-3" />
+                          <span>{language === 'fr' ? 'Remise par produit' : 'Product discount'}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-normal">
+                          ({language === 'fr' ? 'Max autorisé :' : 'Max allowed:'} {roleDiscountLimit}%)
+                        </span>
+                      </div>
 
-                  {/* Line Total & Remove */}
-                  <div className="text-right min-w-[75px]">
-                    <div className={`font-bold text-xs font-mono ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                      {formatFCFA(lineTotal)}
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={item.discountType || 'pourcentage'}
+                          onChange={e => handleUpdateItemDiscount(item.id, e.target.value as any, item.discountValue || 0, item.discountReason)}
+                          style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
+                          className={`rounded-lg px-2 py-1 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                            theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                          }`}
+                        >
+                          <option value="pourcentage">%</option>
+                          <option value="montant">FCFA</option>
+                        </select>
+
+                        <input
+                          type="number"
+                          min="0"
+                          max={item.discountType === 'montant' ? lineGross : roleDiscountLimit}
+                          step={item.discountType === 'montant' ? '100' : '1'}
+                          value={item.discountValue || ''}
+                          onChange={e => handleUpdateItemDiscount(item.id, item.discountType || 'pourcentage', parseFloat(e.target.value) || 0, item.discountReason)}
+                          placeholder={item.discountType === 'pourcentage' ? `0 à ${roleDiscountLimit}%` : 'FCFA'}
+                          className={`w-24 rounded-lg px-2 py-1 text-xs border font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                            theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                          }`}
+                        />
+
+                        <input
+                          type="text"
+                          value={item.discountReason || ''}
+                          onChange={e => handleUpdateItemDiscount(item.id, item.discountType || 'pourcentage', item.discountValue || 0, e.target.value)}
+                          placeholder={language === 'fr' ? 'Motif (optionnel)...' : 'Reason (optional)...'}
+                          className={`flex-1 rounded-lg px-2 py-1 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                            theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                          }`}
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleItemDiscount(item.id)}
+                          className="px-2 py-1 text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition cursor-pointer"
+                        >
+                          OK
+                        </button>
+                      </div>
+
+                      {roleDiscountLimit === 0 && currentUser.role === 'caissier' && (
+                        <div className="text-[10px] text-amber-500 flex items-center gap-1">
+                          <ShieldAlert className="w-3 h-3 shrink-0" />
+                          <span>{language === 'fr' ? 'Profil Caissier : remise interdite (0%) sans accord superviseur.' : 'Cashier role: 0% discount without supervisor.'}</span>
+                        </div>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveItem(item.id)}
-                      className="text-slate-400 hover:text-rose-500 transition p-0.5 cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  )}
                 </div>
               );
             })
@@ -977,83 +1182,6 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
         <div className={`border-t p-3 space-y-2.5 shrink-0 ${
           theme === 'dark' ? 'bg-slate-850 border-slate-800' : 'bg-slate-50 border-slate-200'
         }`}>
-          {/* Discount Section (Remises Contrôlées) */}
-          <div className={`border rounded-lg p-2 ${
-            theme === 'dark' ? 'bg-slate-900/60 border-slate-700' : 'bg-white border-slate-200'
-          }`}>
-            <div className="flex items-center justify-between text-xs">
-              <button
-                type="button"
-                onClick={() => setApplyDiscount(!applyDiscount)}
-                className={`flex items-center gap-1.5 font-medium cursor-pointer transition ${
-                  theme === 'dark' ? 'text-slate-300 hover:text-white' : 'text-slate-700 hover:text-slate-900'
-                }`}
-              >
-                <Tag className="w-3.5 h-3.5 text-amber-500" />
-                <span>{language === 'fr' ? 'Appliquer une remise' : 'Apply discount'}</span>
-                <span className={`text-[10px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                  ({language === 'fr' ? 'Max autorisé :' : 'Max allowed:'} {roleDiscountLimit}%)
-                </span>
-              </button>
-
-              {applyDiscount && (
-                <span className="text-[11px] text-amber-500 font-semibold">
-                  -{formatFCFA(discountAmount)}
-                </span>
-              )}
-            </div>
-
-            {applyDiscount && (
-              <div className={`mt-2 space-y-2 pt-2 border-t text-xs ${
-                theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={discountType}
-                    onChange={e => setDiscountType(e.target.value as any)}
-                    className={`border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                      theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-850'
-                    }`}
-                  >
-                    <option value="pourcentage">{language === 'fr' ? 'Pourcentage (%)' : 'Percentage (%)'}</option>
-                    <option value="montant">{language === 'fr' ? 'Montant (FCFA)' : 'Fixed Amount (FCFA)'}</option>
-                  </select>
-
-                  <input
-                    type="number"
-                    min="0"
-                    max={discountType === 'pourcentage' ? roleDiscountLimit : grossSubtotal}
-                    value={discountValue || ''}
-                    onChange={e => setDiscountValue(Number(e.target.value))}
-                    placeholder={discountType === 'pourcentage' ? `0 à ${roleDiscountLimit}%` : 'FCFA'}
-                    className={`flex-1 border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                      theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-850'
-                    }`}
-                  />
-                </div>
-
-                <input
-                  type="text"
-                  value={discountReason}
-                  onChange={e => setDiscountReason(e.target.value)}
-                  placeholder={language === 'fr' ? "Motif de la remise (obligatoire pour audit)..." : "Discount justification (mandatory for audit)..."}
-                  className={`w-full border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                    theme === 'dark'
-                      ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
-                      : 'bg-slate-50 border-slate-300 text-slate-850 placeholder-slate-400'
-                  }`}
-                />
-
-                {currentUser.role === 'caissier' && (
-                  <div className="text-[10px] text-amber-500 flex items-center gap-1">
-                    <ShieldAlert className="w-3 h-3" />
-                    <span>{language === 'fr' ? 'Profil Caissier : accord superviseur requis.' : 'Cashier role: supervisor approval required.'}</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
           {/* Payment Method Selector */}
           <div className="space-y-1.5">
             <div className={`text-[11px] font-semibold uppercase tracking-wider ${
@@ -1206,10 +1334,10 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
               <span className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-850'}`}>{formatFCFA(grossSubtotal)}</span>
             </div>
 
-            {discountAmount > 0 && (
-              <div className="flex justify-between text-xs text-amber-500">
-                <span>{language === 'fr' ? 'Remise déduite :' : 'Discount deducted:'}</span>
-                <span>-{formatFCFA(discountAmount)}</span>
+            {totalDiscount > 0 && (
+              <div className="flex justify-between text-xs text-amber-500 font-semibold">
+                <span>{language === 'fr' ? 'Total remises par article :' : 'Total item discounts:'}</span>
+                <span>-{formatFCFA(totalDiscount)}</span>
               </div>
             )}
 

@@ -19,9 +19,12 @@ export const formatUnit = (unit: string | undefined | null): string => {
   if (!unit) return '';
   const clean = unit.trim().toLowerCase();
   if (clean === 'kilogramme' || clean === 'kilogrammes' || clean === 'kg') return 'kg';
+  if (clean === 'gramme' || clean === 'grammes' || clean === 'g') return 'g';
   if (clean === 'litre' || clean === 'litres' || clean === 'l') return 'L';
   if (clean === 'tonne' || clean === 'tonnes') return 't';
   if (clean === 'sac' || clean === 'sacs') return 'sac';
+  if (clean === 'boite' || clean === 'boîte' || clean === 'boites' || clean === 'boîtes') return 'boîte';
+  if (clean === 'bidon' || clean === 'bidons') return 'bidon';
   if (clean === 'unite' || clean === 'unité' || clean === 'unites' || clean === 'unités') return 'u';
   return unit;
 };
@@ -68,6 +71,7 @@ export const formatProductVolumeSold = (
     const qtyStr = Number.isInteger(qty) ? qty.toString() : qty.toFixed(2).replace(/\.?0+$/, '');
     const u = unit.trim().toLowerCase();
     if (u === 'kg' || u === 'kilogramme' || u === 'kilogrammes') return `${qtyStr} kg`;
+    if (u === 'g' || u === 'gramme' || u === 'grammes') return `${qtyStr} g`;
     if (u === 'l' || u === 'litre' || u === 'litres') return `${qtyStr} L`;
     if (u === 't' || u === 'tonne' || u === 'tonnes') return `${qtyStr} t`;
     if (u === 'sac' || u === 'sacs') return `${qtyStr} ${qty > 1 ? 'sacs' : 'sac'}`;

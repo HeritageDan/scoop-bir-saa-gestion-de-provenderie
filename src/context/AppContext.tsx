@@ -101,7 +101,7 @@ interface AppContextType {
   createPurchaseDraft: (purchase: Omit<Purchase, 'id' | 'referenceNumber' | 'status'>, targetSalesPointId?: string) => Purchase;
   updatePurchase: (purchaseId: string, updatedData: Partial<Purchase>) => { success: boolean; error?: string };
   validatePurchaseReception: (purchaseIdOrObj: string | Purchase) => void;
-  cancelPurchase: (purchaseId: string, reason: string) => void;
+  cancelPurchase: (purchaseId: string, reason?: string) => void;
 
   // Sales & Invoicing
   invoices: Invoice[];
@@ -134,7 +134,7 @@ interface AppContextType {
   // Stock & Movements
   stockMovements: StockMovement[];
   allStockMovements: StockMovement[];
-  recordStockAdjustment: (productId: string, quantityChangeBaseUnit: number, type: 'perte' | 'produit endommagé' | 'consommation interne' | 'correction d\'inventaire' | 'entrée fournisseur', justification: string) => { success: boolean; error?: string };
+  recordStockAdjustment: (productId: string, quantityChangeBaseUnit: number, type: 'perte' | 'produit endommagé' | 'consommation interne' | 'correction d\'inventaire' | 'entrée fournisseur', justification?: string) => { success: boolean; error?: string };
 
   // Inventories
   inventories: InventorySession[];
@@ -1826,10 +1826,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: false, error: 'Impossible de modifier un approvisionnement annulé.' };
   };
 
-  const cancelPurchase = (purchaseId: string, reason: string) => {
+  const cancelPurchase = (purchaseId: string, reason?: string) => {
     const purchase = purchases.find(p => p.id === purchaseId);
     if (!purchase) return;
 
+    const cleanReason = (reason && reason.trim()) ? reason.trim() : 'Annulation bon de réception';
     const now = new Date().toISOString();
     const affectedProducts: Product[] = [];
     const reverseMovements: StockMovement[] = [];
@@ -1880,7 +1881,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             referenceDocument: `ANNUL-${purchase.referenceNumber}`,
             userId: currentUser.id,
             userName: currentUser.name,
-            justification: `Annulation de la réception ${purchase.referenceNumber} : ${reason}`,
+            justification: `Annulation de la réception ${purchase.referenceNumber} : ${cleanReason}`,
             timestamp: now,
           });
         }
@@ -1903,7 +1904,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...purchase,
       status: 'annulé' as const,
       cancelledAt: now,
-      cancellationReason: reason,
+      cancellationReason: cleanReason,
       updatedAt: now,
     };
 
@@ -1921,7 +1922,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       purchase.id,
       purchase.status,
       'Annulé',
-      reason
+      cleanReason
     );
   };
 
@@ -1989,30 +1990,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // 3. Discount Permission Verification (Section 9)
-    let globalDiscountCalc = 0;
-    let saleDiscountDetails: SaleDiscount | undefined = undefined;
+    // 3. Discount Permission Verification (Per Item and Legacy Global)
+    let allowedLimit = currentUser.discountLimitPercent;
+    if (currentUser.role === 'caissier') {
+      allowedLimit = settings.maxDiscountCaissier;
+    } else if (currentUser.role === 'responsable') {
+      allowedLimit = settings.maxDiscountResponsable;
+    } else if (currentUser.role === 'administrateur' || currentUser.role === 'developpeur') {
+      allowedLimit = 100;
+    }
 
     const subtotalGross = itemsToSell.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 
-    if (discount && discount.value > 0) {
+    // Sum up item-specific discounts
+    const totalItemDiscounts = itemsToSell.reduce((sum, item) => {
+      const itemGross = item.quantity * item.unitPrice;
+      const itemDisc = Math.min(itemGross, Math.max(0, item.discountAmount || 0));
+      return sum + itemDisc;
+    }, 0);
+
+    let finalTotalDiscount = 0;
+    let saleDiscountDetails: SaleDiscount | undefined = undefined;
+
+    if (totalItemDiscounts > 0) {
+      // Validate each item discount against user role ceiling
+      for (const item of itemsToSell) {
+        const itemGross = item.quantity * item.unitPrice;
+        const itemDisc = Math.min(itemGross, Math.max(0, item.discountAmount || 0));
+        const itemDiscPercent = itemGross > 0 ? (itemDisc / itemGross) * 100 : 0;
+        if (itemDiscPercent > allowedLimit + 0.01) {
+          const product = products.find(p => p.id === item.productId);
+          return {
+            success: false,
+            error: `Remise refusée pour "${product?.name || 'produit'}" : votre profil (${currentUser.role}) est limité à ${allowedLimit}% de remise par article. Remise demandée : ${itemDiscPercent.toFixed(1)}%. Une autorisation du responsable ou administrateur est requise.`,
+          };
+        }
+      }
+
+      finalTotalDiscount = totalItemDiscounts;
+      saleDiscountDetails = {
+        type: 'montant',
+        value: totalItemDiscounts,
+        calculatedAmount: totalItemDiscounts,
+        authorId: currentUser.id,
+        authorName: currentUser.name,
+        reason: discount?.reason || 'Remises par article appliquées en caisse',
+        valueBefore: subtotalGross,
+        valueAfter: subtotalGross - totalItemDiscounts,
+      };
+    } else if (discount && discount.value > 0) {
       let requestedDiscountPercent = 0;
       if (discount.type === 'pourcentage') {
         requestedDiscountPercent = discount.value;
-        globalDiscountCalc = Math.round((subtotalGross * discount.value) / 100);
+        finalTotalDiscount = Math.round((subtotalGross * discount.value) / 100);
       } else {
-        globalDiscountCalc = Math.min(discount.value, subtotalGross);
-        requestedDiscountPercent = (globalDiscountCalc / subtotalGross) * 100;
-      }
-
-      // Check max limit allowed for current user role
-      let allowedLimit = currentUser.discountLimitPercent;
-      if (currentUser.role === 'caissier') {
-        allowedLimit = settings.maxDiscountCaissier;
-      } else if (currentUser.role === 'responsable') {
-        allowedLimit = settings.maxDiscountResponsable;
-      } else if (currentUser.role === 'administrateur' || currentUser.role === 'developpeur') {
-        allowedLimit = 100;
+        finalTotalDiscount = Math.min(discount.value, subtotalGross);
+        requestedDiscountPercent = (finalTotalDiscount / subtotalGross) * 100;
       }
 
       if (requestedDiscountPercent > allowedLimit) {
@@ -2025,16 +2058,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       saleDiscountDetails = {
         type: discount.type,
         value: discount.value,
-        calculatedAmount: globalDiscountCalc,
+        calculatedAmount: finalTotalDiscount,
         authorId: currentUser.id,
         authorName: currentUser.name,
         reason: discount.reason || 'Remise commerciale accordée',
         valueBefore: subtotalGross,
-        valueAfter: subtotalGross - globalDiscountCalc,
+        valueAfter: subtotalGross - finalTotalDiscount,
       };
     }
 
-    const totalNet = Math.max(0, subtotalGross - globalDiscountCalc);
+    const totalNet = Math.max(0, subtotalGross - finalTotalDiscount);
 
     // 4. Credit validation check
     const paidAmount = payment ? payment.amount : 0;
@@ -2079,10 +2112,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const saleMode = item.saleMode || (itemUnit === product.baseUnit && factor === 1 ? 'detail' : 'gros');
       const qtyBase = item.quantity * factor;
 
-      // Distribute global discount proportionally across items
+      // Calculate item discount (per-item priority or distributed global)
       const itemGross = item.quantity * item.unitPrice;
-      const proportion = subtotalGross > 0 ? itemGross / subtotalGross : 0;
-      const itemDiscountAmount = Math.round(globalDiscountCalc * proportion);
+      let itemDiscountAmount = 0;
+      if (totalItemDiscounts > 0) {
+        itemDiscountAmount = Math.min(itemGross, Math.max(0, item.discountAmount || 0));
+      } else if (finalTotalDiscount > 0) {
+        const proportion = subtotalGross > 0 ? itemGross / subtotalGross : 0;
+        itemDiscountAmount = Math.round(finalTotalDiscount * proportion);
+      }
       const itemNet = itemGross - itemDiscountAmount;
       const netUnitPrice = Math.round((itemNet / item.quantity) * 100) / 100;
 
@@ -2184,7 +2222,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       customerPhone: customer.phone,
       items: finalSaleItems,
       subtotalGross,
-      totalDiscount: globalDiscountCalc,
+      totalDiscount: finalTotalDiscount,
       discountDetails: saleDiscountDetails,
       totalNet,
       totalCostOfGoodsSold: totalCOGS,
@@ -2496,11 +2534,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     productId: string,
     quantityChangeBaseUnit: number,
     type: 'perte' | 'produit endommagé' | 'consommation interne' | 'correction d\'inventaire' | 'entrée fournisseur',
-    justification: string
+    justification?: string
   ): { success: boolean; error?: string } => {
-    if (!justification || justification.trim().length < 5) {
-      return { success: false, error: 'Une justification détaillée est obligatoire pour tout ajustement de stock.' };
-    }
+    const cleanJustification = (justification && justification.trim())
+      ? justification.trim()
+      : (type === 'entrée fournisseur' ? 'Entrée de stock' : `Ajustement de stock (${type})`);
 
     const prodIdx = products.findIndex(p => p.id === productId);
     if (prodIdx === -1) return { success: false, error: 'Produit introuvable.' };
@@ -2539,7 +2577,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       referenceDocument: `ADJ-${Date.now().toString().slice(-6)}`,
       userId: currentUser.id,
       userName: currentUser.name,
-      justification,
+      justification: cleanJustification,
       timestamp: now,
     };
 
@@ -2565,7 +2603,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       product.id,
       `Stock avant: ${stockBefore} ${product.baseUnit}`,
       `Ajustement: ${quantityChangeBaseUnit > 0 ? '+' : ''}${quantityChangeBaseUnit} ${product.baseUnit} (${type}) -> Stock après: ${stockAfter} ${product.baseUnit}`,
-      justification
+      cleanJustification
     );
 
     return { success: true };

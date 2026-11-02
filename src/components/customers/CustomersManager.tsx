@@ -493,7 +493,7 @@ export const CustomersManager: React.FC<CustomersManagerProps> = ({
 
               <div>
                 <label className="block text-slate-400 mb-1 font-medium">
-                  {language === 'fr' ? 'Notes & Informations :' : 'Notes & Details :'}
+                  {language === 'fr' ? 'Notes & Informations (Optionnel) :' : 'Notes & Details (Optional) :'}
                 </label>
                 <textarea
                   rows={2}
@@ -666,7 +666,7 @@ export const CustomersManager: React.FC<CustomersManagerProps> = ({
 
               <div>
                 <label className="block text-slate-400 mb-1 font-medium">
-                  {language === 'fr' ? 'Observations :' : 'Notes :'}
+                  {language === 'fr' ? 'Observations (Optionnel) :' : 'Notes (Optional) :'}
                 </label>
                 <input
                   type="text"

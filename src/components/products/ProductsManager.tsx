@@ -250,20 +250,6 @@ export const ProductsManager: React.FC = () => {
       return;
     }
 
-    const priceChanged =
-      editingProduct.purchasePrice !== editPurchasePrice ||
-      editingProduct.salePrice !== editSalePrice ||
-      editingProduct.detailPrice !== (editAllowDetailSale ? editDetailPrice : undefined);
-
-    if (priceChanged && !editPriceReason.trim()) {
-      setEditError(
-        language === 'fr'
-          ? 'Veuillez saisir un motif pour justifier la modification de tarif dans la piste d\'audit.'
-          : 'Please enter a justification for the price change in the audit trail.'
-      );
-      return;
-    }
-
     updateProduct(
       {
         ...editingProduct,
@@ -747,11 +733,11 @@ export const ProductsManager: React.FC = () => {
 
       {/* MODAL: NOUVEAU PRODUIT */}
       {showNewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className={`w-full max-w-2xl rounded-2xl border shadow-2xl p-6 my-8 ${
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 flex justify-center items-start">
+          <div className={`w-full max-w-2xl rounded-2xl border shadow-2xl my-2 sm:my-6 flex flex-col max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden ${
             theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
           }`}>
-            <div className={`flex items-center justify-between pb-4 border-b ${
+            <div className={`shrink-0 flex items-center justify-between px-5 py-4 border-b ${
               theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
             }`}>
               <div className="flex items-center gap-2.5">
@@ -777,7 +763,8 @@ export const ProductsManager: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleCreateProduct} className="space-y-4 pt-4">
+            <form onSubmit={handleCreateProduct} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
               {newError && (
                 <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-500 dark:text-rose-400 text-xs font-semibold flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -855,18 +842,31 @@ export const ProductsManager: React.FC = () => {
                     </label>
                     <select
                       value={newSaleUnit}
-                      onChange={e => setNewSaleUnit(e.target.value as any)}
+                      onChange={e => {
+                        const val = e.target.value as UnitType;
+                        setNewSaleUnit(val);
+                        if (val === 'sac') setNewPackaging(`Sac de ${newConversionFactor} ${newBaseUnit}`);
+                        else if (val === 'boîte') setNewPackaging(`Boîte de ${newConversionFactor} ${newBaseUnit}`);
+                        else if (val === 'bidon') setNewPackaging(`Bidon de ${newConversionFactor} ${newBaseUnit}`);
+                        else setNewPackaging(`Unité (${newConversionFactor} ${newBaseUnit})`);
+                      }}
                       style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
-                      className={`w-full px-3 py-2 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      className={`w-full px-3 py-2 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${
                         theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                       }`}
                     >
-                      <option value="sac" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Sac</option>
-                      <option value="kilogramme" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Kilogramme (kg)</option>
-                      <option value="litre" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Litre (L)</option>
-                      <option value="boîte" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Boîte</option>
-                      <option value="unité" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Unité</option>
-                      <option value="tonne" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Tonne</option>
+                      <option value="sac" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                        {language === 'fr' ? 'Sacs (sac)' : 'Bags (sac)'}
+                      </option>
+                      <option value="boîte" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                        {language === 'fr' ? 'Boîtes (boîte)' : 'Boxes (box)'}
+                      </option>
+                      <option value="bidon" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                        {language === 'fr' ? 'Bidons (bidon)' : 'Cans / Jerrycans (bidon)'}
+                      </option>
+                      <option value="unité" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                        {language === 'fr' ? 'Unité (non listé / autres)' : 'Unit (unlisted / others)'}
+                      </option>
                     </select>
                   </div>
 
@@ -878,16 +878,22 @@ export const ProductsManager: React.FC = () => {
                       value={newBaseUnit}
                       onChange={e => setNewBaseUnit(e.target.value as any)}
                       style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
-                      className={`w-full px-3 py-2 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      className={`w-full px-3 py-2 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${
                         theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                       }`}
                     >
-                      <option value="kilogramme" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Kilogramme (kg)</option>
-                      <option value="litre" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Litre (L)</option>
-                      <option value="sac" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Sac</option>
-                      <option value="boîte" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Boîte</option>
-                      <option value="unité" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Unité</option>
-                      <option value="tonne" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>Tonne</option>
+                      <option value="kilogramme" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                        {language === 'fr' ? 'Kilogrammes (kg)' : 'Kilograms (kg)'}
+                      </option>
+                      <option value="gramme" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                        {language === 'fr' ? 'Grammes (g)' : 'Grams (g)'}
+                      </option>
+                      <option value="litre" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                        {language === 'fr' ? 'Litres (L)' : 'Litres (L)'}
+                      </option>
+                      <option value="unité" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                        {language === 'fr' ? 'Unité (u)' : 'Unit (u)'}
+                      </option>
                     </select>
                   </div>
 
@@ -1082,13 +1088,16 @@ export const ProductsManager: React.FC = () => {
                 />
               </div>
 
-              <div className={`flex items-center justify-end gap-3 pt-4 border-t ${
-                theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
+              </div>
+
+              {/* Modal Footer (Pinned) */}
+              <div className={`shrink-0 px-5 py-3.5 border-t flex items-center justify-end gap-3 ${
+                theme === 'dark' ? 'border-slate-800 bg-slate-900/90' : 'border-slate-200 bg-slate-50/90'
               }`}>
                 <button
                   type="button"
                   onClick={() => setShowNewModal(false)}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
                     theme === 'dark' ? 'border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-100'
                   }`}
                 >
@@ -1096,7 +1105,7 @@ export const ProductsManager: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md cursor-pointer transition flex items-center gap-1.5"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-md cursor-pointer transition flex items-center gap-1.5"
                 >
                   <Check className="w-4 h-4" />
                   <span>{language === 'fr' ? 'Créer le Produit' : 'Create Product'}</span>
@@ -1109,11 +1118,13 @@ export const ProductsManager: React.FC = () => {
 
       {/* MODAL: MODIFIER PRODUIT & TARIFS */}
       {showEditModal && editingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className={`w-full max-w-2xl rounded-2xl border shadow-2xl p-6 my-8 ${
-            theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 flex justify-center items-start">
+          <div className={`w-full max-w-2xl rounded-2xl border shadow-2xl my-2 sm:my-6 flex flex-col max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden ${
+            theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
           }`}>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
+            <div className={`shrink-0 flex items-center justify-between px-5 py-4 border-b ${
+              theme === 'dark' ? 'border-slate-800' : 'border-slate-200'
+            }`}>
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500">
                   <Edit className="w-5 h-5" />
@@ -1122,20 +1133,23 @@ export const ProductsManager: React.FC = () => {
                   <h3 className={`text-base font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                     {language === 'fr' ? `Modifier le Produit : ${editingProduct.code}` : `Edit Product : ${editingProduct.code}`}
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                     {language === 'fr' ? 'Mise à jour des tarifs, du conditionnement et des marges' : 'Update prices, packaging and margins'}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg cursor-pointer"
+                className={`p-1.5 rounded-lg transition cursor-pointer ${
+                  theme === 'dark' ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                }`}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditProduct} className="space-y-4 pt-4">
+            <form onSubmit={handleSaveEditProduct} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
               {editError && (
                 <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs font-semibold flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -1293,7 +1307,7 @@ export const ProductsManager: React.FC = () => {
                 {/* Justification de prix */}
                 <div>
                   <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
-                    {language === 'fr' ? 'Motif de révision tarifaire (Piste d\'audit) *' : 'Reason for price revision (Audit trail) *'}
+                    {language === 'fr' ? 'Motif de révision tarifaire (Optionnel)' : 'Reason for price revision (Optional)'}
                   </label>
                   <input
                     type="text"
@@ -1354,19 +1368,24 @@ export const ProductsManager: React.FC = () => {
                 />
               </div>
 
-              <div className={`flex items-center justify-end gap-3 pt-4 border-t ${theme === 'dark' ? 'border-slate-800' : 'border-slate-200'}`}>
+              </div>
+
+              {/* Modal Footer (Pinned) */}
+              <div className={`shrink-0 px-5 py-3.5 border-t flex items-center justify-end gap-3 ${
+                theme === 'dark' ? 'border-slate-800 bg-slate-900/90' : 'border-slate-200 bg-slate-50/90'
+              }`}>
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                    theme === 'dark' ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+                    theme === 'dark' ? 'border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800' : 'border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                   }`}
                 >
                   {language === 'fr' ? 'Annuler' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md cursor-pointer transition flex items-center gap-1.5"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-md cursor-pointer transition flex items-center gap-1.5"
                 >
                   <Check className="w-4 h-4" />
                   <span>{language === 'fr' ? 'Enregistrer les Modifications' : 'Save Changes'}</span>
@@ -1379,11 +1398,11 @@ export const ProductsManager: React.FC = () => {
 
       {/* MODAL: HISTORIQUE DES PRIX */}
       {historyProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className={`w-full max-w-xl rounded-2xl border shadow-2xl p-6 my-8 ${
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 flex justify-center items-start">
+          <div className={`w-full max-w-xl rounded-2xl border shadow-2xl my-2 sm:my-6 p-5 sm:p-6 flex flex-col max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden ${
             theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
           }`}>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
+            <div className="shrink-0 flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500">
                   <History className="w-5 h-5" />
@@ -1405,7 +1424,7 @@ export const ProductsManager: React.FC = () => {
               </button>
             </div>
 
-            <div className="space-y-3 pt-4">
+            <div className="flex-1 overflow-y-auto space-y-3 py-4 pr-1">
               {historyProduct.priceHistory.length === 0 ? (
                 <div className="py-8 text-center text-slate-400 text-xs">
                   {language === 'fr' ? 'Aucune révision tarifaire enregistrée pour ce produit.' : 'No price revisions recorded.'}
@@ -1446,7 +1465,7 @@ export const ProductsManager: React.FC = () => {
               )}
             </div>
 
-            <div className="flex justify-end pt-4 mt-4 border-t border-slate-200 dark:border-slate-800">
+            <div className="shrink-0 flex justify-end pt-4 mt-2 border-t border-slate-200 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => setHistoryProduct(null)}

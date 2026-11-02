@@ -30,7 +30,7 @@ export interface SalesPoint {
 export type Language = 'fr' | 'en';
 export type Theme = 'dark' | 'light';
 
-export type UnitType = 'kilogramme' | 'sac' | 'litre' | 'bidon' | 'unité' | 'tonne';
+export type UnitType = 'kilogramme' | 'gramme' | 'litre' | 'sac' | 'boîte' | 'bidon' | 'unité' | 'tonne';
 
 export interface UnitConversion {
   commercialUnit: UnitType;

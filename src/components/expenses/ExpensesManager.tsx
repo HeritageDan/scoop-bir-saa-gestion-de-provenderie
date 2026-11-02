@@ -650,21 +650,6 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ onOpenReport }
 
               <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-1">
-                  N° Pièce Justificative (Reçu, Facture, Réf Transaction)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: RECU-ENEO-9921 ou TX-MOMO-882"
-                  value={receiptReference}
-                  onChange={e => setReceiptReference(e.target.value)}
-                  className={`w-full px-3 py-2 rounded-xl text-xs border focus:outline-none ${
-                    theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-900'
-                  }`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">
                   Notes Complémentaires (Optionnel)
                 </label>
                 <textarea
@@ -712,11 +697,11 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ onOpenReport }
             </p>
             <div className="mb-4">
               <label className="block text-xs font-semibold text-slate-400 mb-1">
-                Motif de suppression
+                Motif de suppression (Optionnel)
               </label>
               <input
                 type="text"
-                placeholder="Ex: Erreur de saisie / Doublon"
+                placeholder="Ex: Erreur de saisie / Doublon (Optionnel)"
                 value={deleteReason}
                 onChange={e => setDeleteReason(e.target.value)}
                 className={`w-full px-3 py-2 rounded-xl text-xs border focus:outline-none ${

@@ -261,11 +261,7 @@ export const PurchasesManager: React.FC = () => {
   const handleConfirmCancel = (e: React.FormEvent) => {
     e.preventDefault();
     if (!cancelModalPurchase) return;
-    if (!cancelReason.trim()) {
-      alert('Un motif d\'annulation est obligatoire.');
-      return;
-    }
-    cancelPurchase(cancelModalPurchase.id, cancelReason);
+    cancelPurchase(cancelModalPurchase.id, cancelReason.trim() || undefined);
     setCancelModalPurchase(null);
     setCancelReason('');
   };
@@ -935,7 +931,7 @@ export const PurchasesManager: React.FC = () => {
               {/* Notes */}
               <div>
                 <label className={`block mb-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                  {language === 'fr' ? 'Observations de réception / Contrôle qualité :' : 'Reception notes / Quality check:'}
+                  {language === 'fr' ? 'Observations de réception / Contrôle qualité (Optionnel) :' : 'Reception notes / Quality check (Optional) :'}
                 </label>
                 <textarea
                   rows={2}
@@ -1165,21 +1161,20 @@ export const PurchasesManager: React.FC = () => {
             </h3>
             <p className={`text-xs ${theme === 'dark' ? 'text-rose-300' : 'text-rose-700'}`}>
               {language === 'fr'
-                ? 'Cette action générera des mouvements de retour fournisseur inverses et déduira le stock reçu. Veuillez saisir le motif obligatoire :'
-                : 'This will generate reverse supplier return movements and deduct the received stock. Please provide the required justification:'}
+                ? 'Cette action générera des mouvements de retour fournisseur inverses et déduira le stock reçu. Motif de l\'annulation (Optionnel) :'
+                : 'This will generate reverse supplier return movements and deduct the received stock. Cancellation reason (Optional):'}
             </p>
             <form onSubmit={handleConfirmCancel} className="space-y-3">
               <input
                 type="text"
                 value={cancelReason}
                 onChange={e => setCancelReason(e.target.value)}
-                placeholder={language === 'fr' ? 'Motif (ex: erreur de saisie du bon de livraison, livraison refusée...)' : 'Reason (e.g.: delivery error, damaged batch...)'}
+                placeholder={language === 'fr' ? 'Motif (ex: erreur de saisie du bon de livraison, livraison refusée... - Optionnel)' : 'Reason (e.g.: delivery error, damaged batch... - Optional)'}
                 className={`w-full rounded-lg p-2 text-xs border focus:outline-none focus:ring-1 focus:ring-rose-500 ${
                   theme === 'dark'
                     ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400'
                     : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400'
                 }`}
-                required
               />
               <div className="flex justify-end gap-2">
                 <button
@@ -1494,7 +1489,7 @@ export const PurchasesManager: React.FC = () => {
               {/* Notes */}
               <div>
                 <label className={`block mb-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                  {language === 'fr' ? 'Observations & Justificatif de modification :' : 'Notes & Modification Reason:'}
+                  {language === 'fr' ? 'Observations & Justificatif de modification (Optionnel) :' : 'Notes & Modification Reason (Optional) :'}
                 </label>
                 <textarea
                   rows={2}
