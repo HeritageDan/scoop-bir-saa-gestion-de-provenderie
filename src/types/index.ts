@@ -254,7 +254,9 @@ export interface Invoice {
   marginRateCost: number; // Marge / CMV * 100
   marginRateSales: number; // Marge / CA Net * 100
   payments: Payment[];
-  amountPaid: number;
+  amountPaid: number; // Montant net encaissé conservé par la caisse
+  amountReceived?: number; // Montant brut remis par le client (ex: 10 000 FCFA)
+  changeGiven?: number; // Monnaie rendue au client (ex: 500 FCFA)
   remainingBalance: number; // Solde dû
   status: InvoiceStatus;
   salesPointId?: string;

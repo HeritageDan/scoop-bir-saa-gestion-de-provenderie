@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Invoice, ReceiptPrinterConfig, ReceiptPaperWidth } from '../../types';
 import { useApp } from '../../context/AppContext';
-import { formatFCFA } from '../../utils/formatters';
+import { formatFCFA, formatUnit } from '../../utils/formatters';
 import {
   getPrinterConfig,
   savePrinterConfig,
@@ -50,8 +50,9 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
   const subTotalGross = invoice?.subtotalGross || invoice?.totalNet || 0;
   const discountTotal = invoice?.totalDiscount || 0;
   const netDue = invoice?.totalNet || 0;
-  const amountPaid = invoice?.amountPaid || netDue;
-  const changeDue = Math.max(0, amountPaid - netDue);
+  const amountPaid = invoice?.amountPaid ?? netDue;
+  const amountReceived = invoice?.amountReceived ?? (invoice?.changeGiven ? netDue + invoice.changeGiven : amountPaid);
+  const changeDue = invoice?.changeGiven !== undefined ? invoice.changeGiven : Math.max(0, amountReceived - netDue);
   const remainingDue = invoice?.remainingBalance || 0;
   const isCredit = invoice?.isCredit || remainingDue > 0;
   const mainPaymentMethod = invoice?.payments?.[0]?.method || (isCredit ? 'crédit client' : 'espèces');
@@ -204,20 +205,22 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
         )}
 
         {/* Center: Thermal Paper Canvas Preview */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-950/20 flex justify-center">
+        <div className={`flex-1 overflow-y-auto p-4 sm:p-6 flex justify-center ${
+          theme === 'dark' ? 'bg-slate-950/60' : 'bg-slate-100'
+        }`}>
           {/* Authentic Thermal Slip Simulator */}
           <div
             id="pos-thermal-receipt-slip"
-            className={`bg-white text-black font-mono shadow-2xl transition-all select-none border border-slate-300 relative ${
-              is58mm ? 'w-[260px] p-3 text-[10px]' : 'w-[360px] p-4 text-[11px]'
+            className={`bg-white text-black font-mono shadow-2xl select-none border border-slate-300 rounded-xs transition-all relative ${
+              is58mm ? 'w-[270px] p-3 text-[10px]' : 'w-[370px] p-4 text-[11px]'
             }`}
             style={{
-              fontFamily: "'Courier New', Courier, monospace",
-              filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.15))',
+              fontFamily: "'Courier New', Courier, 'Lucida Console', monospace",
+              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3), 0 8px 10px -6px rgba(0,0,0,0.2)',
             }}
           >
-            {/* Top jagged receipt visual */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-[radial-gradient(circle,transparent_4px,#fff_4px)] bg-[length:10px_10px] -mt-1 opacity-80" />
+            {/* Top clean thermal paper roll notch */}
+            <div className="border-t-2 border-dashed border-slate-300 mb-2" />
 
             {/* Logo if configured */}
             {config.showLogo && (
@@ -260,23 +263,23 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
             <div className="space-y-0.5 text-[9.5px]">
               {isReprint && (
                 <div className="text-center font-bold border border-black py-0.5 my-1">
-                  *** DUPLICATA / RÉIMPRESSION ***
+                  *** {language === 'fr' ? 'DUPLICATA / RÉIMPRESSION' : 'DUPLICATE / REPRINT'} ***
                 </div>
               )}
               <div className="flex justify-between font-bold">
-                <span>TICKET N° :</span>
+                <span>{language === 'fr' ? 'TICKET N° :' : 'RECEIPT NO:'}</span>
                 <span>{invoice.number}</span>
               </div>
               <div className="flex justify-between">
-                <span>Date : {invoice.date}</span>
-                <span>{invoice.time || '10:00'}</span>
+                <span>{language === 'fr' ? 'Date :' : 'Date:'} {invoice.date}</span>
+                <span>{language === 'fr' ? 'Heure :' : 'Time:'} {invoice.time || '10:00'}</span>
               </div>
               <div className="flex justify-between">
-                <span>Caissier : {invoice.userName}</span>
+                <span>{language === 'fr' ? 'Caissier :' : 'Cashier:'} {invoice.userName}</span>
                 <span className="capitalize">{invoice.userRole}</span>
               </div>
               <div className="truncate">
-                Client : <b>{invoice.customerName}</b>
+                {language === 'fr' ? 'Client :' : 'Customer:'} <b>{invoice.customerName}</b>
                 {invoice.customerPhone && <span className="opacity-75"> ({invoice.customerPhone})</span>}
               </div>
             </div>
@@ -284,29 +287,76 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
             <div className="border-b border-dashed border-black my-2" />
 
             {/* Line items list */}
-            <div className="space-y-1.5">
-              {invoice.items.map((item, idx) => {
-                const lineTotal = item.totalNet || item.quantity * item.unitPrice;
-                return (
-                  <div key={idx} className="space-y-0.5">
-                    <div className="font-bold leading-tight break-words">{item.productName}</div>
-                    <div className="flex justify-between text-[9.5px]">
-                      <span>
-                        {item.quantity} {item.unit} x {formatFCFA(item.unitPrice).replace(' FCFA', '')}
-                      </span>
-                      <span className="font-bold">
-                        {formatFCFA(lineTotal).replace(' FCFA', '')}
-                      </span>
-                    </div>
-                    {item.discountAmount > 0 && (
-                      <div className="text-[8.5px] opacity-75">
-                        Remise : -{formatFCFA(item.discountAmount)}
+            {!is58mm ? (
+              <table className="w-full border-collapse text-[10px]">
+                <thead>
+                  <tr className="border-b border-dashed border-black">
+                    <th className="text-left pb-1 font-bold">
+                      {language === 'fr' ? 'Désignation' : 'Description'}
+                    </th>
+                    <th className="text-center pb-1 font-bold">
+                      {language === 'fr' ? 'Qté' : 'Qty'}
+                    </th>
+                    <th className="text-right pb-1 font-bold">
+                      {language === 'fr' ? 'P.U' : 'U.P'}
+                    </th>
+                    <th className="text-right pb-1 font-bold">
+                      {language === 'fr' ? 'Total' : 'Total'}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoice.items.map((item, idx) => {
+                    const lineTotal = item.totalNet || item.quantity * item.unitPrice;
+                    return (
+                      <tr key={idx} className="border-b border-dotted border-black/20">
+                        <td className="py-1 pr-1 break-words font-medium">
+                          {item.productName}
+                          {item.discountAmount > 0 && (
+                            <div className="text-[8.5px] opacity-75">
+                              (Rem: -{formatFCFA(item.discountAmount)})
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-1 px-1 text-center whitespace-nowrap">
+                          {item.quantity} {formatUnit(item.unit)}
+                        </td>
+                        <td className="py-1 px-1 text-right whitespace-nowrap">
+                          {formatFCFA(item.unitPrice).replace(' FCFA', '')}
+                        </td>
+                        <td className="py-1 pl-1 text-right font-bold whitespace-nowrap">
+                          {formatFCFA(lineTotal).replace(' FCFA', '')}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              <div className="space-y-1.5 text-[9.5px]">
+                {invoice.items.map((item, idx) => {
+                  const lineTotal = item.totalNet || item.quantity * item.unitPrice;
+                  return (
+                    <div key={idx} className="space-y-0.5 border-b border-dotted border-black/20 pb-1">
+                      <div className="font-bold leading-tight break-words">{item.productName}</div>
+                      <div className="flex justify-between">
+                        <span>
+                          {item.quantity} {formatUnit(item.unit)} x {formatFCFA(item.unitPrice).replace(' FCFA', '')}
+                        </span>
+                        <span className="font-bold">
+                          {formatFCFA(lineTotal).replace(' FCFA', '')}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                      {item.discountAmount > 0 && (
+                        <div className="text-[8.5px] opacity-75">
+                          Remise: -{formatFCFA(item.discountAmount)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="border-b border-dashed border-black my-2" />
 
@@ -315,37 +365,64 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
               {discountTotal > 0 && (
                 <>
                   <div className="flex justify-between text-[9.5px]">
-                    <span>Sous-total brut :</span>
+                    <span>{language === 'fr' ? 'Sous-total brut :' : 'Gross Subtotal:'}</span>
                     <span>{formatFCFA(subTotalGross)}</span>
                   </div>
                   <div className="flex justify-between text-[9.5px]">
-                    <span>Remise déduite :</span>
+                    <span>{language === 'fr' ? 'Remise déduite :' : 'Discount deducted:'}</span>
                     <span>-{formatFCFA(discountTotal)}</span>
                   </div>
                 </>
               )}
 
-              <div className="flex justify-between text-base font-black border-y-2 border-black py-1 my-1">
-                <span>TOTAL :</span>
+              <div className="flex justify-between text-sm sm:text-base font-black border-y-2 border-black py-1 my-1">
+                <span>{language === 'fr' ? 'NET À PAYER :' : 'NET TO PAY:'}</span>
                 <span>{formatFCFA(netDue)}</span>
               </div>
 
               {/* Payment Settlement */}
-              <div className="text-[9.5px] space-y-0.5 pt-0.5">
+              <div className="text-[9.5px] space-y-1 pt-0.5">
                 <div className="flex justify-between">
-                  <span>Règlement :</span>
+                  <span>{language === 'fr' ? 'Règlement :' : 'Payment:'}</span>
                   <span className="font-bold uppercase">{mainPaymentMethod}</span>
                 </div>
+
                 {mainPaymentMethod === 'espèces' && (
                   <>
                     <div className="flex justify-between">
-                      <span>Reçu en caisse :</span>
-                      <span>{formatFCFA(amountPaid)}</span>
+                      <span>{language === 'fr' ? 'Espèces reçues :' : 'Cash received:'}</span>
+                      <span className="font-bold">{formatFCFA(amountReceived)}</span>
                     </div>
-                    {changeDue > 0 && (
-                      <div className="flex justify-between font-bold">
-                        <span>Monnaie rendue :</span>
-                        <span>{formatFCFA(changeDue)}</span>
+                    {changeDue > 0 ? (
+                      <>
+                        <div className="flex justify-between font-bold text-black border-y border-dashed border-black py-0.5 my-0.5">
+                          <span>{language === 'fr' ? 'Monnaie rendue :' : 'Change given:'}</span>
+                          <span>{formatFCFA(changeDue)}</span>
+                        </div>
+                        <div className="flex justify-between opacity-80 text-[8.5px]">
+                          <span>{language === 'fr' ? 'Net encaissé :' : 'Net tendered:'}</span>
+                          <span>{formatFCFA(netDue)}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex justify-between opacity-80 text-[8.5px]">
+                        <span>{language === 'fr' ? 'Compte exact' : 'Exact amount tendered'}</span>
+                        <span>{formatFCFA(netDue)}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {mainPaymentMethod !== 'espèces' && !isCredit && (
+                  <>
+                    <div className="flex justify-between">
+                      <span>{language === 'fr' ? 'Montant réglé :' : 'Amount paid:'}</span>
+                      <span className="font-bold">{formatFCFA(netDue)}</span>
+                    </div>
+                    {invoice.payments?.[0]?.reference && (
+                      <div className="flex justify-between opacity-80 text-[8.5px]">
+                        <span>{language === 'fr' ? 'Réf transaction :' : 'Ref:'}</span>
+                        <span className="font-mono">{invoice.payments[0].reference}</span>
                       </div>
                     )}
                   </>
@@ -354,15 +431,17 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
                 {isCredit && (
                   <div className="mt-1 pt-1 border-t border-dotted border-black">
                     <div className="flex justify-between font-bold">
-                      <span>Acompte versé :</span>
+                      <span>{language === 'fr' ? 'Acompte versé :' : 'Downpayment:'}</span>
                       <span>{formatFCFA(amountPaid)}</span>
                     </div>
                     <div className="flex justify-between font-bold">
-                      <span>Solde dû (Dette) :</span>
+                      <span>{language === 'fr' ? 'Solde dû (Dette) :' : 'Balance due (Debt):'}</span>
                       <span>{formatFCFA(remainingDue)}</span>
                     </div>
                     {invoice.creditDueDate && (
-                      <div className="text-[8.5px]">Échéance : {invoice.creditDueDate}</div>
+                      <div className="text-[8.5px] mt-0.5">
+                        {language === 'fr' ? 'Échéance :' : 'Due date:'} {invoice.creditDueDate}
+                      </div>
                     )}
                   </div>
                 )}
@@ -373,13 +452,13 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
 
             {/* Footer Message */}
             <div className="text-center text-[8.5px] space-y-1 leading-tight">
-              <div>{config.footerMessage || settings.ticketFooterNotice || 'Merci de votre fidélité !'}</div>
-              <div className="text-[8px] opacity-80">SCOOPS BIR SAA POS &middot; Provenderie Certifiée</div>
+              <div>{config.footerMessage || settings.ticketFooterNotice || (language === 'fr' ? 'Merci de votre fidélité !' : 'Thank you for your business!')}</div>
+              <div className="text-[8px] opacity-80">SCOOPS BIR SAA POS &middot; {language === 'fr' ? 'Provenderie Certifiée' : 'Certified Feed Mill'}</div>
             </div>
 
             {/* Simulated Barcode */}
             {config.showBarcode && (
-              <div className="mt-3 text-center border-t border-dashed border-black pt-2">
+              <div className="mt-2 text-center border-t border-dashed border-black pt-2">
                 <div className="font-mono text-xs tracking-widest font-bold">
                   *||| | |||| | ||| |||| |*
                 </div>
@@ -452,6 +531,9 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
 
       <style>{`
         @media print {
+          body {
+            background: #fff !important;
+          }
           body * {
             visibility: hidden !important;
           }
@@ -459,13 +541,15 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
             visibility: visible !important;
           }
           #pos-thermal-receipt-slip {
-            position: absolute !important;
+            position: fixed !important;
             left: 0 !important;
             top: 0 !important;
             width: ${is58mm ? '58mm' : '80mm'} !important;
+            max-width: ${is58mm ? '58mm' : '80mm'} !important;
             box-shadow: none !important;
             border: none !important;
             padding: 2mm !important;
+            margin: 0 !important;
           }
         }
       `}</style>

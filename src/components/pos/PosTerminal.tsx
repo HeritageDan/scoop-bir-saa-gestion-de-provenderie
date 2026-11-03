@@ -447,9 +447,13 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
           }
         : undefined,
       {
-        amount: paymentMethod === 'crédit client' ? amountReceived : netTotal,
+        amount: paymentMethod === 'crédit client'
+          ? amountReceived
+          : (paymentMethod === 'espèces' ? (amountReceived > 0 ? amountReceived : netTotal) : netTotal),
         method: paymentMethod === 'crédit client' ? 'espèces' : paymentMethod,
         reference: paymentReference,
+        amountReceived: paymentMethod === 'espèces' ? (amountReceived > 0 ? amountReceived : netTotal) : netTotal,
+        changeGiven: paymentMethod === 'espèces' && amountReceived > netTotal ? amountReceived - netTotal : 0,
       },
       saleNotes,
       paymentMethod === 'crédit client',
@@ -472,30 +476,6 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
       if (createdInv) {
         setLastInvoice(createdInv);
         setShowReceiptModal(true);
-
-        const printerConfig = getPrinterConfig();
-        if (printerConfig.autoPrintOnSale) {
-          printReceipt(createdInv, settings, printerConfig, false).then(printRes => {
-            if (!printRes.success) {
-              setPrintAlert({
-                type: 'error',
-                message: language === 'fr'
-                  ? `Vente ${createdInv.number} validée avec succès, mais l'impression automatique du ticket a échoué (${printRes.error || "imprimante non détectée"}).`
-                  : `Sale ${createdInv.number} saved successfully, but auto-printing failed (${printRes.error || "printer offline"}).`,
-                invoice: createdInv,
-              });
-            } else {
-              setPrintAlert({
-                type: 'success',
-                message: language === 'fr'
-                  ? `Vente ${createdInv.number} enregistrée et ticket thermique imprimé !`
-                  : `Sale ${createdInv.number} saved and thermal receipt printed!`,
-                invoice: createdInv,
-              });
-              setTimeout(() => setPrintAlert(null), 4000);
-            }
-          });
-        }
       }
     }
   };

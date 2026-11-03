@@ -120,7 +120,13 @@ interface AppContextType {
       conversionFactor?: number;
     }[],
     discount?: { type: 'pourcentage' | 'montant'; value: number; reason: string },
-    payment?: { amount: number; method: 'espèces' | 'virement' | 'paiement mobile' | 'crédit client'; reference?: string },
+    payment?: {
+      amount: number;
+      method: 'espèces' | 'virement' | 'paiement mobile' | 'crédit client';
+      reference?: string;
+      amountReceived?: number;
+      changeGiven?: number;
+    },
     notes?: string,
     isCredit?: boolean,
     creditDueDate?: string,
@@ -1940,7 +1946,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       conversionFactor?: number;
     }[],
     discount?: { type: 'pourcentage' | 'montant'; value: number; reason: string },
-    payment?: { amount: number; method: 'espèces' | 'virement' | 'paiement mobile' | 'crédit client'; reference?: string },
+    payment?: {
+      amount: number;
+      method: 'espèces' | 'virement' | 'paiement mobile' | 'crédit client';
+      reference?: string;
+      amountReceived?: number;
+      changeGiven?: number;
+    },
     notes?: string,
     isCredit = false,
     creditDueDate?: string,
@@ -2070,8 +2082,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const totalNet = Math.max(0, subtotalGross - finalTotalDiscount);
 
-    // 4. Credit validation check
-    const paidAmount = payment ? payment.amount : 0;
+    // 4. Payment, Change and Credit validation
+    const isCashPayment = payment?.method === 'espèces';
+    const rawReceived = payment?.amountReceived !== undefined
+      ? payment.amountReceived
+      : (isCashPayment && payment?.amount && payment.amount > totalNet ? payment.amount : (payment ? payment.amount : totalNet));
+
+    const calcChange = isCashPayment && rawReceived > totalNet ? rawReceived - totalNet : 0;
+    const finalChangeGiven = payment?.changeGiven !== undefined ? payment.changeGiven : calcChange;
+
+    const paidAmount = isCashPayment
+      ? Math.min(rawReceived, totalNet)
+      : (payment ? Math.min(payment.amount, totalNet) : 0);
+
     const remainingBalance = Math.max(0, totalNet - paidAmount);
 
     if (remainingBalance > 0 && customer.id === 'cst-0') {
@@ -2199,7 +2222,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         date: `${dateStr} ${timeStr}`,
         userId: currentUser.id,
         userName: currentUser.name,
-        notes: notes || 'Paiement lors de la vente',
+        notes: finalChangeGiven > 0
+          ? `Espèces remises: ${rawReceived.toLocaleString()} FCFA, Monnaie rendue: ${finalChangeGiven.toLocaleString()} FCFA`
+          : (notes || 'Paiement lors de la vente'),
       });
     }
 
@@ -2232,6 +2257,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       marginRateSales,
       payments: recordedPayments,
       amountPaid: paidAmount,
+      amountReceived: isCashPayment ? rawReceived : paidAmount,
+      changeGiven: isCashPayment ? finalChangeGiven : 0,
       remainingBalance,
       status: invoiceStatus,
       salesPointId: chosenSpId,

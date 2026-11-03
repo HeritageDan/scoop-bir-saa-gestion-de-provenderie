@@ -104,7 +104,8 @@ export const buildThermalReceiptHtml = (
   const discountTotal = invoice.totalDiscount || 0;
   const netDue = invoice.totalNet;
   const amountPaid = invoice.amountPaid || netDue;
-  const changeDue = Math.max(0, amountPaid - netDue);
+  const amountReceived = invoice.amountReceived || (invoice.changeGiven ? netDue + invoice.changeGiven : amountPaid);
+  const changeDue = invoice.changeGiven !== undefined ? invoice.changeGiven : Math.max(0, amountReceived - netDue);
   const remainingDue = invoice.remainingBalance || 0;
   const isCredit = invoice.isCredit || remainingDue > 0;
 
@@ -345,15 +346,40 @@ export const buildThermalReceiptHtml = (
               mainPaymentMethod === 'espèces'
                 ? `
                 <div style="display: flex; justify-content: space-between;">
-                  <span>Reçu en caisse:</span>
-                  <span>${formatFCFA(amountPaid)}</span>
+                  <span>Espèces reçues :</span>
+                  <span>${formatFCFA(amountReceived)}</span>
                 </div>
                 ${
                   changeDue > 0
                     ? `
                   <div style="display: flex; justify-content: space-between; font-weight: bold;">
-                    <span>Monnaie rendue:</span>
+                    <span>Monnaie rendue :</span>
                     <span>${formatFCFA(changeDue)}</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; font-size: 8.5px; opacity: 0.85;">
+                    <span>Net encaissé :</span>
+                    <span>${formatFCFA(netDue)}</span>
+                  </div>
+                `
+                    : ''
+                }
+              `
+                : ''
+            }
+
+            ${
+              mainPaymentMethod !== 'espèces' && !isCredit
+                ? `
+                <div style="display: flex; justify-content: space-between;">
+                  <span>Montant réglé :</span>
+                  <span>${formatFCFA(netDue)}</span>
+                </div>
+                ${
+                  invoice.payments?.[0]?.reference
+                    ? `
+                  <div style="display: flex; justify-content: space-between; font-size: 8.5px;">
+                    <span>Réf transaction :</span>
+                    <span style="font-family: monospace;">${invoice.payments[0].reference}</span>
                   </div>
                 `
                     : ''
