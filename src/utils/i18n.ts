@@ -340,9 +340,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'users.discount_cap': 'Plafond Remise (%)',
     'users.password': 'Mot de Passe',
 
-    // Reports & Audit
-    'reports.title': 'Rapports Financiers & Rentabilité',
-    'reports.subtitle': 'Analyse des marges brutes, Coût Moyen Pondéré et chiffre d\'affaires',
+    // Audit
     'audit.title': 'Piste d\'Audit Système',
     'audit.subtitle': 'Historique immuable de toutes les actions, ventes, réceptions et modifications',
     'settings.title': 'Paramètres Système & Contrôles d\'Accès',
@@ -783,9 +781,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'users.discount_cap': 'Discount Cap (%)',
     'users.password': 'Password',
 
-    // Reports & Audit
-    'reports.title': 'Financial Reports & Profitability',
-    'reports.subtitle': 'Analysis of gross margins, Weighted Average Cost and sales performance',
+    // Audit
     'audit.title': 'System Audit Trail',
     'audit.subtitle': 'Immutable historical log of all transactions, sales, goods entries and config updates',
     'settings.title': 'System Settings & Access Controls',

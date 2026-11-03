@@ -22,7 +22,7 @@ import {
   X,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { Product, ProductCategory, Customer, Invoice } from '../../types';
+import { Product, ProductCategory, Customer, Invoice, UnitType } from '../../types';
 import { formatFCFA, formatNumber } from '../../utils/formatters';
 import {
   getPrinterConfig,
@@ -471,10 +471,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
 
       if (createdInv) {
         setLastInvoice(createdInv);
-
-        if (onSaleCompleted) {
-          onSaleCompleted(createdInv);
-        }
+        setShowReceiptModal(true);
 
         const printerConfig = getPrinterConfig();
         if (printerConfig.autoPrintOnSale) {
@@ -498,9 +495,6 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
               setTimeout(() => setPrintAlert(null), 4000);
             }
           });
-        } else {
-          // Open receipt preview modal directly
-          setShowReceiptModal(true);
         }
       }
     }
@@ -1415,6 +1409,11 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
           invoice={lastInvoice}
           onClose={() => setShowReceiptModal(false)}
           isReprint={false}
+          autoPrint={true}
+          onOpenA4={inv => {
+            setShowReceiptModal(false);
+            onSaleCompleted?.(inv);
+          }}
         />
       )}
     </div>

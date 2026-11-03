@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Printer,
@@ -10,6 +10,7 @@ import {
   Sliders,
   Copy,
   Check,
+  FileText,
 } from 'lucide-react';
 import { Invoice, ReceiptPrinterConfig, ReceiptPaperWidth } from '../../types';
 import { useApp } from '../../context/AppContext';
@@ -25,12 +26,16 @@ interface ReceiptPrintModalProps {
   invoice: Invoice | null;
   onClose: () => void;
   isReprint?: boolean;
+  autoPrint?: boolean;
+  onOpenA4?: (invoice: Invoice) => void;
 }
 
 export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
   invoice,
   onClose,
   isReprint = false,
+  autoPrint = false,
+  onOpenA4,
 }) => {
   const { settings, salesPoints, theme, language } = useApp();
   const [config, setConfig] = useState<ReceiptPrinterConfig>(getPrinterConfig());
@@ -41,23 +46,18 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
     message?: string;
   }>({});
 
-  if (!invoice) return null;
-
-  const matchedSp = salesPoints.find(sp => sp.id === invoice.salesPointId);
-  const displaySalesPointName = matchedSp?.name || (salesPoints.length === 1 ? salesPoints[0].name : invoice.salesPointName);
-  const fullAddress = [settings.address, settings.city, settings.country].filter(Boolean).join(', ');
-
   const is58mm = config.paperWidth === '58mm';
-  const subTotalGross = invoice.subtotalGross || invoice.totalNet;
-  const discountTotal = invoice.totalDiscount || 0;
-  const netDue = invoice.totalNet;
-  const amountPaid = invoice.amountPaid || netDue;
+  const subTotalGross = invoice?.subtotalGross || invoice?.totalNet || 0;
+  const discountTotal = invoice?.totalDiscount || 0;
+  const netDue = invoice?.totalNet || 0;
+  const amountPaid = invoice?.amountPaid || netDue;
   const changeDue = Math.max(0, amountPaid - netDue);
-  const remainingDue = invoice.remainingBalance || 0;
-  const isCredit = invoice.isCredit || remainingDue > 0;
-  const mainPaymentMethod = invoice.payments?.[0]?.method || (isCredit ? 'crédit client' : 'espèces');
+  const remainingDue = invoice?.remainingBalance || 0;
+  const isCredit = invoice?.isCredit || remainingDue > 0;
+  const mainPaymentMethod = invoice?.payments?.[0]?.method || (isCredit ? 'crédit client' : 'espèces');
 
   const handlePrint = async () => {
+    if (!invoice) return;
     setIsPrinting(true);
     setPrintStatus({});
 
@@ -67,7 +67,7 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
     if (result.success) {
       setPrintStatus({
         success: true,
-        message: language === 'fr' ? 'Ticket envoyé avec succès à l\'imprimante thermique !' : 'Receipt sent successfully to thermal printer!',
+        message: language === 'fr' ? 'Ticket envoyé avec succès à l\'imprimante !' : 'Receipt sent successfully to printer!',
       });
       setTimeout(() => {
         setPrintStatus({});
@@ -75,10 +75,30 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
     } else {
       setPrintStatus({
         success: false,
-        error: result.error || (language === 'fr' ? 'Échec de l\'envoi vers l\'imprimante. Vérifiez la connexion USB ou réseau.' : 'Failed to send to printer. Check USB or network connection.'),
+        error: result.error || (language === 'fr' ? 'Échec spooler, ouverture dialogue système...' : 'Spooler failed, opening system dialog...'),
       });
+      // Fallback: browser native print dialog
+      setTimeout(() => {
+        window.print();
+      }, 100);
     }
   };
+
+  // Auto-trigger printing when opened right after a sale
+  useEffect(() => {
+    if (autoPrint && invoice) {
+      const timer = setTimeout(() => {
+        handlePrint();
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [autoPrint, invoice]);
+
+  if (!invoice) return null;
+
+  const matchedSp = salesPoints.find(sp => sp.id === invoice.salesPointId);
+  const displaySalesPointName = matchedSp?.name || (salesPoints.length === 1 ? salesPoints[0].name : invoice.salesPointName);
+  const fullAddress = [settings.address, settings.city, settings.country].filter(Boolean).join(', ');
 
   const handleWidthChange = (width: ReceiptPaperWidth) => {
     const updated = { ...config, paperWidth: width };
@@ -187,6 +207,7 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-950/20 flex justify-center">
           {/* Authentic Thermal Slip Simulator */}
           <div
+            id="pos-thermal-receipt-slip"
             className={`bg-white text-black font-mono shadow-2xl transition-all select-none border border-slate-300 relative ${
               is58mm ? 'w-[260px] p-3 text-[10px]' : 'w-[360px] p-4 text-[11px]'
             }`}
@@ -382,6 +403,22 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
+            {onOpenA4 && (
+              <button
+                type="button"
+                onClick={() => onOpenA4(invoice)}
+                className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                  theme === 'dark'
+                    ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
+                    : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700 shadow-xs'
+                }`}
+                title={language === 'fr' ? 'Afficher au format Facture A4' : 'View in A4 Invoice format'}
+              >
+                <FileText className="w-3.5 h-3.5 text-blue-500" />
+                <span>{language === 'fr' ? 'Facture A4' : 'A4 Invoice'}</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={onClose}
@@ -412,6 +449,26 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
           </div>
         </div>
       </div>
+
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #pos-thermal-receipt-slip, #pos-thermal-receipt-slip * {
+            visibility: visible !important;
+          }
+          #pos-thermal-receipt-slip {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: ${is58mm ? '58mm' : '80mm'} !important;
+            box-shadow: none !important;
+            border: none !important;
+            padding: 2mm !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };

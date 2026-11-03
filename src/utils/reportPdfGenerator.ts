@@ -303,10 +303,12 @@ export function generateSalesReportPDF(
       else paymentMethod = pm;
     }
 
-    let statusLabel = inv.status;
+    let statusLabel: string = inv.status;
     if (inv.status === 'payée') statusLabel = isEn ? 'Paid' : 'Payée';
     else if (inv.status === 'partielle') statusLabel = isEn ? 'Partial' : 'Partielle';
-    else if (inv.status === 'en_attente') statusLabel = isEn ? 'Pending' : 'En attente';
+    else if (inv.status === 'crédit') statusLabel = isEn ? 'Credit' : 'Crédit';
+    else if (inv.status === 'annulée') statusLabel = isEn ? 'Cancelled' : 'Annulée';
+    else if (inv.status === 'émise') statusLabel = isEn ? 'Issued' : 'Émise';
 
     return [
       `${formatDate(inv.date)}\n${inv.time || ''}`,
@@ -677,7 +679,7 @@ export function generatePurchaseReportPDF(
 
   const tableBody = filtered.map(p => {
     const items = p.items.map(it => `${it.productName} (${it.quantityReceived} ${it.unit})`).join(', ');
-    let statusLabel = p.status;
+    let statusLabel: string = p.status;
     if (p.status === 'validé') statusLabel = isEn ? 'Validated' : 'Validé';
     else if (p.status === 'brouillon') statusLabel = isEn ? 'Draft' : 'Brouillon';
 

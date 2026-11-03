@@ -479,30 +479,31 @@ export const printReceipt = async (
       iframeDoc.write(htmlContent);
       iframeDoc.close();
 
-      iframe.onload = () => {
-        setTimeout(() => {
-          try {
-            iframe.contentWindow?.focus();
-            iframe.contentWindow?.print();
+      const executePrint = () => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
 
-            // Cleanup iframe after spooling
-            setTimeout(() => {
-              if (document.body.contains(iframe)) {
-                document.body.removeChild(iframe);
-              }
-              resolve({ success: true });
-            }, 1000);
-          } catch (printErr: any) {
+          // Cleanup iframe after spooling
+          setTimeout(() => {
             if (document.body.contains(iframe)) {
               document.body.removeChild(iframe);
             }
-            resolve({
-              success: false,
-              error: `Erreur du spooler d'impression : ${printErr?.message || 'Imprimante indisponible ou déconnectée.'}`,
-            });
+            resolve({ success: true });
+          }, 1000);
+        } catch (printErr: any) {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
           }
-        }, 300);
+          resolve({
+            success: false,
+            error: `Erreur du spooler d'impression : ${printErr?.message || 'Imprimante indisponible ou déconnectée.'}`,
+          });
+        }
       };
+
+      // Trigger print reliably via timeout (does not depend on iframe.onload which can fail on document.write)
+      setTimeout(executePrint, 250);
     });
   } catch (error: any) {
     return {

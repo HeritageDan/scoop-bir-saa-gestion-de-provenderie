@@ -20,6 +20,7 @@ import {
   Language,
   Theme,
   Expense,
+  UnitType,
 } from '../types';
 import {
   INITIAL_USERS,
@@ -2283,7 +2284,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         `Facture: ${invoiceNumber}`,
         invoiceId,
         `Brut: ${subtotalGross.toLocaleString()} FCFA`,
-        `Remise: ${globalDiscountCalc.toLocaleString()} FCFA (${saleDiscountDetails.type === 'pourcentage' ? saleDiscountDetails.value + '%' : 'Fixe'}) -> Net: ${totalNet.toLocaleString()} FCFA`,
+        `Remise: ${saleDiscountDetails.calculatedAmount.toLocaleString()} FCFA (${saleDiscountDetails.type === 'pourcentage' ? saleDiscountDetails.value + '%' : 'Fixe'}) -> Net: ${totalNet.toLocaleString()} FCFA`,
         saleDiscountDetails.reason
       );
     }
