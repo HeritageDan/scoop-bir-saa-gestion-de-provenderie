@@ -246,7 +246,9 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
           if (i.discountType === 'pourcentage') {
             lineDiscount = Math.round((lineGross * i.discountValue) / 100);
           } else {
-            lineDiscount = Math.min(i.discountValue, lineGross);
+            // Unit deduction (e.g. 200 FCFA per unit) multiplied by new quantity
+            const unitDiscount = Math.min(i.discountValue, i.unitPrice);
+            lineDiscount = Math.round(unitDiscount * newQty);
           }
         }
         return { ...i, quantity: newQty, discountAmount: lineDiscount };
@@ -291,17 +293,20 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
           }
           calcDiscount = Math.round((lineGross * safeVal) / 100);
         } else {
-          safeVal = Math.min(safeVal, lineGross);
-          const percent = lineGross > 0 ? (safeVal / lineGross) * 100 : 0;
-          if (percent > roleDiscountLimit + 0.01) {
+          // Amount deduction PER UNIT (e.g. 200 FCFA/unit)
+          // Limit unit discount to max permitted percentage of unit price
+          const maxUnitDiscount = Math.round((item.unitPrice * roleDiscountLimit) / 100);
+          if (safeVal > maxUnitDiscount) {
             setErrorMsg(
               language === 'fr'
-                ? `Remise maximale autorisée pour votre profil (${currentUser.role}) : ${roleDiscountLimit}% (soit ${formatFCFA(Math.round((lineGross * roleDiscountLimit) / 100))})`
-                : `Maximum discount allowed for your role (${currentUser.role}): ${roleDiscountLimit}%`
+                ? `Remise maximale autorisée pour votre profil (${currentUser.role}) : ${roleDiscountLimit}% (soit max ${formatFCFA(maxUnitDiscount)} / ${item.unit})`
+                : `Maximum discount allowed for your role (${currentUser.role}): ${roleDiscountLimit}% (max ${formatFCFA(maxUnitDiscount)} / ${item.unit})`
             );
-            safeVal = Math.round((lineGross * roleDiscountLimit) / 100);
+            safeVal = maxUnitDiscount;
           }
-          calcDiscount = safeVal;
+          safeVal = Math.min(safeVal, item.unitPrice);
+          // Total discount for this cart line is unit deduction multiplied by item quantity
+          calcDiscount = Math.round(safeVal * item.quantity);
         }
 
         return {
@@ -1064,8 +1069,13 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
                           <Tag className="w-3 h-3 shrink-0" />
                           <span>
                             {language === 'fr' ? 'Remise :' : 'Discount:'}{' '}
-                            {item.discountType === 'pourcentage' ? `${item.discountValue}%` : `${formatFCFA(item.discountValue || 0)}`}
-                            {' '}( -{formatFCFA(itemDiscount)} )
+                            {item.discountType === 'pourcentage' ? (
+                              `-${item.discountValue}% (Total: -${formatFCFA(itemDiscount)})`
+                            ) : item.quantity > 1 ? (
+                              `-${formatFCFA(item.discountValue || 0)} / ${item.unit} (Total: -${formatFCFA(itemDiscount)})`
+                            ) : (
+                              `-${formatFCFA(itemDiscount)}`
+                            )}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1116,23 +1126,23 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
                           value={item.discountType || 'pourcentage'}
                           onChange={e => handleUpdateItemDiscount(item.id, e.target.value as any, item.discountValue || 0, item.discountReason)}
                           style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
-                          className={`rounded-lg px-2 py-1 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          className={`rounded-lg px-2 py-1 text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${
                             theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                           }`}
                         >
                           <option value="pourcentage">%</option>
-                          <option value="montant">FCFA</option>
+                          <option value="montant">FCFA / {item.unit}</option>
                         </select>
 
                         <input
                           type="number"
                           min="0"
-                          max={item.discountType === 'montant' ? lineGross : roleDiscountLimit}
-                          step={item.discountType === 'montant' ? '100' : '1'}
+                          max={item.discountType === 'montant' ? item.unitPrice : roleDiscountLimit}
+                          step={item.discountType === 'montant' ? '50' : '1'}
                           value={item.discountValue || ''}
                           onChange={e => handleUpdateItemDiscount(item.id, item.discountType || 'pourcentage', parseFloat(e.target.value) || 0, item.discountReason)}
-                          placeholder={item.discountType === 'pourcentage' ? `0 à ${roleDiscountLimit}%` : 'FCFA'}
-                          className={`w-24 rounded-lg px-2 py-1 text-xs border font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          placeholder={item.discountType === 'pourcentage' ? `0 à ${roleDiscountLimit}%` : `FCFA / ${item.unit}`}
+                          className={`w-28 rounded-lg px-2 py-1 text-xs border font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                             theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                           }`}
                         />
@@ -1155,6 +1165,31 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
                           OK
                         </button>
                       </div>
+
+                      {/* Dynamic calculation preview */}
+                      {item.discountValue && item.discountValue > 0 && (
+                        <div className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
+                          <span>
+                            {item.discountType === 'montant' ? (
+                              language === 'fr' ? (
+                                <>Déduction : <strong>-{formatFCFA(item.discountValue)}</strong> / {item.unit} {item.quantity > 1 ? `× ${item.quantity} = -${formatFCFA(itemDiscount)}` : ''}</>
+                              ) : (
+                                <>Deduction: <strong>-{formatFCFA(item.discountValue)}</strong> / {item.unit} {item.quantity > 1 ? `× ${item.quantity} = -${formatFCFA(itemDiscount)}` : ''}</>
+                              )
+                            ) : (
+                              language === 'fr' ? (
+                                <>Déduction : <strong>{item.discountValue}%</strong> = <strong>-{formatFCFA(itemDiscount)}</strong></>
+                              ) : (
+                                <>Deduction: <strong>{item.discountValue}%</strong> = <strong>-{formatFCFA(itemDiscount)}</strong></>
+                              )
+                            )}
+                          </span>
+                          <span className="font-mono text-slate-500 dark:text-slate-400">
+                            {language === 'fr' ? 'Nouveau prix :' : 'New price:'}{' '}
+                            <strong>{formatFCFA(item.unitPrice - (item.discountType === 'montant' ? item.discountValue : Math.round((item.unitPrice * item.discountValue) / 100)))}</strong> / {item.unit}
+                          </span>
+                        </div>
+                      )}
 
                       {roleDiscountLimit === 0 && currentUser.role === 'caissier' && (
                         <div className="text-[10px] text-amber-500 flex items-center gap-1">
