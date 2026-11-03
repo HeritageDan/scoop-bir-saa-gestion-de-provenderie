@@ -25,6 +25,7 @@ export const formatUnit = (unit: string | undefined | null): string => {
   if (clean === 'sac' || clean === 'sacs') return 'sac';
   if (clean === 'boite' || clean === 'boîte' || clean === 'boites' || clean === 'boîtes') return 'boîte';
   if (clean === 'bidon' || clean === 'bidons') return 'bidon';
+  if (clean === 'gallon' || clean === 'gallons') return 'gal';
   if (clean === 'unite' || clean === 'unité' || clean === 'unites' || clean === 'unités') return 'u';
   return unit;
 };
@@ -78,6 +79,7 @@ export const formatProductVolumeSold = (
     if (u === 'carton' || u === 'cartons') return `${qtyStr} ${qty > 1 ? 'cartons' : 'carton'}`;
     if (u === 'boite' || u === 'boîte' || u === 'boites' || u === 'boîtes') return `${qtyStr} ${qty > 1 ? 'boîtes' : 'boîte'}`;
     if (u === 'bidon' || u === 'bidons') return `${qtyStr} ${qty > 1 ? 'bidons' : 'bidon'}`;
+    if (u === 'gallon' || u === 'gallons') return `${qtyStr} ${qty > 1 ? 'gallons' : 'gallon'}`;
     if (u === 'unite' || u === 'unité' || u === 'unites' || u === 'unités') return `${qtyStr} ${qty > 1 ? 'unités' : 'unité'}`;
     return `${qtyStr} ${unit}${qty > 1 && !unit.endsWith('s') ? 's' : ''}`;
   };
