@@ -339,69 +339,72 @@ export const buildThermalReceiptHtml = (
           <div style="font-size: 9.5px; margin-top: 2px;">
             <div style="display: flex; justify-content: space-between;">
               <span>Règlement:</span>
-              <span class="font-bold" style="text-transform: uppercase;">${mainPaymentMethod}</span>
+              <span class="font-bold" style="text-transform: uppercase;">
+                ${isCredit ? (amountPaid > 0 ? 'CRÉDIT (AVEC ACOMPTE)' : 'CRÉDIT TOTAL') : mainPaymentMethod}
+              </span>
             </div>
             
             ${
-              mainPaymentMethod === 'espèces'
-                ? `
-                <div style="display: flex; justify-content: space-between;">
-                  <span>Espèces reçues :</span>
-                  <span>${formatFCFA(amountReceived)}</span>
-                </div>
-                ${
-                  changeDue > 0
-                    ? `
-                  <div style="display: flex; justify-content: space-between; font-weight: bold;">
-                    <span>Monnaie rendue :</span>
-                    <span>${formatFCFA(changeDue)}</span>
-                  </div>
-                  <div style="display: flex; justify-content: space-between; font-size: 8.5px; opacity: 0.85;">
-                    <span>Net encaissé :</span>
-                    <span>${formatFCFA(netDue)}</span>
-                  </div>
-                `
-                    : ''
-                }
-              `
-                : ''
-            }
-
-            ${
-              mainPaymentMethod !== 'espèces' && !isCredit
-                ? `
-                <div style="display: flex; justify-content: space-between;">
-                  <span>Montant réglé :</span>
-                  <span>${formatFCFA(netDue)}</span>
-                </div>
-                ${
-                  invoice.payments?.[0]?.reference
-                    ? `
-                  <div style="display: flex; justify-content: space-between; font-size: 8.5px;">
-                    <span>Réf transaction :</span>
-                    <span style="font-family: monospace;">${invoice.payments[0].reference}</span>
-                  </div>
-                `
-                    : ''
-                }
-              `
-                : ''
-            }
-
-            ${
               isCredit
                 ? `
-                <div style="display: flex; justify-content: space-between; font-weight: bold; color: #000;">
-                  <span>Acompte versé:</span>
-                  <span>${formatFCFA(amountPaid)}</span>
+                <div style="border-top: 1px dashed #000; margin-top: 3px; padding-top: 3px;">
+                  <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                    <span>Acompte versé:</span>
+                    <span>${formatFCFA(amountPaid)}</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; font-weight: bold; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 2px 0; margin: 2px 0;">
+                    <span>Reste à payer (Dette):</span>
+                    <span>${formatFCFA(remainingDue)}</span>
+                  </div>
+                  ${invoice.creditDueDate ? `<div style="font-size: 8.5px;">Échéance prévue: ${invoice.creditDueDate}</div>` : ''}
                 </div>
-                <div style="display: flex; justify-content: space-between; font-weight: bold; color: #000;">
-                  <span>Reste à payer (Dette):</span>
-                  <span>${formatFCFA(remainingDue)}</span>
-                </div>
-                ${invoice.creditDueDate ? `<div style="font-size: 8.5px;">Échéance prévue: ${invoice.creditDueDate}</div>` : ''}
               `
-                : ''
+                : `
+                ${
+                  mainPaymentMethod === 'espèces'
+                    ? `
+                    <div style="display: flex; justify-content: space-between;">
+                      <span>Espèces reçues :</span>
+                      <span>${formatFCFA(amountReceived)}</span>
+                    </div>
+                    ${
+                      changeDue > 0
+                        ? `
+                      <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                        <span>Monnaie rendue :</span>
+                        <span>${formatFCFA(changeDue)}</span>
+                      </div>
+                      <div style="display: flex; justify-content: space-between; font-size: 8.5px; opacity: 0.85;">
+                        <span>Net encaissé :</span>
+                        <span>${formatFCFA(netDue)}</span>
+                      </div>
+                    `
+                        : `
+                      <div style="display: flex; justify-content: space-between; font-size: 8.5px; opacity: 0.85;">
+                        <span>Compte exact :</span>
+                        <span>${formatFCFA(netDue)}</span>
+                      </div>
+                    `
+                    }
+                  `
+                    : `
+                    <div style="display: flex; justify-content: space-between;">
+                      <span>Montant réglé :</span>
+                      <span>${formatFCFA(netDue)}</span>
+                    </div>
+                    ${
+                      invoice.payments?.[0]?.reference
+                        ? `
+                      <div style="display: flex; justify-content: space-between; font-size: 8.5px;">
+                        <span>Réf transaction :</span>
+                        <span style="font-family: monospace;">${invoice.payments[0].reference}</span>
+                      </div>
+                    `
+                        : ''
+                    }
+                  `
+                }
+              `
             }
           </div>
         </div>

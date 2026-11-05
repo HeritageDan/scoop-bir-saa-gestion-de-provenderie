@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search,
   ShoppingCart,
@@ -347,22 +347,39 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
   const totalDiscount = cart.reduce((sum, item) => sum + (item.discountAmount || 0), 0);
   const netTotal = Math.max(0, grossSubtotal - totalDiscount);
 
-  // Set default received amount when netTotal changes or method changes
-  const effectivePaidAmount =
-    paymentMethod === 'crédit client'
-      ? amountReceived // can be partial downpayment
-      : netTotal;
+  // Set effective paid amount and remaining debt balance
+  const isCreditMode = paymentMethod === 'crédit client';
+  const effectivePaidAmount = isCreditMode
+    ? Math.max(0, amountReceived)
+    : (paymentMethod === 'espèces' && amountReceived > 0 && amountReceived < netTotal
+        ? amountReceived
+        : (amountReceived > 0 ? Math.min(amountReceived, netTotal) : netTotal));
 
   const changeDue =
     paymentMethod === 'espèces' && amountReceived > netTotal ? amountReceived - netTotal : 0;
 
   const remainingBalance = Math.max(0, netTotal - effectivePaidAmount);
+  const isCreditSale = isCreditMode || remainingBalance > 0;
 
-  // Keep amountReceived updated when netTotal changes for cash payments
+  // Update amountReceived when switching payment modes
   useEffect(() => {
-    if (paymentMethod !== 'crédit client') {
+    if (paymentMethod === 'crédit client') {
+      if (amountReceived > netTotal) {
+        setAmountReceived(0);
+      }
+    } else if (amountReceived === 0 && netTotal > 0) {
       setAmountReceived(netTotal);
     }
+  }, [paymentMethod]);
+
+  const prevNetTotalRef = useRef(netTotal);
+  useEffect(() => {
+    if (paymentMethod !== 'crédit client') {
+      if (amountReceived === 0 || amountReceived === prevNetTotalRef.current) {
+        setAmountReceived(netTotal);
+      }
+    }
+    prevNetTotalRef.current = netTotal;
   }, [netTotal, paymentMethod]);
 
   // Handle Quick Client Creation
@@ -418,9 +435,13 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
     }
 
     // Credit rules
-    if (paymentMethod === 'crédit client' || remainingBalance > 0) {
+    if (isCreditSale) {
       if (selectedCustomerId === 'cst-0') {
-        setErrorMsg('Une vente à crédit doit être nominative. Sélectionnez un client régulier.');
+        setErrorMsg(
+          language === 'fr'
+            ? `Une vente à crédit ou avec solde restant (${formatFCFA(remainingBalance)}) doit être nominative. Sélectionnez un client régulier.`
+            : `A credit or partial sale with balance (${formatFCFA(remainingBalance)}) must be assigned to a registered client.`
+        );
         setIsSubmitting(false);
         return;
       }
@@ -447,17 +468,17 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
           }
         : undefined,
       {
-        amount: paymentMethod === 'crédit client'
-          ? amountReceived
-          : (paymentMethod === 'espèces' ? (amountReceived > 0 ? amountReceived : netTotal) : netTotal),
-        method: paymentMethod === 'crédit client' ? 'espèces' : paymentMethod,
+        amount: isCreditSale
+          ? effectivePaidAmount
+          : (paymentMethod === 'espèces' ? (amountReceived > 0 ? Math.min(amountReceived, netTotal) : netTotal) : netTotal),
+        method: paymentMethod,
         reference: paymentReference,
-        amountReceived: paymentMethod === 'espèces' ? (amountReceived > 0 ? amountReceived : netTotal) : netTotal,
-        changeGiven: paymentMethod === 'espèces' && amountReceived > netTotal ? amountReceived - netTotal : 0,
+        amountReceived: isCreditMode ? amountReceived : (paymentMethod === 'espèces' ? (amountReceived > 0 ? amountReceived : netTotal) : effectivePaidAmount),
+        changeGiven: changeDue,
       },
       saleNotes,
-      paymentMethod === 'crédit client',
-      paymentMethod === 'crédit client' ? creditDueDate : undefined,
+      isCreditSale,
+      isCreditSale ? (creditDueDate || new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString().slice(0, 10)) : undefined,
       (currentUser.role === 'administrateur' || currentUser.role === 'developpeur') ? targetSalesPointId : undefined
     );
 
@@ -1239,28 +1260,37 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
 
           {/* Payment Specific Details */}
           {paymentMethod === 'espèces' && (
-            <div className={`flex items-center justify-between text-xs p-2 rounded-lg border ${
-              theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-            }`}>
-              <span className={theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}>
-                {language === 'fr' ? 'Montant reçu :' : 'Amount received:'}
-              </span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={amountReceived || ''}
-                  onChange={e => setAmountReceived(Number(e.target.value))}
-                  placeholder={netTotal.toString()}
-                  className={`w-28 rounded px-2 py-1 text-right font-semibold text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                    theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-850'
-                  }`}
-                />
-                {changeDue > 0 && (
-                  <span className="text-[11px] text-emerald-500 font-bold">
-                    {language === 'fr' ? 'Rendre :' : 'Change:'} {formatFCFA(changeDue)}
-                  </span>
-                )}
+            <div className="space-y-1.5">
+              <div className={`flex items-center justify-between text-xs p-2 rounded-lg border ${
+                theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+              }`}>
+                <span className={theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}>
+                  {language === 'fr' ? 'Montant reçu :' : 'Amount received:'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={amountReceived || ''}
+                    onChange={e => setAmountReceived(Number(e.target.value))}
+                    placeholder={netTotal.toString()}
+                    className={`w-28 rounded px-2 py-1 text-right font-semibold text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                      theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-850'
+                    }`}
+                  />
+                  {changeDue > 0 && (
+                    <span className="text-[11px] text-emerald-500 font-bold">
+                      {language === 'fr' ? 'Rendre :' : 'Change:'} {formatFCFA(changeDue)}
+                    </span>
+                  )}
+                </div>
               </div>
+
+              {amountReceived > 0 && amountReceived < netTotal && (
+                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[11px] font-semibold flex items-center justify-between">
+                  <span>{language === 'fr' ? 'Solde à crédit (dette client) :' : 'Remaining customer credit debt:'}</span>
+                  <span className="font-bold">{formatFCFA(netTotal - amountReceived)}</span>
+                </div>
+              )}
             </div>
           )}
 

@@ -384,66 +384,72 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
               <div className="text-[9.5px] space-y-1 pt-0.5">
                 <div className="flex justify-between">
                   <span>{language === 'fr' ? 'Règlement :' : 'Payment:'}</span>
-                  <span className="font-bold uppercase">{mainPaymentMethod}</span>
+                  <span className="font-bold uppercase">
+                    {isCredit
+                      ? (amountPaid > 0 ? (language === 'fr' ? 'Crédit (avec acompte)' : 'Credit (partial)') : (language === 'fr' ? 'À Crédit' : 'Credit'))
+                      : mainPaymentMethod}
+                  </span>
                 </div>
 
-                {mainPaymentMethod === 'espèces' && (
-                  <>
-                    <div className="flex justify-between">
-                      <span>{language === 'fr' ? 'Espèces reçues :' : 'Cash received:'}</span>
-                      <span className="font-bold">{formatFCFA(amountReceived)}</span>
-                    </div>
-                    {changeDue > 0 ? (
-                      <>
-                        <div className="flex justify-between font-bold text-black border-y border-dashed border-black py-0.5 my-0.5">
-                          <span>{language === 'fr' ? 'Monnaie rendue :' : 'Change given:'}</span>
-                          <span>{formatFCFA(changeDue)}</span>
-                        </div>
-                        <div className="flex justify-between opacity-80 text-[8.5px]">
-                          <span>{language === 'fr' ? 'Net encaissé :' : 'Net tendered:'}</span>
-                          <span>{formatFCFA(netDue)}</span>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex justify-between opacity-80 text-[8.5px]">
-                        <span>{language === 'fr' ? 'Compte exact' : 'Exact amount tendered'}</span>
-                        <span>{formatFCFA(netDue)}</span>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {mainPaymentMethod !== 'espèces' && !isCredit && (
-                  <>
-                    <div className="flex justify-between">
-                      <span>{language === 'fr' ? 'Montant réglé :' : 'Amount paid:'}</span>
-                      <span className="font-bold">{formatFCFA(netDue)}</span>
-                    </div>
-                    {invoice.payments?.[0]?.reference && (
-                      <div className="flex justify-between opacity-80 text-[8.5px]">
-                        <span>{language === 'fr' ? 'Réf transaction :' : 'Ref:'}</span>
-                        <span className="font-mono">{invoice.payments[0].reference}</span>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {isCredit && (
-                  <div className="mt-1 pt-1 border-t border-dotted border-black">
+                {isCredit ? (
+                  <div className="mt-1 pt-1 border-t border-dotted border-black space-y-0.5">
                     <div className="flex justify-between font-bold">
-                      <span>{language === 'fr' ? 'Acompte versé :' : 'Downpayment:'}</span>
+                      <span>{language === 'fr' ? 'Acompte versé :' : 'Downpayment paid:'}</span>
                       <span>{formatFCFA(amountPaid)}</span>
                     </div>
-                    <div className="flex justify-between font-bold">
-                      <span>{language === 'fr' ? 'Solde dû (Dette) :' : 'Balance due (Debt):'}</span>
+                    <div className="flex justify-between font-bold text-black border-y border-dashed border-black py-0.5 my-0.5">
+                      <span>{language === 'fr' ? 'Reste à payer (Dette) :' : 'Balance due (Debt):'}</span>
                       <span>{formatFCFA(remainingDue)}</span>
                     </div>
                     {invoice.creditDueDate && (
                       <div className="text-[8.5px] mt-0.5">
-                        {language === 'fr' ? 'Échéance :' : 'Due date:'} {invoice.creditDueDate}
+                        {language === 'fr' ? 'Date d\'échéance :' : 'Due date:'} {invoice.creditDueDate}
                       </div>
                     )}
                   </div>
+                ) : (
+                  <>
+                    {mainPaymentMethod === 'espèces' && (
+                      <>
+                        <div className="flex justify-between">
+                          <span>{language === 'fr' ? 'Espèces reçues :' : 'Cash received:'}</span>
+                          <span className="font-bold">{formatFCFA(amountReceived)}</span>
+                        </div>
+                        {changeDue > 0 ? (
+                          <>
+                            <div className="flex justify-between font-bold text-black border-y border-dashed border-black py-0.5 my-0.5">
+                              <span>{language === 'fr' ? 'Monnaie rendue :' : 'Change given:'}</span>
+                              <span>{formatFCFA(changeDue)}</span>
+                            </div>
+                            <div className="flex justify-between opacity-80 text-[8.5px]">
+                              <span>{language === 'fr' ? 'Net encaissé :' : 'Net tendered:'}</span>
+                              <span>{formatFCFA(netDue)}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex justify-between opacity-80 text-[8.5px]">
+                            <span>{language === 'fr' ? 'Compte exact' : 'Exact amount tendered'}</span>
+                            <span>{formatFCFA(netDue)}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {mainPaymentMethod !== 'espèces' && (
+                      <>
+                        <div className="flex justify-between">
+                          <span>{language === 'fr' ? 'Montant réglé :' : 'Amount paid:'}</span>
+                          <span className="font-bold">{formatFCFA(netDue)}</span>
+                        </div>
+                        {invoice.payments?.[0]?.reference && (
+                          <div className="flex justify-between opacity-80 text-[8.5px]">
+                            <span>{language === 'fr' ? 'Réf transaction :' : 'Ref:'}</span>
+                            <span className="font-mono">{invoice.payments[0].reference}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </>
                 )}
               </div>
             </div>

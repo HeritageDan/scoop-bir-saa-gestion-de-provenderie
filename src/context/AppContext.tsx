@@ -2083,10 +2083,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const totalNet = Math.max(0, subtotalGross - finalTotalDiscount);
 
     // 4. Payment, Change and Credit validation
-    const isCashPayment = payment?.method === 'espèces';
-    const rawReceived = payment?.amountReceived !== undefined
-      ? payment.amountReceived
-      : (isCashPayment && payment?.amount && payment.amount > totalNet ? payment.amount : (payment ? payment.amount : totalNet));
+    const paymentMethodType = payment?.method || 'espèces';
+    const isCreditRequested = Boolean(isCredit) || paymentMethodType === 'crédit client';
+    const isCashPayment = paymentMethodType === 'espèces';
+
+    let rawReceived = 0;
+    if (payment?.amountReceived !== undefined) {
+      rawReceived = payment.amountReceived;
+    } else if (payment?.amount !== undefined) {
+      rawReceived = payment.amount;
+    } else {
+      rawReceived = isCreditRequested ? 0 : totalNet;
+    }
 
     const calcChange = isCashPayment && rawReceived > totalNet ? rawReceived - totalNet : 0;
     const finalChangeGiven = payment?.changeGiven !== undefined ? payment.changeGiven : calcChange;
@@ -2217,12 +2225,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         customerId: customer.id,
         customerName: customer.name,
         amount: paidAmount,
-        method: payment.method,
-        reference: payment.reference || (payment.method === 'espèces' ? `ESP-${timeStr.replace(':', '')}` : `REF-${Date.now()}`),
+        method: payment.method === 'crédit client' ? 'espèces' : payment.method,
+        reference: payment.reference || (payment.method === 'crédit client' ? `ACOMPTE-${timeStr.replace(':', '')}` : (payment.method === 'espèces' ? `ESP-${timeStr.replace(':', '')}` : `REF-${Date.now()}`)),
         date: `${dateStr} ${timeStr}`,
         userId: currentUser.id,
         userName: currentUser.name,
-        notes: finalChangeGiven > 0
+        notes: remainingBalance > 0
+          ? `Acompte versé: ${paidAmount.toLocaleString()} FCFA, Reste à payer (Dette): ${remainingBalance.toLocaleString()} FCFA`
+          : finalChangeGiven > 0
           ? `Espèces remises: ${rawReceived.toLocaleString()} FCFA, Monnaie rendue: ${finalChangeGiven.toLocaleString()} FCFA`
           : (notes || 'Paiement lors de la vente'),
       });
@@ -2257,7 +2267,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       marginRateSales,
       payments: recordedPayments,
       amountPaid: paidAmount,
-      amountReceived: isCashPayment ? rawReceived : paidAmount,
+      amountReceived: isCashPayment ? rawReceived : (payment?.amountReceived ?? paidAmount),
       changeGiven: isCashPayment ? finalChangeGiven : 0,
       remainingBalance,
       status: invoiceStatus,
@@ -2267,8 +2277,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userName: currentUser.name,
       userRole: currentUser.role,
       notes,
-      isCredit: remainingBalance > 0 || isCredit,
-      creditDueDate: remainingBalance > 0 ? creditDueDate || new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString().slice(0, 10) : undefined,
+      isCredit: remainingBalance > 0 || isCreditRequested,
+      creditDueDate: (remainingBalance > 0 || isCreditRequested)
+        ? creditDueDate || new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+        : undefined,
     };
 
     // 8. Atomic updates of all state
@@ -2301,8 +2313,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       `Facture: ${invoiceNumber}`,
       invoiceId,
       undefined,
-      `Client: ${customer.name}, Net: ${totalNet.toLocaleString()} FCFA, Payé: ${paidAmount.toLocaleString()} FCFA, Marge: ${grossMargin.toLocaleString()} FCFA`,
-      notes || 'Validation vente en caisse'
+      `Client: ${customer.name}, Net: ${totalNet.toLocaleString()} FCFA, Payé: ${paidAmount.toLocaleString()} FCFA, Reste dû (Dette): ${remainingBalance.toLocaleString()} FCFA, Marge: ${grossMargin.toLocaleString()} FCFA`,
+      notes || (remainingBalance > 0 ? 'Vente avec crédit client / acompte' : 'Validation vente en caisse')
     );
 
     if (saleDiscountDetails) {
