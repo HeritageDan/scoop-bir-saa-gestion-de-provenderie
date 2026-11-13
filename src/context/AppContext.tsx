@@ -92,8 +92,9 @@ interface AppContextType {
   products: Product[];
   addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'priceHistory' | 'stockCurrentBaseUnit' | 'cmp'>, initialStock?: number, initialCmp?: number) => void;
   updateProduct: (product: Product, reason?: string) => void;
-  archiveProduct: (productId: string) => void;
-  unarchiveProduct: (productId: string) => void;
+  archiveProduct?: (productId: string) => void;
+  unarchiveProduct?: (productId: string) => void;
+  deleteProduct: (productId: string) => void;
   maskProduct: (productId: string) => void;
 
   // Purchases & Receipts
@@ -1460,6 +1461,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     productsRef.current = productsRef.current.map(p => (p.id === productId ? updated : p));
     upsertRecordToSupabase('products', updated).catch(() => {});
     addAuditLog('MODIFICATION_PRODUIT', `Masquage produit: ${target.name}`, target.id, target.status, nextStatus, 'Modification visibilité');
+  };
+
+  const deleteProduct = (productId: string) => {
+    const target = products.find(p => p.id === productId);
+    if (!target) return;
+    setProducts(prev => {
+      const next = prev.filter(p => p.id !== productId);
+      localStorage.setItem('provenda_products', JSON.stringify(next));
+      return next;
+    });
+    productsRef.current = productsRef.current.filter(p => p.id !== productId);
+    deleteRecordFromSupabase('products', productId).catch(() => {});
+    trackDeletedId(productId);
+    addAuditLog(
+      'SUPPRESSION_PRODUIT',
+      `Suppression définitive produit: ${target.name} (${target.code})`,
+      target.id,
+      target.name,
+      undefined,
+      'Suppression manuelle du produit par l\'utilisateur'
+    );
   };
 
   // Purchases & Receipts (CMP Calculation Formula)
@@ -3424,6 +3446,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateProduct,
         archiveProduct,
         unarchiveProduct,
+        deleteProduct,
         maskProduct,
         purchases: scopedPurchases,
         allPurchases: purchases,

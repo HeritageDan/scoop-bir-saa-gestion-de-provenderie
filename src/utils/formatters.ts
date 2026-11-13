@@ -15,18 +15,18 @@ export const formatNumber = (num: number | undefined | null, decimals = 1): stri
   return parts.join(',');
 };
 
-export const formatUnit = (unit: string | undefined | null): string => {
+export const formatUnit = (unit: string | undefined | null, lang: 'fr' | 'en' = 'fr'): string => {
   if (!unit) return '';
   const clean = unit.trim().toLowerCase();
   if (clean === 'kilogramme' || clean === 'kilogrammes' || clean === 'kg') return 'kg';
   if (clean === 'gramme' || clean === 'grammes' || clean === 'g') return 'g';
   if (clean === 'litre' || clean === 'litres' || clean === 'l') return 'L';
   if (clean === 'tonne' || clean === 'tonnes') return 't';
-  if (clean === 'sac' || clean === 'sacs') return 'sac';
-  if (clean === 'boite' || clean === 'boîte' || clean === 'boites' || clean === 'boîtes') return 'boîte';
-  if (clean === 'bidon' || clean === 'bidons') return 'bidon';
-  if (clean === 'gallon' || clean === 'gallons') return 'gal';
-  if (clean === 'unite' || clean === 'unité' || clean === 'unites' || clean === 'unités') return 'u';
+  if (clean === 'sac' || clean === 'sacs') return lang === 'en' ? 'bag' : 'sac';
+  if (clean === 'boite' || clean === 'boîte' || clean === 'boites' || clean === 'boîtes') return lang === 'en' ? 'box' : 'boîte';
+  if (clean === 'bidon' || clean === 'bidons') return lang === 'en' ? 'gallon' : 'bidon';
+  if (clean === 'gallon' || clean === 'gallons') return lang === 'en' ? 'gallon' : 'bidon';
+  if (clean === 'unite' || clean === 'unité' || clean === 'unites' || clean === 'unités') return lang === 'en' ? 'unit' : 'u';
   return unit;
 };
 

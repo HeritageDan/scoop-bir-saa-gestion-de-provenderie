@@ -42,6 +42,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
     theme,
     toggleTheme,
     language,
+    setLanguage,
     t,
     salesPoints,
     currentSalesPointId,
@@ -277,6 +278,50 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onNavigateTab, onT
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Prêt pour installation directe" />
           )}
         </button>
+
+        {/* Theme Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          className={`p-1.5 sm:p-2 rounded-lg border transition cursor-pointer shrink-0 ${
+            theme === 'dark'
+              ? 'bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700'
+              : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200 shadow-xs'
+          }`}
+          title={theme === 'dark' ? (language === 'fr' ? 'Passer en Mode Clair' : 'Switch to Light Mode') : (language === 'fr' ? 'Passer en Mode Sombre' : 'Switch to Dark Mode')}
+          aria-label="Toggle Theme"
+        >
+          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
+
+        {/* Global Language Toggle Pill */}
+        <div className={`p-0.5 rounded-lg flex items-center border shrink-0 ${
+          theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
+        }`}>
+          <button
+            type="button"
+            onClick={() => setLanguage('fr')}
+            className={`px-2 py-1 rounded text-xs font-bold transition cursor-pointer ${
+              language === 'fr'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
+            }`}
+            title="Français"
+          >
+            FR
+          </button>
+          <button
+            type="button"
+            onClick={() => setLanguage('en')}
+            className={`px-2 py-1 rounded text-xs font-bold transition cursor-pointer ${
+              language === 'en'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
+            }`}
+            title="English"
+          >
+            EN
+          </button>
+        </div>
 
 
         {/* Notifications Dropdown */}

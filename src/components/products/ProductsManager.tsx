@@ -7,7 +7,8 @@ import {
   FileSpreadsheet,
   Edit,
   History,
-  Archive,
+  Trash2,
+  RefreshCw,
   CheckCircle2,
   AlertTriangle,
   TrendingUp,
@@ -25,13 +26,43 @@ import { useApp } from '../../context/AppContext';
 import { Product, ProductCategory, ProductStatus, UnitType } from '../../types';
 import { formatFCFA, formatDate, formatNumber, formatUnit } from '../../utils/formatters';
 
+// Helper to compute packaging label dynamically based on units & factor
+export const getDynamicPackaging = (
+  saleUnit: UnitType,
+  factor: number,
+  baseUnit: UnitType,
+  lang: 'fr' | 'en' = 'fr'
+): string => {
+  const safeFactor = factor > 0 ? factor : 1;
+  const factorStr = safeFactor === 1 ? '1' : `${safeFactor}`;
+  const baseShort =
+    baseUnit === 'kilogramme'
+      ? 'kg'
+      : baseUnit === 'gramme'
+      ? 'g'
+      : baseUnit === 'litre'
+      ? 'L'
+      : baseUnit;
+
+  if (lang === 'en') {
+    if (saleUnit === 'sac') return `Bag of ${factorStr} ${baseShort}`;
+    if (saleUnit === 'boîte') return `Box of ${factorStr} ${baseShort}`;
+    if (saleUnit === 'bidon') return `Gallon of ${factorStr} ${baseShort}`;
+    return safeFactor > 1 ? `Pack of ${factorStr} ${baseShort}` : `Unit (${baseShort})`;
+  } else {
+    if (saleUnit === 'sac') return `Sac de ${factorStr} ${baseShort}`;
+    if (saleUnit === 'boîte') return `Boîte de ${factorStr} ${baseShort}`;
+    if (saleUnit === 'bidon') return `Bidon de ${factorStr} ${baseShort}`;
+    return safeFactor > 1 ? `Paquet de ${factorStr} ${baseShort}` : `Unité (${baseShort})`;
+  }
+};
+
 export const ProductsManager: React.FC = () => {
   const {
     products,
     addProduct,
     updateProduct,
-    archiveProduct,
-    unarchiveProduct,
+    deleteProduct,
     maskProduct,
     currentUser,
     theme,
@@ -41,9 +72,12 @@ export const ProductsManager: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | ProductStatus>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'actif' | 'masqué'>('all');
   const [sortBy, setSortBy] = useState<'code' | 'name' | 'salePrice' | 'margin' | 'stock'>('code');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Modal: Delete Confirmation
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
 
   // Modal: New Product
   const [showNewModal, setShowNewModal] = useState(false);
@@ -64,20 +98,22 @@ export const ProductsManager: React.FC = () => {
   const [newDescription, setNewDescription] = useState('');
   const [newError, setNewError] = useState('');
 
-  // Modal: Edit Product & Pricing
+  // Modal: Edit Product (100% Identical Parity to New Product)
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editCode, setEditCode] = useState('');
   const [editName, setEditName] = useState('');
   const [editCategory, setEditCategory] = useState<ProductCategory>('Aliments finis');
-  const [editPackaging, setEditPackaging] = useState('');
   const [editBaseUnit, setEditBaseUnit] = useState<UnitType>('kilogramme');
   const [editSaleUnit, setEditSaleUnit] = useState<UnitType>('sac');
+  const [editPackaging, setEditPackaging] = useState('');
   const [editConversionFactor, setEditConversionFactor] = useState<number>(50);
   const [editPurchasePrice, setEditPurchasePrice] = useState<number>(0);
   const [editSalePrice, setEditSalePrice] = useState<number>(0);
   const [editAllowDetailSale, setEditAllowDetailSale] = useState<boolean>(false);
   const [editDetailPrice, setEditDetailPrice] = useState<number>(0);
   const [editMinAlert, setEditMinAlert] = useState<number>(0);
+  const [editStatus, setEditStatus] = useState<ProductStatus>('actif');
   const [editDescription, setEditDescription] = useState('');
   const [editPriceReason, setEditPriceReason] = useState('');
   const [editError, setEditError] = useState('');
@@ -127,13 +163,14 @@ export const ProductsManager: React.FC = () => {
   // Handlers
   const handleOpenNewModal = () => {
     const nextSeq = products.length + 1;
+    const defaultFactor = 50;
     setNewCode(`PRD-${String(nextSeq).padStart(3, '0')}`);
     setNewName('');
     setNewCategory('Aliments finis');
     setNewBaseUnit('kilogramme');
     setNewSaleUnit('sac');
-    setNewPackaging('Sac de 50 kg');
-    setNewConversionFactor(50);
+    setNewConversionFactor(defaultFactor);
+    setNewPackaging(getDynamicPackaging('sac', defaultFactor, 'kilogramme', language));
     setNewPurchasePrice(15000);
     setNewSalePrice(19000);
     setNewAllowDetailSale(true);
@@ -186,7 +223,7 @@ export const ProductsManager: React.FC = () => {
         category: newCategory,
         baseUnit: newBaseUnit,
         saleUnit: newSaleUnit,
-        packaging: newPackaging.trim() || `Sac de ${newConversionFactor} ${newBaseUnit}`,
+        packaging: newPackaging.trim() || getDynamicPackaging(newSaleUnit, newConversionFactor, newBaseUnit, language),
         conversionFactor: newConversionFactor,
         purchasePrice: newPurchasePrice,
         salePrice: newSalePrice,
@@ -205,20 +242,23 @@ export const ProductsManager: React.FC = () => {
 
   const handleOpenEditModal = (product: Product) => {
     setEditingProduct(product);
+    setEditCode(product.code);
     setEditName(product.name);
     setEditCategory(product.category);
-    setEditPackaging(product.packaging);
     setEditBaseUnit(product.baseUnit);
     setEditSaleUnit(product.saleUnit);
-    setEditConversionFactor(product.conversionFactor || 1);
+    const factor = product.conversionFactor || 1;
+    setEditConversionFactor(factor);
+    setEditPackaging(product.packaging || getDynamicPackaging(product.saleUnit, factor, product.baseUnit, language));
     setEditPurchasePrice(product.purchasePrice);
     setEditSalePrice(product.salePrice);
-    setEditAllowDetailSale(product.allowDetailSale ?? ((product.conversionFactor || 1) > 1));
+    setEditAllowDetailSale(Boolean(product.allowDetailSale));
     setEditDetailPrice(
       product.detailPrice ??
-      Math.round(((product.salePrice / (product.conversionFactor || 1)) * 1.15) / 10) * 10
+      Math.round(((product.salePrice / factor) * 1.15) / 10) * 10
     );
     setEditMinAlert(product.minAlertThresholdBaseUnit);
+    setEditStatus(product.status === 'masqué' ? 'masqué' : 'actif');
     setEditDescription(product.description || '');
     setEditPriceReason('');
     setEditError('');
@@ -230,8 +270,13 @@ export const ProductsManager: React.FC = () => {
     if (!editingProduct) return;
     setEditError('');
 
-    if (!editName.trim()) {
-      setEditError(language === 'fr' ? 'Le nom du produit est obligatoire.' : 'Product name is required.');
+    if (!editCode.trim() || !editName.trim()) {
+      setEditError(language === 'fr' ? 'Le code et le nom du produit sont obligatoires.' : 'Product code and name are required.');
+      return;
+    }
+
+    if (products.some(p => p.id !== editingProduct.id && p.code.trim().toUpperCase() === editCode.trim().toUpperCase())) {
+      setEditError(language === 'fr' ? 'Ce code produit est déjà utilisé par une autre référence.' : 'This product code is already in use.');
       return;
     }
 
@@ -253,9 +298,10 @@ export const ProductsManager: React.FC = () => {
     updateProduct(
       {
         ...editingProduct,
+        code: editCode.trim().toUpperCase(),
         name: editName.trim(),
         category: editCategory,
-        packaging: editPackaging.trim() || `${editConversionFactor} ${editBaseUnit}`,
+        packaging: editPackaging.trim() || getDynamicPackaging(editSaleUnit, editConversionFactor, editBaseUnit, language),
         baseUnit: editBaseUnit,
         saleUnit: editSaleUnit,
         conversionFactor: editConversionFactor,
@@ -264,6 +310,7 @@ export const ProductsManager: React.FC = () => {
         allowDetailSale: editAllowDetailSale,
         detailPrice: editAllowDetailSale ? editDetailPrice : undefined,
         minAlertThresholdBaseUnit: editMinAlert,
+        status: editStatus,
         description: editDescription.trim() || undefined,
       },
       editPriceReason.trim() || undefined
@@ -387,9 +434,9 @@ export const ProductsManager: React.FC = () => {
             {products.length}
           </div>
           <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
-            <span className="text-emerald-500 font-bold">{activeProducts.length} actifs</span>
+            <span className="text-emerald-500 font-bold">{activeProducts.length} {language === 'fr' ? 'actifs' : 'active'}</span>
             <span>•</span>
-            <span>{products.filter(p => p.status === 'archivé').length} archivés</span>
+            <span>{products.filter(p => p.status === 'masqué').length} {language === 'fr' ? 'masqués' : 'hidden'}</span>
           </div>
         </div>
 
@@ -489,7 +536,6 @@ export const ProductsManager: React.FC = () => {
               <option value="all">{language === 'fr' ? 'Tous les statuts' : 'All statuses'}</option>
               <option value="actif">{language === 'fr' ? 'Actifs uniquement' : 'Active only'}</option>
               <option value="masqué">{language === 'fr' ? 'Masqués uniquement' : 'Hidden only'}</option>
-              <option value="archivé">{language === 'fr' ? 'Archivés uniquement' : 'Archived only'}</option>
             </select>
 
             {/* Sort Dropdown */}
@@ -648,13 +694,9 @@ export const ProductsManager: React.FC = () => {
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
                             {language === 'fr' ? 'Actif' : 'Active'}
                           </span>
-                        ) : prod.status === 'masqué' ? (
+                        ) : (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-500/10 text-slate-400 border border-slate-500/20">
                             {language === 'fr' ? 'Masqué' : 'Hidden'}
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                            {language === 'fr' ? 'Archivé' : 'Archived'}
                           </span>
                         )}
                       </td>
@@ -689,17 +731,11 @@ export const ProductsManager: React.FC = () => {
                           </button>
 
                           <button
-                            onClick={() => {
-                              if (prod.status === 'archivé') {
-                                unarchiveProduct(prod.id);
-                              } else {
-                                archiveProduct(prod.id);
-                              }
-                            }}
+                            onClick={() => setProductToDelete(prod)}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition cursor-pointer"
-                            title={prod.status === 'archivé' ? 'Désarchiver' : 'Archiver'}
+                            title={language === 'fr' ? 'Supprimer définitivement' : 'Delete permanently'}
                           >
-                            <Archive className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -819,10 +855,7 @@ export const ProductsManager: React.FC = () => {
                         onChange={e => {
                           const val = e.target.value as UnitType;
                           setNewSaleUnit(val);
-                          if (val === 'sac') setNewPackaging(language === 'fr' ? `Sac de ${newConversionFactor} ${newBaseUnit}` : `Bag of ${newConversionFactor} ${newBaseUnit}`);
-                          else if (val === 'boîte') setNewPackaging(language === 'fr' ? `Boîte de ${newConversionFactor} ${newBaseUnit}` : `Box of ${newConversionFactor} ${newBaseUnit}`);
-                          else if (val === 'bidon') setNewPackaging(language === 'fr' ? `Bidon de ${newConversionFactor} ${newBaseUnit}` : `Gallon of ${newConversionFactor} ${newBaseUnit}`);
-                          else setNewPackaging(language === 'fr' ? `Unité (${newConversionFactor} ${newBaseUnit})` : `Unit (${newConversionFactor} ${newBaseUnit})`);
+                          setNewPackaging(getDynamicPackaging(val, newConversionFactor, newBaseUnit, language));
                         }}
                         style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
                         className={`w-full px-3 py-2 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
@@ -849,7 +882,11 @@ export const ProductsManager: React.FC = () => {
                       </label>
                       <select
                         value={newBaseUnit}
-                        onChange={e => setNewBaseUnit(e.target.value as any)}
+                        onChange={e => {
+                          const val = e.target.value as UnitType;
+                          setNewBaseUnit(val);
+                          setNewPackaging(getDynamicPackaging(newSaleUnit, newConversionFactor, val, language));
+                        }}
                         style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
                         className={`w-full px-3 py-2 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                           }`}
@@ -878,11 +915,40 @@ export const ProductsManager: React.FC = () => {
                         min={0.01}
                         step="any"
                         value={newConversionFactor}
-                        onChange={e => setNewConversionFactor(parseFloat(e.target.value) || 1)}
+                        onChange={e => {
+                          const val = parseFloat(e.target.value) || 1;
+                          setNewConversionFactor(val);
+                          setNewPackaging(getDynamicPackaging(newSaleUnit, val, newBaseUnit, language));
+                        }}
                         className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                           }`}
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className={`block text-[11px] font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {language === 'fr' ? 'Libellé Conditionnement (Packaging)' : 'Packaging Label'}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setNewPackaging(getDynamicPackaging(newSaleUnit, newConversionFactor, newBaseUnit, language))}
+                        className="text-[10px] text-emerald-500 hover:underline flex items-center gap-1 cursor-pointer font-semibold"
+                        title={language === 'fr' ? 'Régénérer selon le facteur et l\'unité' : 'Auto-fill from factor and unit'}
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>{language === 'fr' ? 'Générer auto' : 'Auto-fill'}</span>
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={newPackaging}
+                      onChange={e => setNewPackaging(e.target.value)}
+                      placeholder={getDynamicPackaging(newSaleUnit, newConversionFactor, newBaseUnit, language)}
+                      className={`w-full px-3 py-2 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                        }`}
+                    />
                   </div>
 
                   <div className={`text-xs p-2.5 rounded-xl flex items-center gap-2.5 border ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/30 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-900'
@@ -1079,7 +1145,7 @@ export const ProductsManager: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: MODIFIER PRODUIT & TARIFS */}
+      {/* MODAL: MODIFIER PRODUIT & TARIFS (PARITÉ COMPLÈTE AVEC LA CRÉATION) */}
       {showEditModal && editingProduct && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 flex justify-center items-start">
           <div className={`w-full max-w-2xl rounded-2xl border shadow-2xl my-2 sm:my-6 flex flex-col max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden ${theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
@@ -1092,10 +1158,10 @@ export const ProductsManager: React.FC = () => {
                 </div>
                 <div>
                   <h3 className={`text-base font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                    {language === 'fr' ? `Modifier le Produit : ${editingProduct.code}` : `Edit Product : ${editingProduct.code}`}
+                    {language === 'fr' ? `Modifier le Produit : ${editCode}` : `Edit Product : ${editCode}`}
                   </h3>
                   <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {language === 'fr' ? 'Mise à jour des tarifs, du conditionnement et des marges' : 'Update prices, packaging and margins'}
+                    {language === 'fr' ? 'Modification de toutes les caractéristiques, tarifs et conditionnements' : 'Update all specifications, pricing and packaging'}
                   </p>
                 </div>
               </div>
@@ -1117,24 +1183,26 @@ export const ProductsManager: React.FC = () => {
                   </div>
                 )}
 
+                {/* Grid 2 Cols: Code & Famille */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
-                      {language === 'fr' ? 'Désignation Produit *' : 'Product Name *'}
+                      {language === 'fr' ? 'Code / Référence unique *' : 'Unique Code *'}
                     </label>
                     <input
                       type="text"
-                      value={editName}
-                      onChange={e => setEditName(e.target.value)}
+                      value={editCode}
+                      onChange={e => setEditCode(e.target.value)}
                       required
-                      className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                      placeholder="ex: PRD-001"
+                      className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                         }`}
                     />
                   </div>
 
                   <div>
                     <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
-                      {language === 'fr' ? 'Catégorie *' : 'Category *'}
+                      {language === 'fr' ? 'Famille de produit *' : 'Product Category *'}
                     </label>
                     <select
                       value={editCategory}
@@ -1151,13 +1219,155 @@ export const ProductsManager: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Tarifs Achat & Vente */}
+                <div>
+                  <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
+                    {language === 'fr' ? 'Désignation commerciale complète *' : 'Full Commercial Name *'}
+                  </label>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    required
+                    placeholder="ex: Aliment Démarrage Poussin 50kg"
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                      }`}
+                  />
+                </div>
+
+                {/* Unités & Conditionnement (Parité exacte) */}
+                <div className={`p-4 rounded-xl border space-y-3 ${theme === 'dark' ? 'bg-slate-800/40 border-slate-700/80' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                  <div className={`flex items-center gap-2 text-xs font-bold ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>
+                    <Layers className="w-4 h-4 text-emerald-500" />
+                    <span>{language === 'fr' ? 'Unités & Conditionnement' : 'Units & Packaging'}</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {language === 'fr' ? 'Unité de Vente' : 'Sales Unit'}
+                      </label>
+                      <select
+                        value={editSaleUnit}
+                        onChange={e => {
+                          const val = e.target.value as UnitType;
+                          setEditSaleUnit(val);
+                          setEditPackaging(getDynamicPackaging(val, editConversionFactor, editBaseUnit, language));
+                        }}
+                        style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
+                        className={`w-full px-3 py-2 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                          }`}
+                      >
+                        <option value="sac" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                          {language === 'fr' ? 'Sac' : 'Bag'}
+                        </option>
+                        <option value="boîte" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                          {language === 'fr' ? 'Boîte' : 'Box'}
+                        </option>
+                        <option value="bidon" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                          {language === 'fr' ? 'Bidon' : 'Gallon'}
+                        </option>
+                        <option value="unité" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                          {language === 'fr' ? 'Unité' : 'Unit'}
+                        </option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {language === 'fr' ? 'Unité de Stock (Base)' : 'Base Stock Unit'}
+                      </label>
+                      <select
+                        value={editBaseUnit}
+                        onChange={e => {
+                          const val = e.target.value as UnitType;
+                          setEditBaseUnit(val);
+                          setEditPackaging(getDynamicPackaging(editSaleUnit, editConversionFactor, val, language));
+                        }}
+                        style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
+                        className={`w-full px-3 py-2 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                          }`}
+                      >
+                        <option value="kilogramme" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                          {language === 'fr' ? 'Kilogramme' : 'Kilogram'}
+                        </option>
+                        <option value="gramme" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                          {language === 'fr' ? 'Gramme' : 'Gram'}
+                        </option>
+                        <option value="litre" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                          {language === 'fr' ? 'Litre' : 'Litre'}
+                        </option>
+                        <option value="unité" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                          {language === 'fr' ? 'Unité' : 'Unit'}
+                        </option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {language === 'fr' ? 'Facteur de conversion' : 'Conversion Factor'}
+                      </label>
+                      <input
+                        type="number"
+                        min={0.01}
+                        step="any"
+                        value={editConversionFactor}
+                        onChange={e => {
+                          const val = parseFloat(e.target.value) || 1;
+                          setEditConversionFactor(val);
+                          setEditPackaging(getDynamicPackaging(editSaleUnit, val, editBaseUnit, language));
+                        }}
+                        className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                          }`}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className={`block text-[11px] font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {language === 'fr' ? 'Libellé Conditionnement (Packaging)' : 'Packaging Label'}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setEditPackaging(getDynamicPackaging(editSaleUnit, editConversionFactor, editBaseUnit, language))}
+                        className="text-[10px] text-emerald-500 hover:underline flex items-center gap-1 cursor-pointer font-semibold"
+                        title={language === 'fr' ? 'Régénérer selon le facteur et l\'unité' : 'Auto-fill from factor and unit'}
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>{language === 'fr' ? 'Générer auto' : 'Auto-fill'}</span>
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={editPackaging}
+                      onChange={e => setEditPackaging(e.target.value)}
+                      placeholder={getDynamicPackaging(editSaleUnit, editConversionFactor, editBaseUnit, language)}
+                      className={`w-full px-3 py-2 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                        }`}
+                    />
+                  </div>
+
+                  <div className={`text-xs p-2.5 rounded-xl flex items-center gap-2.5 border ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/30 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-900'
+                    }`}>
+                    <Info className="w-4 h-4 text-blue-400 shrink-0" />
+                    <span>
+                      {language === 'fr' ? (
+                        <>Règle de conversion : <strong>1 {editSaleUnit}</strong> contiendra <strong>{editConversionFactor} {editBaseUnit}</strong> lors de la facturation et du décompte stock.</>
+                      ) : (
+                        <>Conversion rule: <strong>1 {editSaleUnit === 'bidon' ? 'gallon' : editSaleUnit}</strong> will contain <strong>{editConversionFactor} {editBaseUnit}</strong> for invoicing and stock calculation.</>
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Tarifs Achat & Vente & Marge */}
                 <div className={`p-4 rounded-xl border space-y-3 ${theme === 'dark' ? 'bg-slate-800/40 border-slate-700/80' : 'bg-slate-50 border-slate-200'
                   }`}>
                   <div className={`flex items-center justify-between text-xs font-bold ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>
                     <div className="flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-emerald-500" />
-                      <span>{language === 'fr' ? 'Révision Tarifaire (FCFA)' : 'Price Revision (FCFA)'}</span>
+                      <span>{language === 'fr' ? 'Tarification & Marge Commerciale' : 'Pricing & Margins'}</span>
                     </div>
                     <span className={`text-[11px] font-mono ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       CMP Actuel : {formatFCFA(editingProduct.cmp)}/{editingProduct.baseUnit}
@@ -1167,7 +1377,7 @@ export const ProductsManager: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
-                        {language === 'fr' ? 'Prix d\'Achat Catalogue (FCFA)' : 'Purchase Price (FCFA)'}
+                        {language === 'fr' ? 'Prix d\'Achat Catalogue (FCFA) *' : 'Purchase Price (FCFA) *'}
                       </label>
                       <input
                         type="number"
@@ -1181,7 +1391,7 @@ export const ProductsManager: React.FC = () => {
 
                     <div>
                       <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
-                        {language === 'fr' ? 'Prix de Vente Unitaire (FCFA)' : 'Sales Price (FCFA)'}
+                        {language === 'fr' ? 'Prix de Vente Unitaire (FCFA) *' : 'Sales Price (FCFA) *'}
                       </label>
                       <input
                         type="number"
@@ -1194,7 +1404,15 @@ export const ProductsManager: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Vente au détail (au kg) */}
+                  <div className={`flex items-center justify-between text-xs p-3 rounded-xl border ${theme === 'dark' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    }`}>
+                    <span className="font-semibold">{language === 'fr' ? 'Marge brute unitaire estimée :' : 'Estimated unit gross margin:'}</span>
+                    <span className="font-bold font-mono text-xs">
+                      {formatFCFA(editSalePrice - editPurchasePrice)} / {editSaleUnit} ({editSalePrice > 0 ? (((editSalePrice - editPurchasePrice) / editSalePrice) * 100).toFixed(1) : 0}%)
+                    </span>
+                  </div>
+
+                  {/* Vente au détail (au kg / unité de base) */}
                   <div className={`pt-2 border-t space-y-2.5 ${theme === 'dark' ? 'border-slate-700/80' : 'border-slate-200'}`}>
                     <div className="flex items-center justify-between">
                       <label className="flex items-center gap-2 cursor-pointer">
@@ -1239,7 +1457,7 @@ export const ProductsManager: React.FC = () => {
 
                           <div className={`text-[11px] space-y-0.5 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
                             <div>
-                              {language === 'fr' ? 'Équivalent au sac :' : 'Bag equivalent:'}{' '}
+                              {language === 'fr' ? `Équivalent au ${editSaleUnit} :` : `${editSaleUnit} equivalent:`}{' '}
                               <span className="font-mono font-semibold">
                                 {editConversionFactor > 0 ? Math.round(editSalePrice / editConversionFactor) : 0} FCFA / {editBaseUnit}
                               </span>
@@ -1260,7 +1478,7 @@ export const ProductsManager: React.FC = () => {
                   {/* Justification de prix */}
                   <div>
                     <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
-                      {language === 'fr' ? 'Motif de révision tarifaire (Optionnel)' : 'Reason for price revision (Optional)'}
+                      {language === 'fr' ? 'Motif de révision tarifaire / modification (Optionnel)' : 'Reason for price revision / change (Optional)'}
                     </label>
                     <input
                       type="text"
@@ -1273,25 +1491,11 @@ export const ProductsManager: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Conditionnement */}
+                {/* Paramètres de Stock & Visibilité (Grid 2 cols) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
-                      {language === 'fr' ? 'Libellé Conditionnement' : 'Packaging'}
-                    </label>
-                    <input
-                      type="text"
-                      value={editPackaging}
-                      onChange={e => setEditPackaging(e.target.value)}
-                      placeholder="ex: Sac de 50 kg"
-                      className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
-                        }`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
-                      {language === 'fr' ? `Seuil Alerte Stock Bas (${editingProduct.baseUnit})` : `Min Alert (${editingProduct.baseUnit})`}
+                      {language === 'fr' ? `Seuil Alerte Stock Bas (${editBaseUnit})` : `Min Alert (${editBaseUnit})`}
                     </label>
                     <input
                       type="number"
@@ -1302,16 +1506,37 @@ export const ProductsManager: React.FC = () => {
                         }`}
                     />
                   </div>
+
+                  <div>
+                    <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
+                      {language === 'fr' ? 'Statut du Produit *' : 'Product Status *'}
+                    </label>
+                    <select
+                      value={editStatus}
+                      onChange={e => setEditStatus(e.target.value as ProductStatus)}
+                      style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
+                      className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                        }`}
+                    >
+                      <option value="actif" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                        {language === 'fr' ? 'Actif (Visible au catalogue et en caisse)' : 'Active (Visible in catalog & POS)'}
+                      </option>
+                      <option value="masqué" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                        {language === 'fr' ? 'Masqué (Caché en caisse)' : 'Hidden (Hidden from POS)'}
+                      </option>
+                    </select>
+                  </div>
                 </div>
 
                 <div>
                   <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
-                    {language === 'fr' ? 'Description' : 'Description'}
+                    {language === 'fr' ? 'Fiche technique / Description (Optionnel)' : 'Description (Optional)'}
                   </label>
                   <textarea
                     rows={2}
                     value={editDescription}
                     onChange={e => setEditDescription(e.target.value)}
+                    placeholder="Composition nutritionnelle, recommandations d'élevage..."
                     className={`w-full px-3.5 py-2.5 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                       }`}
                   />
@@ -1339,6 +1564,77 @@ export const ProductsManager: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRMATION DE SUPPRESSION DÉFINITIVE */}
+      {productToDelete && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs p-4 flex justify-center items-center">
+          <div className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 animate-in fade-in duration-150 ${
+            theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-2xl bg-rose-500/10 text-rose-500">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-rose-500">
+                  {language === 'fr' ? 'Supprimer le produit' : 'Delete Product'}
+                </h3>
+                <p className="text-xs text-slate-400 font-mono">
+                  {productToDelete.code}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs leading-relaxed mb-4">
+              {language === 'fr' ? (
+                <>
+                  Êtes-vous certain de vouloir supprimer définitivement le produit{' '}
+                  <strong className="text-rose-400 font-bold">{productToDelete.name}</strong> ? Cette action est irréversible et retirera le produit du catalogue.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to permanently delete the product{' '}
+                  <strong className="text-rose-400 font-bold">{productToDelete.name}</strong>? This action cannot be undone and removes it from the catalog.
+                </>
+              )}
+            </p>
+
+            {productToDelete.stockCurrentBaseUnit > 0 && (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs mb-4 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>
+                  {language === 'fr'
+                    ? `Attention : Il reste encore ${formatNumber(productToDelete.stockCurrentBaseUnit)} ${formatUnit(productToDelete.baseUnit)} en stock physique pour cet article.`
+                    : `Warning: There are still ${formatNumber(productToDelete.stockCurrentBaseUnit)} ${formatUnit(productToDelete.baseUnit)} remaining in stock.`}
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setProductToDelete(null)}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+                  theme === 'dark' ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-300 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {language === 'fr' ? 'Annuler' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteProduct(productToDelete.id);
+                  setProductToDelete(null);
+                }}
+                className="bg-rose-600 hover:bg-rose-500 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-md cursor-pointer transition flex items-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{language === 'fr' ? 'Supprimer définitivement' : 'Delete permanently'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

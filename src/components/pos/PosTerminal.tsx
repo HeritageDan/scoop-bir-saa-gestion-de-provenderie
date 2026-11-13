@@ -240,7 +240,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
     setCart(prev =>
       prev.map(i => {
         if (i.id !== lineId) return i;
-        const lineGross = newQty * i.unitPrice;
+        const lineGross = Math.round(newQty * i.unitPrice);
         let lineDiscount = 0;
         if (i.discountValue && i.discountValue > 0) {
           if (i.discountType === 'pourcentage') {
@@ -656,7 +656,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
               const unitsAvailable = Math.floor(
                 product.stockCurrentBaseUnit / (product.conversionFactor || 1)
               );
-              const allowDetail = Boolean(product.allowDetailSale && (product.conversionFactor || 1) > 1);
+              const allowDetail = Boolean(product.allowDetailSale);
               const detailPrice = product.detailPrice || Math.round(product.salePrice / (product.conversionFactor || 1));
 
               return (
@@ -746,10 +746,10 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
                             ? 'bg-slate-700/50 text-slate-400 cursor-not-allowed'
                             : 'bg-emerald-600 hover:bg-emerald-500 text-white'
                         }`}
-                        title={`Ajouter 1 ${product.saleUnit}`}
+                        title={language === 'fr' ? `Ajouter 1 ${product.saleUnit}` : `Add 1 ${formatUnit(product.saleUnit, language)}`}
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>+ {product.saleUnit}</span>
+                        <span>+ {formatUnit(product.saleUnit, language)}</span>
                       </button>
 
                       {allowDetail && (
@@ -765,10 +765,10 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
                               ? 'bg-slate-700/50 text-slate-400 cursor-not-allowed'
                               : 'bg-amber-600 hover:bg-amber-500 text-white'
                           }`}
-                          title={`Ajouter 1 ${product.baseUnit} au détail`}
+                          title={language === 'fr' ? `Ajouter 1 ${product.baseUnit} au détail` : `Add 1 ${formatUnit(product.baseUnit, language)} detail`}
                         >
                           <Plus className="w-3.5 h-3.5" />
-                          <span>+ Détail ({product.baseUnit})</span>
+                          <span>+ {language === 'fr' ? 'Détail' : 'Retail'} ({formatUnit(product.baseUnit, language)})</span>
                         </button>
                       )}
                     </div>
@@ -953,7 +953,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
             </div>
           ) : (
             cart.map(item => {
-              const lineGross = item.quantity * item.unitPrice;
+              const lineGross = Math.round(item.quantity * item.unitPrice);
               const itemDiscount = item.discountAmount || 0;
               const itemNet = Math.max(0, lineGross - itemDiscount);
               const baseInOtherLines = getBaseQtyInCartForProduct(item.product.id, item.id);
@@ -999,29 +999,40 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
                     }`}>
                       <button
                         type="button"
-                        onClick={() => handleUpdateQty(item.id, item.quantity - 1)}
+                        onClick={() => {
+                          const step = item.saleMode === 'detail' ? 0.25 : 1;
+                          const nextVal = Math.round((item.quantity - step) * 100) / 100;
+                          if (nextVal > 0) handleUpdateQty(item.id, nextVal);
+                          else handleRemoveItem(item.id);
+                        }}
                         className={`p-1 rounded cursor-pointer transition ${
                           theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                         }`}
+                        title={item.saleMode === 'detail' ? '-0.25' : '-1'}
                       >
                         <Minus className="w-3 h-3" />
                       </button>
                       <input
                         type="number"
-                        min="0.1"
-                        step={item.saleMode === 'detail' ? 'any' : '1'}
+                        min={item.saleMode === 'detail' ? '0.05' : '1'}
+                        step={item.saleMode === 'detail' ? '0.05' : '1'}
                         value={item.quantity}
                         onChange={e => handleUpdateQty(item.id, parseFloat(e.target.value) || 0)}
-                        className={`w-12 text-center font-bold text-xs focus:outline-none ${
+                        className={`w-14 text-center font-bold text-xs focus:outline-none ${
                           theme === 'dark' ? 'text-white' : 'text-slate-900'
                         }`}
                       />
                       <button
                         type="button"
-                        onClick={() => handleUpdateQty(item.id, item.quantity + 1)}
+                        onClick={() => {
+                          const step = item.saleMode === 'detail' ? 0.25 : 1;
+                          const nextVal = Math.round((item.quantity + step) * 100) / 100;
+                          handleUpdateQty(item.id, nextVal);
+                        }}
                         className={`p-1 rounded cursor-pointer transition ${
                           theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                         }`}
+                        title={item.saleMode === 'detail' ? '+0.25' : '+1'}
                       >
                         <Plus className="w-3 h-3" />
                       </button>
@@ -1055,6 +1066,66 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({ onSaleCompleted }) => 
                       </button>
                     </div>
                   </div>
+
+                  {/* Fractional selling intervals presets for detail sales */}
+                  {item.saleMode === 'detail' && (
+                    <div className="mt-2 pt-1.5 border-t border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-between gap-1 flex-wrap">
+                      <span className="text-[10px] text-slate-400 font-semibold shrink-0">
+                        {language === 'fr' ? 'Fractions :' : 'Intervals:'}
+                      </span>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {[
+                          { label: '¼', qty: 0.25, title: 'Un quart (0.25)' },
+                          { label: '½', qty: 0.5, title: 'La moitié (0.50)' },
+                          { label: '¾', qty: 0.75, title: 'Trois quarts (0.75)' },
+                          { label: '1', qty: 1.0, title: 'Une unité complète (1.00)' },
+                        ].map(preset => {
+                          const isSelected = Math.abs(item.quantity - preset.qty) < 0.001;
+                          return (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => handleUpdateQty(item.id, preset.qty)}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold font-mono transition cursor-pointer ${
+                                isSelected
+                                  ? 'bg-amber-500 text-slate-950 shadow-xs'
+                                  : theme === 'dark'
+                                  ? 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700'
+                                  : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                              }`}
+                              title={`${preset.title} = ${formatFCFA(Math.round(preset.qty * item.unitPrice))}`}
+                            >
+                              {preset.label}
+                            </button>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateQty(item.id, Math.round((item.quantity + 0.25) * 100) / 100)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold font-mono transition cursor-pointer ${
+                            theme === 'dark'
+                              ? 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700'
+                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          }`}
+                          title={`+0.25 ${item.unit}`}
+                        >
+                          +¼
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateQty(item.id, Math.round((item.quantity + 0.5) * 100) / 100)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold font-mono transition cursor-pointer ${
+                            theme === 'dark'
+                              ? 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700'
+                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          }`}
+                          title={`+0.50 ${item.unit}`}
+                        >
+                          +½
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Per-Product Discount Section */}
                   {!item.isDiscountOpen ? (
