@@ -64,6 +64,7 @@ export const ProductsManager: React.FC = () => {
     updateProduct,
     deleteProduct,
     maskProduct,
+    recordStockAdjustment,
     currentUser,
     theme,
     language,
@@ -112,6 +113,9 @@ export const ProductsManager: React.FC = () => {
   const [editSalePrice, setEditSalePrice] = useState<number>(0);
   const [editAllowDetailSale, setEditAllowDetailSale] = useState<boolean>(false);
   const [editDetailPrice, setEditDetailPrice] = useState<number>(0);
+  const [editStockCurrent, setEditStockCurrent] = useState<number>(0);
+  const [editCmp, setEditCmp] = useState<number>(0);
+  const [editStockAdjustmentReason, setEditStockAdjustmentReason] = useState<string>('');
   const [editMinAlert, setEditMinAlert] = useState<number>(0);
   const [editStatus, setEditStatus] = useState<ProductStatus>('actif');
   const [editDescription, setEditDescription] = useState('');
@@ -258,6 +262,9 @@ export const ProductsManager: React.FC = () => {
       Math.round(((product.salePrice / factor) * 1.15) / 10) * 10
     );
     setEditMinAlert(product.minAlertThresholdBaseUnit);
+    setEditStockCurrent(product.stockCurrentBaseUnit);
+    setEditCmp(product.cmp);
+    setEditStockAdjustmentReason('');
     setEditStatus(product.status === 'masqué' ? 'masqué' : 'actif');
     setEditDescription(product.description || '');
     setEditPriceReason('');
@@ -295,6 +302,26 @@ export const ProductsManager: React.FC = () => {
       return;
     }
 
+    if (editStockCurrent < 0) {
+      setEditError(language === 'fr' ? 'Le stock physique ne peut pas être négatif.' : 'Physical stock cannot be negative.');
+      return;
+    }
+
+    if (editCmp < 0) {
+      setEditError(language === 'fr' ? 'Le coût unitaire moyen (CMP) ne peut pas être négatif.' : 'Unit cost cannot be negative.');
+      return;
+    }
+
+    const stockDiff = Math.round((editStockCurrent - editingProduct.stockCurrentBaseUnit) * 1000) / 1000;
+    if (Math.abs(stockDiff) > 0.0001) {
+      recordStockAdjustment(
+        editingProduct.id,
+        stockDiff,
+        'correction d\'inventaire',
+        editStockAdjustmentReason.trim() || (language === 'fr' ? 'Correction de stock depuis la fiche produit' : 'Stock adjustment from product details')
+      );
+    }
+
     updateProduct(
       {
         ...editingProduct,
@@ -309,6 +336,8 @@ export const ProductsManager: React.FC = () => {
         salePrice: editSalePrice,
         allowDetailSale: editAllowDetailSale,
         detailPrice: editAllowDetailSale ? editDetailPrice : undefined,
+        stockCurrentBaseUnit: editStockCurrent,
+        cmp: editCmp,
         minAlertThresholdBaseUnit: editMinAlert,
         status: editStatus,
         description: editDescription.trim() || undefined,
@@ -1074,34 +1103,114 @@ export const ProductsManager: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Stock Initial & Seuil */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
-                      {language === 'fr' ? `Stock Initial (${newBaseUnit})` : `Initial Stock (${newBaseUnit})`}
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={newInitialStock}
-                      onChange={e => setNewInitialStock(parseFloat(e.target.value) || 0)}
-                      className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                        }`}
-                    />
+                {/* Section: Stock Initial & Seuil d'Alerte */}
+                <div className={`p-4 rounded-xl border space-y-3 ${theme === 'dark' ? 'bg-slate-800/40 border-slate-700/80' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className={`flex items-center justify-between text-xs font-bold ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-emerald-500" />
+                      <span>{language === 'fr' ? 'Stock Initial & Seuil d\'Alerte' : 'Initial Stock & Alert Threshold'}</span>
+                    </div>
+                    <span className={`text-[11px] font-mono ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                      {language === 'fr' ? 'Initialisation inventaire' : 'Inventory initialization'}
+                    </span>
                   </div>
 
-                  <div>
-                    <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
-                      {language === 'fr' ? `Seuil Alerte Stock Bas (${newBaseUnit})` : `Min Alert Threshold (${newBaseUnit})`}
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={newMinAlert}
-                      onChange={e => setNewMinAlert(parseFloat(e.target.value) || 0)}
-                      className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Stock en unité commerciale (Sacs / Gallons) */}
+                    <div>
+                      <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {language === 'fr'
+                          ? `Stock Initial (en ${newSaleUnit === 'bidon' ? 'bidon' : newSaleUnit}s)`
+                          : `Initial Stock (in ${newSaleUnit === 'bidon' ? 'gallon' : newSaleUnit}s)`}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={newConversionFactor > 0 ? Math.round((newInitialStock / newConversionFactor) * 1000) / 1000 : 0}
+                        onChange={e => {
+                          const commQty = parseFloat(e.target.value) || 0;
+                          setNewInitialStock(Math.round(commQty * newConversionFactor * 100) / 100);
+                        }}
+                        placeholder="ex: 50"
+                        className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                         }`}
-                    />
+                      />
+                    </div>
+
+                    {/* Stock en unité de base (kg / L) */}
+                    <div>
+                      <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {language === 'fr' ? `Stock Initial (en ${newBaseUnit}) *` : `Initial Stock (in ${newBaseUnit}) *`}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={newInitialStock}
+                        onChange={e => setNewInitialStock(parseFloat(e.target.value) || 0)}
+                        placeholder="ex: 2500"
+                        className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-emerald-400' : 'bg-white border-slate-300 text-emerald-700'
+                        }`}
+                      />
+                    </div>
+
+                    {/* Seuil Alerte Stock Bas */}
+                    <div>
+                      <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {language === 'fr' ? `Seuil Alerte Min (${newBaseUnit}) *` : `Min Alert (${newBaseUnit}) *`}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={newMinAlert}
+                        onChange={e => setNewMinAlert(parseFloat(e.target.value) || 0)}
+                        className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* CMP Initial & Valorisation */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200 dark:border-slate-700/80">
+                    <div>
+                      <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {language === 'fr'
+                          ? `Coût Unitaire Initial (CMP en FCFA / ${newBaseUnit})`
+                          : `Initial Unit Cost / WAC (FCFA / ${newBaseUnit})`}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={newInitialCmp}
+                        onChange={e => setNewInitialCmp(parseFloat(e.target.value) || 0)}
+                        className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-amber-300' : 'bg-white border-slate-300 text-amber-800'
+                        }`}
+                      />
+                      <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {language === 'fr'
+                          ? `Par défaut calculé sur le prix d'achat : ${newConversionFactor > 0 ? Math.round((newPurchasePrice / newConversionFactor) * 10) / 10 : 0} FCFA / ${newBaseUnit}`
+                          : `Default calculated from purchase price: ${newConversionFactor > 0 ? Math.round((newPurchasePrice / newConversionFactor) * 10) / 10 : 0} FCFA / ${newBaseUnit}`}
+                      </p>
+                    </div>
+
+                    <div className={`p-3 rounded-lg text-xs flex flex-col justify-center border ${
+                      theme === 'dark' ? 'bg-slate-900/60 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
+                    }`}>
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        {language === 'fr' ? 'Valorisation du Stock Initial :' : 'Initial Stock Valuation:'}
+                      </span>
+                      <span className="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                        {formatFCFA(newInitialStock * (newInitialCmp > 0 ? newInitialCmp : (newConversionFactor > 0 ? newPurchasePrice / newConversionFactor : 0)))}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {newInitialStock} {newBaseUnit} × {newInitialCmp > 0 ? newInitialCmp : (newConversionFactor > 0 ? Math.round((newPurchasePrice / newConversionFactor) * 10) / 10 : 0)} FCFA
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -1491,41 +1600,151 @@ export const ProductsManager: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Paramètres de Stock & Visibilité (Grid 2 cols) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
-                      {language === 'fr' ? `Seuil Alerte Stock Bas (${editBaseUnit})` : `Min Alert (${editBaseUnit})`}
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={editMinAlert}
-                      onChange={e => setEditMinAlert(parseFloat(e.target.value) || 0)}
-                      className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                        }`}
-                    />
+                {/* Section: Stock Actuel & Seuil d'Alerte */}
+                <div className={`p-4 rounded-xl border space-y-3 ${theme === 'dark' ? 'bg-slate-800/40 border-slate-700/80' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className={`flex items-center justify-between text-xs font-bold ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-emerald-500" />
+                      <span>{language === 'fr' ? 'Stock en Réserve & Seuil d\'Alerte' : 'Current Stock & Alert Threshold'}</span>
+                    </div>
+                    <span className={`text-[11px] font-mono ${
+                      editStockCurrent <= editMinAlert
+                        ? 'text-rose-500 font-bold'
+                        : (theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600')
+                    }`}>
+                      {editStockCurrent <= editMinAlert
+                        ? (language === 'fr' ? 'Alerte stock bas !' : 'Low stock alert!')
+                        : (language === 'fr' ? 'Niveau de stock normal' : 'Stock level OK')}
+                    </span>
                   </div>
 
-                  <div>
-                    <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
-                      {language === 'fr' ? 'Statut du Produit *' : 'Product Status *'}
-                    </label>
-                    <select
-                      value={editStatus}
-                      onChange={e => setEditStatus(e.target.value as ProductStatus)}
-                      style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
-                      className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Stock en unité commerciale (Sacs / Gallons) */}
+                    <div>
+                      <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {language === 'fr'
+                          ? `Stock Physique (en ${editSaleUnit === 'bidon' ? 'bidon' : editSaleUnit}s)`
+                          : `Physical Stock (in ${editSaleUnit === 'bidon' ? 'gallon' : editSaleUnit}s)`}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={editConversionFactor > 0 ? Math.round((editStockCurrent / editConversionFactor) * 1000) / 1000 : 0}
+                        onChange={e => {
+                          const commQty = parseFloat(e.target.value) || 0;
+                          setEditStockCurrent(Math.round(commQty * editConversionFactor * 100) / 100);
+                        }}
+                        placeholder="ex: 50"
+                        className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                         }`}
-                    >
-                      <option value="actif" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
-                        {language === 'fr' ? 'Actif (Visible au catalogue et en caisse)' : 'Active (Visible in catalog & POS)'}
-                      </option>
-                      <option value="masqué" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
-                        {language === 'fr' ? 'Masqué (Caché en caisse)' : 'Hidden (Hidden from POS)'}
-                      </option>
-                    </select>
+                      />
+                    </div>
+
+                    {/* Stock en unité de base (kg / L) */}
+                    <div>
+                      <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {language === 'fr' ? `Stock Physique (en ${editBaseUnit}) *` : `Physical Stock (in ${editBaseUnit}) *`}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={editStockCurrent}
+                        onChange={e => setEditStockCurrent(parseFloat(e.target.value) || 0)}
+                        placeholder="ex: 2500"
+                        className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-emerald-400' : 'bg-white border-slate-300 text-emerald-700'
+                        }`}
+                      />
+                    </div>
+
+                    {/* Seuil Alerte Stock Bas */}
+                    <div>
+                      <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {language === 'fr' ? `Seuil Alerte Min (${editBaseUnit}) *` : `Min Alert (${editBaseUnit}) *`}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={editMinAlert}
+                        onChange={e => setEditMinAlert(parseFloat(e.target.value) || 0)}
+                        className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                        }`}
+                      />
+                    </div>
                   </div>
+
+                  {/* Coût CMP & Valorisation du Stock */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200 dark:border-slate-700/80">
+                    <div>
+                      <label className={`block text-[11px] font-semibold mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {language === 'fr' ? `Coût Moyen Pondéré (CMP en FCFA / ${editBaseUnit})` : `Weighted Average Cost / WAC (FCFA / ${editBaseUnit})`}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={editCmp}
+                        onChange={e => setEditCmp(parseFloat(e.target.value) || 0)}
+                        className={`w-full px-3 py-2 rounded-lg text-xs font-bold font-mono border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                          theme === 'dark' ? 'bg-slate-800 border-slate-700 text-amber-300' : 'bg-white border-slate-300 text-amber-800'
+                        }`}
+                      />
+                      {Math.abs(editStockCurrent - editingProduct.stockCurrentBaseUnit) > 0.0001 && (
+                        <div className="mt-2">
+                          <label className={`block text-[10px] font-semibold mb-1 ${theme === 'dark' ? 'text-amber-300' : 'text-amber-800'}`}>
+                            {language === 'fr' ? 'Motif de l\'ajustement physique de stock :' : 'Stock adjustment justification:'}
+                          </label>
+                          <input
+                            type="text"
+                            value={editStockAdjustmentReason}
+                            onChange={e => setEditStockAdjustmentReason(e.target.value)}
+                            placeholder={language === 'fr' ? 'ex: Correction après comptage physique' : 'ex: Correction after physical inventory'}
+                            className={`w-full px-2.5 py-1.5 rounded-lg text-[11px] border focus:outline-none focus:ring-1 focus:ring-amber-500 ${
+                              theme === 'dark' ? 'bg-slate-800 border-amber-500/50 text-white' : 'bg-white border-amber-300 text-slate-900'
+                            }`}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className={`p-3 rounded-lg text-xs flex flex-col justify-center border ${
+                      theme === 'dark' ? 'bg-slate-900/60 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
+                    }`}>
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        {language === 'fr' ? 'Valorisation du Stock Actuel :' : 'Current Stock Valuation:'}
+                      </span>
+                      <span className="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                        {formatFCFA(editStockCurrent * editCmp)}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {editStockCurrent} {editBaseUnit} × {editCmp} FCFA
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Statut du Produit */}
+                <div>
+                  <label className={`block text-xs font-bold mb-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
+                    {language === 'fr' ? 'Statut du Produit *' : 'Product Status *'}
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={e => setEditStatus(e.target.value as ProductStatus)}
+                    style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold border focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                      }`}
+                  >
+                    <option value="actif" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                      {language === 'fr' ? 'Actif (Visible au catalogue et en caisse)' : 'Active (Visible in catalog & POS)'}
+                    </option>
+                    <option value="masqué" className={theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}>
+                      {language === 'fr' ? 'Masqué (Caché en caisse)' : 'Hidden (Hidden from POS)'}
+                    </option>
+                  </select>
                 </div>
 
                 <div>

@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Product, ProductCategory, Customer, Invoice, UnitType } from '../../types';
-import { formatFCFA, formatNumber } from '../../utils/formatters';
+import { formatFCFA, formatNumber, formatUnit } from '../../utils/formatters';
 import {
   getPrinterConfig,
   printReceipt,
